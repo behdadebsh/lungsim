@@ -1590,10 +1590,23 @@ contains
     do ne=ne_min,ne_max
      radius=10.0_dp**(log10(CONTROL_PARAM)*dble(elem_ordrs(nindex,ne)-n_max_ord)&
         +log10(START_RAD))
-     elem_field(ne_radius,ne)=radius
+     if((radius.ge.0.03).and.(radius.le.0.03)) then
+       radius = radius * 0.925 ! Narrow_factor
+       radius = radius * 0.875 ! Prune_fraction
+       elem_field(ne_radius,ne)=radius
+     else
+       elem_field(ne_radius,ne)=radius
+     endif
      if(ne_radius_in.gt.0)then
-        elem_field(ne_radius_in,ne)=radius
-        elem_field(ne_radius_out,ne)=radius
+        if((radius.ge.0.03).and.(radius.le.0.3)) then !Applying remodeling factors
+          radius = radius * 0.655 ! Narrow_factor
+          radius = radius * 0.4 ! Prune_fraction
+          elem_field(ne_radius_in,ne)=radius
+          elem_field(ne_radius_out,ne)=radius
+        else
+          elem_field(ne_radius_in,ne)=radius
+          elem_field(ne_radius_out,ne)=radius
+        endif
      endif
     enddo
 

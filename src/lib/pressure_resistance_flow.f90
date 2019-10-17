@@ -950,12 +950,14 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
     real(dp),intent(in) ::  prq_solution(mesh_dof,2)
     real(dp),intent(in) :: elasticity_parameters(3),mechanics_parameters(2)
+    real(dp) :: remodeling_factor
 
 !local variables
     integer :: nj,np,ne,ny,nn
     real(dp) :: h,Ptm,R0,Pblood,Ppl
 
     character(len=60) :: sub_name
+    remodeling_factor = 0.5*1.503e-4_dp ! initialisation of remodeling factor for compliance
     sub_name = 'calc_press_area'
     call enter_exit(sub_name,1)
     if(KOUNT.EQ.1)then !store initial, unstressed radius values
@@ -995,18 +997,32 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         endif
       elseif(vessel_type.eq.'elastic_alpha')then
          if(Ptm.LT.elasticity_parameters(2))THEN
-          if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
-          if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
+           if((elem_field(ne_radius_in,ne).le.0.03).and.(elem_field(ne_radius_in,ne).ge.0.3)) then
+              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*remodeling_factor)+1.d0)
+              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*remodeling_factor)+1.d0)
+           else
+              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
+              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
+           endif
         elseif(Ptm.lt.0.0_dp)THEN
           if(Ptm.lt.0)write(*,*) 'Transmural pressure < zero',ne,Ptm,Pblood,Ppl
           if(nn.eq.1) elem_field(ne_radius_in,ne)=R0
           if(nn.eq.2) elem_field(ne_radius_out,ne)=R0
         else!ptm>ptmmax
-          if(nn.eq.1)then
-             elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
-          endif
-          if(nn.eq.2)then
-            elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
+          if((elem_field(ne_radius_in,ne).le.0.03).and.(elem_field(ne_radius_in,ne).ge.0.3)) then
+             if(nn.eq.1)then
+                elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/remodeling_factor)+1.d0)
+             endif
+             if(nn.eq.2)then
+                elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)/remodeling_factor)+1.d0)
+             endif
+          else
+             if(nn.eq.1)then
+                elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
+             endif
+             if(nn.eq.2)then
+               elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
+             endif
           endif
         endif
       elseif(vessel_type.eq.'elastic_hooke')then
