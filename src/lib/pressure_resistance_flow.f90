@@ -962,8 +962,8 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
     call enter_exit(sub_name,1)
     if(KOUNT.EQ.1)then !store initial, unstressed radius values
       do  ne=1,num_elems
-        elem_field(ne_radius_in0,ne)=elem_field(ne_radius_in,ne)
-        elem_field(ne_radius_out0,ne)=elem_field(ne_radius_out,ne)
+             elem_field(ne_radius_in0,ne)=elem_field(ne_radius_in,ne)
+             elem_field(ne_radius_out0,ne)=elem_field(ne_radius_out,ne)
       enddo !elems
     endif
 
@@ -997,7 +997,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         endif
       elseif(vessel_type.eq.'elastic_alpha')then
          if(Ptm.LT.elasticity_parameters(2))THEN
-           if((elem_field(ne_radius_in,ne).ge.0.03).and.(elem_field(ne_radius_in,ne).le.0.3)) then
+           if((elem_field(ne_radius_in,ne).ge.0.01214).and.(elem_field(ne_radius_in,ne).le.0.1214)) then
               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*remodeling_factor)+1.d0)
               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*remodeling_factor)+1.d0)
            else
@@ -1009,7 +1009,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
           if(nn.eq.1) elem_field(ne_radius_in,ne)=R0
           if(nn.eq.2) elem_field(ne_radius_out,ne)=R0
         else!ptm>ptmmax
-          if((elem_field(ne_radius_in,ne).ge.0.03).and.(elem_field(ne_radius_in,ne).le.0.3)) then
+          if((elem_field(ne_radius_in,ne).ge.0.01214).and.(elem_field(ne_radius_in,ne).le.0.1214)) then
              if(nn.eq.1)then
                 elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/remodeling_factor)+1.d0)
              endif
