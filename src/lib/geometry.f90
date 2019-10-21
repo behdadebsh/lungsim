@@ -1599,8 +1599,8 @@ contains
      endif
      if(ne_radius_in.gt.0)then
         if((radius.ge.0.03).and.(radius.le.0.3)) then !Applying remodeling factors
-          radius = radius * 0.655 ! Narrow_factor
-          radius = radius * 0.4 ! Prune_fraction
+          radius = radius * 0.925 ! Narrow_factor
+          radius = radius * 0.875 ! Prune_fraction
           elem_field(ne_radius_in,ne)=radius
           elem_field(ne_radius_out,ne)=radius
         else
