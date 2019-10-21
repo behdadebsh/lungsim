@@ -1619,6 +1619,7 @@ contains
             elem_field(ne_radius_out,ne)=radius
        endif
       enddo
+     endif
 
     call enter_exit(sub_name,2)
 
