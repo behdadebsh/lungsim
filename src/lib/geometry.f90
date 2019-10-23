@@ -1598,15 +1598,8 @@ contains
          elem_field(ne_radius,ne)=radius
        endif
        if(ne_radius_in.gt.0)then
-          if((radius.ge.0.015).and.(radius.le.0.15)) then !Applying remodeling factors
-            radius = radius * 0.925 ! Narrow_factor
-            radius = radius * 0.875 ! Prune_fraction
             elem_field(ne_radius_in,ne)=radius
             elem_field(ne_radius_out,ne)=radius
-          else
-            elem_field(ne_radius_in,ne)=radius
-            elem_field(ne_radius_out,ne)=radius
-          endif
        endif
       enddo
      else !CONTROL_PARAM for not applying the remodeling on venous side
