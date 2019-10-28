@@ -504,7 +504,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
       if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
       if(admit_param%admittance_type.eq.'duan_zamir')then!alpha controls elasticity
-        if((elem_field(ne_radius_in,ne).ge.0.01214).and.(elem_field(ne_radius_in,ne).le.0.1214)) then
+        if((R0.ge.0.01214).and.(R0.le.0.1214)) then
            if(nn.eq.1)Rg_in=R0*(Ptm*0.7*1.503e-4_dp+1.d0)
            if(nn.eq.2)Rg_out=R0*(Ptm*0.7*1.503e-4_dp+1.d0)
         else
@@ -553,7 +553,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
        wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity)
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
-       if((elem_field(ne_radius_in,ne).ge.0.01214).and.(elem_field(ne_radius_in,ne).le.0.1214)) then
+       if((elem_field(ne_radius_out,ne).ge.0.015).and.(elem_field(ne_radius_out,ne).le.0.15)) then
           wavespeed=sqrt(1.0_dp/(2*density*0.7*1.503e-4_dp))*sqrt(1-f10)! !mm/s
        else
           wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
