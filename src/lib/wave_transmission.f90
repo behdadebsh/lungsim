@@ -504,13 +504,23 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
       if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
       if(admit_param%admittance_type.eq.'duan_zamir')then!alpha controls elasticity
-        if((R0.ge.0.01214).and.(R0.le.0.1214)) then
-           if(nn.eq.1)Rg_in=R0*(Ptm*0.7*1.503e-4_dp+1.d0)
-           if(nn.eq.2)Rg_out=R0*(Ptm*0.7*1.503e-4_dp+1.d0)
-        else
+         if(elem_field(ne_group,ne).eq.0.0_dp)then !applying remodeling factors on arteries only
+           if(nn.eq.1) then
+             Rg_in=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
+             if((Rg_in.gt.0.015_dp).and.(Rg_in.lt.0.15)) then !checking the conditions for remodeling
+               Rg_in=0.8_dp*R0*(Ptm*0.4_dp*elast_param%elasticity_parameters(1)+1.d0)
+             endif
+           endif
+           if(nn.eq.2) then
+             Rg_out=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
+             if((Rg_out.gt.0.015_dp).and.(Rg_out.lt.0.15)) then !checking the conditions for remodeling
+               Rg_out=0.8_dp*R0*(Ptm*0.4_dp*elast_param%elasticity_parameters(1)+1.d0)
+             endif
+           endif
+         else !everything except arteries is treated as normal
            if(nn.eq.1)Rg_in=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
            if(nn.eq.2)Rg_out=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
-        endif
+         endif
       else!Hooke type elasticity
          h=elast_param%elasticity_parameters(2)*R0
         if(nn.eq.1) Rg_in=R0+3.0_dp*R0**2*Ptm/(4.0_dp*elast_param%elasticity_parameters(1)*h)
@@ -550,13 +560,13 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
     elseif(admit_param%admittance_type.eq.'duan_zamir')then
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale!q/s
-       wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity)
+       wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity) !radii is already affected by a factor
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
-       if((elem_field(ne_radius_out,ne).ge.0.015).and.(elem_field(ne_radius_out,ne).le.0.15)) then
-          wavespeed=sqrt(1.0_dp/(2*density*0.7*1.503e-4_dp))*sqrt(1-f10)! !mm/s
-       else
-          wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
+       if(elem_field(ne_group,ne).eq.0.0_dp)then !applying elasticity factor on wavespeed
+         wavespeed=sqrt(1.0_dp/(2*density*0.4_dp*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
+       else !apply normal elasticity on everything except arteries
+       wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
        endif
        char_admit(nf,ne)=PI*(elem_field(ne_radius_out,ne))**2/(density*wavespeed/(1-f10))*sqrt(1-f10)!mm3/Pa
        prop_const(nf,ne)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)!1/mm

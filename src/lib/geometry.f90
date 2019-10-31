@@ -1586,33 +1586,42 @@ contains
     ne=ne_start
     n_max_ord=elem_ordrs(nindex,ne)
     elem_field(ne_radius,ne)=START_RAD
-    if(CONTROL_PARAM.lt.1.55) then !Checking the Strahler order for arterial side
+    !if(CONTROL_PARAM.lt.1.55) then !Checking the Strahler order for arterial side
       do ne=ne_min,ne_max
        radius=10.0_dp**(log10(CONTROL_PARAM)*dble(elem_ordrs(nindex,ne)-n_max_ord)&
           +log10(START_RAD))
-       if((radius.ge.0.015).and.(radius.le.0.15)) then
-         radius = radius * 0.925 ! Narrow_factor
-         radius = radius * 0.875 ! Prune_fraction
+       !radius = radius * 0.8
+       !if((radius.ge.0.015).and.(radius.le.0.15)) then
+         !radius = radius * 0.849375 ! Narrow_factor
+         !radius = radius * 0.875 ! Prune_fraction
          elem_field(ne_radius,ne)=radius
-       else
-         elem_field(ne_radius,ne)=radius
-       endif
+       !else if((radius.ge.0.055).and.(radius.le.0.095)) then
+       !  radius = radius * 0.609375 ! Narrow_factor
+         !radius = radius * 0.875 ! Prune_fraction
+       !  elem_field(ne_radius,ne)=radius
+       !else if((radius.ge.0.015).and.(radius.le.0.055)) then
+       !  radius = radius * 0.409375 ! Narrow_factor
+         !radius = radius * 0.875 ! Prune_fraction
+       !  elem_field(ne_radius,ne)=radius
+       !else
+         !elem_field(ne_radius,ne)=radius
+       !endif
        if(ne_radius_in.gt.0)then
             elem_field(ne_radius_in,ne)=radius
             elem_field(ne_radius_out,ne)=radius
        endif
       enddo
-     else !CONTROL_PARAM for not applying the remodeling on venous side
-      do ne=ne_min,ne_max
-       radius=10.0_dp**(log10(CONTROL_PARAM)*dble(elem_ordrs(nindex,ne)-n_max_ord)&
-          +log10(START_RAD))
-         elem_field(ne_radius,ne)=radius
-       if(ne_radius_in.gt.0)then
-            elem_field(ne_radius_in,ne)=radius
-            elem_field(ne_radius_out,ne)=radius
-       endif
-      enddo
-     endif
+     !else !CONTROL_PARAM for not applying the remodeling on venous side
+     ! do ne=ne_min,ne_max
+     !  radius=10.0_dp**(log10(CONTROL_PARAM)*dble(elem_ordrs(nindex,ne)-n_max_ord)&
+     !     +log10(START_RAD))
+     !    elem_field(ne_radius,ne)=radius
+     !  if(ne_radius_in.gt.0)then
+     !       elem_field(ne_radius_in,ne)=radius
+     !       elem_field(ne_radius_out,ne)=radius
+     !  endif
+     ! enddo
+     !endif
 
     call enter_exit(sub_name,2)
 
