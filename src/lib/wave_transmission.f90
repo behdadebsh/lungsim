@@ -508,13 +508,13 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
            if(nn.eq.1) then
              Rg_in=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
              if((Rg_in.gt.0.015_dp).and.(Rg_in.lt.0.15)) then !checking the conditions for remodeling
-               Rg_in=0.8_dp*R0*(Ptm*0.4_dp*elast_param%elasticity_parameters(1)+1.d0)
+               Rg_in=0.55_dp*R0*(Ptm*0.16_dp*elast_param%elasticity_parameters(1)+1.d0)
              endif
            endif
            if(nn.eq.2) then
              Rg_out=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
              if((Rg_out.gt.0.015_dp).and.(Rg_out.lt.0.15)) then !checking the conditions for remodeling
-               Rg_out=0.8_dp*R0*(Ptm*0.4_dp*elast_param%elasticity_parameters(1)+1.d0)
+               Rg_out=0.55_dp*R0*(Ptm*0.16_dp*elast_param%elasticity_parameters(1)+1.d0)
              endif
            endif
          else !everything except arteries is treated as normal
@@ -564,7 +564,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
        if(elem_field(ne_group,ne).eq.0.0_dp)then !applying elasticity factor on wavespeed
-         wavespeed=sqrt(1.0_dp/(2*density*0.4_dp*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
+         wavespeed=sqrt(1.0_dp/(2*density*0.16_dp*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
        else !apply normal elasticity on everything except arteries
        wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
        endif

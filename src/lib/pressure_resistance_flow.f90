@@ -974,8 +974,15 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         call calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
         Pblood=prq_solution(ny,1) !Pa
         Ptm=Pblood+Ppl     ! Pa
-        if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
-        if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
+        !if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
+          !if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
+          !if((R0.gt.0.015).and.(R0.lt.0.15)) then
+          !  R0=R0*0.55_dp
+          !endif
+        !else
+          if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
+          if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
+        !endif
       if(vessel_type.eq.'elastic_g0_beta')then
         if(Ptm.LT.elasticity_parameters(3).and.elasticity_parameters(1).gt.0.0_dp)THEN
           if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm/elasticity_parameters(1))+1.d0)**(1.d0/elasticity_parameters(2))
@@ -1000,13 +1007,15 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
               if(nn.eq.1) then 
                 elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
                 if((elem_field(ne_radius_in,ne).gt.0.015).and.(elem_field(ne_radius_in,ne).lt.0.15)) then
-                  elem_field(ne_radius_in,ne) = 0.8*R0*((Ptm*0.4*elasticity_parameters(1))+1.d0)
+                  !write(*,*) 'radius_in before: ', (elem_field(ne_radius_in,ne)
+                  elem_field(ne_radius_in,ne) = R0*((Ptm*0.16_dp*elasticity_parameters(1))+1.d0)
+                  !write(*,*) 'radius_in after:', (elem_field(ne_radius_in,ne)
                 endif
               endif !nn=1
               if(nn.eq.2) then
                 elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
                 if((elem_field(ne_radius_out,ne).gt.0.015).and.(elem_field(ne_radius_out,ne).lt.0.15)) then
-                  elem_field(ne_radius_out,ne) = 0.8*R0*((Ptm*0.4*elasticity_parameters(1))+1.d0)
+                  elem_field(ne_radius_out,ne) = R0*((Ptm*0.16_dp*elasticity_parameters(1))+1.d0)
                 endif
               endif !nn=2
            elseif(Ptm.lt.0.0_dp)then !Ptm
@@ -1017,17 +1026,17 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
              if(nn.eq.1)then
                 elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
                 if((elem_field(ne_radius_in,ne).gt.0.015).and.(elem_field(ne_radius_in,ne).lt.0.15)) then
-                  elem_field(ne_radius_in,ne)=0.8*R0*((elasticity_parameters(2)/(0.4*elasticity_parameters(1)))+1.d0)
+                  elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)/(0.16_dp*elasticity_parameters(1)))+1.d0)
                 endif
              endif
              if(nn.eq.2)then
                elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)/elasticity_parameters(1))+1.d0)
                if((elem_field(ne_radius_out,ne).gt.0.015).and.(elem_field(ne_radius_out,ne).lt.0.15)) then
-                  elem_field(ne_radius_out,ne)=0.8*R0*((elasticity_parameters(2)/(0.4*elasticity_parameters(1)))+1.d0)
+                  elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)/(0.16_dp*elasticity_parameters(1)))+1.d0)
                endif
              endif
           endif
-      else
+      else !other than arteries
          if(Ptm.lt.elasticity_parameters(2))then
            if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
            if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
