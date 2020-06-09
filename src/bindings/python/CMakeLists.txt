@@ -6,7 +6,7 @@ set(ADDITIONAL_GENERATED_FILES)
 include(${SWIG_USE_FILE})
 
 if(${Python_VERSION_MAJOR} STREQUAL "3")
-  set(PYTHONLIBS_SWIG_FLAGS -py3 -relativeimport)
+  set(PYTHONLIBS_SWIG_FLAGS -py3)# -relativeimport)
 endif()
 
 if(WIN32)

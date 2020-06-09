@@ -955,8 +955,9 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
 
 !local variables
     integer :: nj,np,ne,ny,nn,NO
-    real(dp) :: h,Ptm,R0,Pblood,Ppl
+    real(dp) :: h,Ptm,R0,Pblood,Ppl,counter,cc1,cc2,cc3
     real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction,counter1,counter2
+    integer,allocatable :: templss(:)
 
     character(len=60) :: sub_name
     sub_name = 'calc_press_area'
@@ -967,10 +968,6 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
              elem_field(ne_radius_out0,ne)=elem_field(ne_radius_out,ne)
       enddo !elems
     endif
-
-  if(remodeling_grade.ne.1.0_dp) then
-    write(*,*) 'Solving remodeling case, grade',remodeling_grade,' - make sure you are using elastic_alpha vessel type'
-  endif
 
   if(remodeling_grade.eq.1.0_dp) then  ! Solving for Healthy
     do ne=1,num_elems
@@ -1034,7 +1031,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=5.0_dp/6
       alt_fib=1.0_dp
       prox_fib=1.0
-      narrow_rad_one=0.025_dp
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.15_dp
       narrow_factor=1.0_dp
       prune_rad=0.16_dp
@@ -1044,7 +1041,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_fib=1.0_dp
       prox_fib=1
       narrow_rad_one=0.015_dp
-      narrow_rad_two=0.25_dp
+      narrow_rad_two=0.15_dp
       narrow_factor=0.925_dp
       prune_rad=0.16_dp
       prune_fraction=0.0625_dp
@@ -1052,7 +1049,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=3.0_dp/6
       alt_fib=1.0_dp
       prox_fib=1
-      narrow_rad_one=0.025_dp
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.15_dp
       narrow_factor=0.85_dp
       prune_rad=0.16_dp
@@ -1061,7 +1058,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=2.0_dp/6
       alt_fib=1.0_dp
       prox_fib=1
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.775_dp
       prune_rad=0.25_dp
@@ -1070,7 +1067,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=1.0_dp/6
       alt_fib=5.0_dp/6
       prox_fib=(1-0.145)
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.7_dp
       prune_rad=0.25_dp
@@ -1079,7 +1076,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=1.0_dp/6
       alt_fib=4.0_dp/6
       prox_fib=(1-2*0.145)
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.625_dp
       prune_rad=0.25_dp
@@ -1088,7 +1085,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=1.0_dp/6
       alt_fib=3.0_dp/6
       prox_fib=(1-3*0.145)
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.55_dp
       prune_rad=0.25_dp
@@ -1097,7 +1094,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=1.0_dp/6
       alt_fib=2.0_dp/6
       prox_fib=(1-4*0.145)
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.55_dp
       prune_rad=0.25_dp
@@ -1106,7 +1103,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       alt_hyp=1.0_dp/6
       alt_fib=1.0_dp/6
       prox_fib=(1-5*0.145)
-      narrow_rad_one=0.025_dp !!! CAUTION
+      narrow_rad_one=0.015_dp
       narrow_rad_two=0.25_dp
       narrow_factor=0.55_dp
       prune_rad=0.25_dp
@@ -1115,7 +1112,10 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       write(*,*) 'Remodeling grade out of range or not implemented yet.'
       call exit(1)
     endif
-
+    counter=0.0_dp
+    cc1=0.0_dp
+    cc2=0.0_dp
+    cc3=0.0_dp
     counter1 = 1.0_dp
     counter2 = 1.0_dp
     do ne=1,num_elems
@@ -1128,49 +1128,37 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         Ptm=Pblood+Ppl     ! Pa
         if(nn.eq.1) R0=elem_field(ne_radius_in0,ne)
         if(nn.eq.2) R0=elem_field(ne_radius_out0,ne)
-        ! if((R0.lt.prune_rad).and.(nn.eq.1).and.elem_field(ne_group,ne).eq.0.0_dp)then
-        !   if(elem_ordrs(no_sord,ne).gt.3)then
-        !   write(*,*) 'strahler order=',elem_ordrs(no_sord,ne),ne
-        !   pause
-        ! endif
-        ! endif
-
-        ! if(KOUNT.eq.2) then
-        if(nn.eq.1) then
-          if(elem_field(ne_group,ne).eq.0.0_dp.and.R0.lt.prune_rad) then !only applying on arteries
-            ! write(*,*) 'FOUNDYA!',R0,ne
-            if(counter1/10.le.prune_fraction) then
-              ! write(*,*) 'R0= ', R0,ne
-              ! pause
-              R0=0.02_dp
-              ! counter = counter + 1.0_dp
-              ! write(*,*) 'HERE1'
-            else
-              R0=elem_field(ne_radius_in0,ne)
-              ! write(*,*) 'HERE2'
+        if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
+          if(nn.eq.1) then
+            if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
+              if(counter1/100.le.prune_fraction) then ! pruning the right percentage based on the fraction defined
+                cc1 = cc1+1.0_dp
+                R0=0.005_dp ! Setting the radius to a small value
+              else ! the remaining of the canditates that are not pruned because of the fraction
+                R0=elem_field(ne_radius_in0,ne)
+              endif
+              counter1 = counter1 + 1.0_dp ! since a canditate was found, one is added to the counter1
+              if(counter1.ge.101.0_dp) counter1=1.0_dp ! now that the fraction out of hundred was blocked set the counter back to start
+            else ! R0 greater than prune_rad
+              cc3=cc3+1.0_dp
+              R0=elem_field(ne_radius_in0,ne) ! treating the artery as normal unstrained radius (no constraints)
             endif
-            counter1 = counter1 + 1.0_dp
-            if(counter1.ge.11.0_dp) counter1=1.0_dp
-          else
-            R0=elem_field(ne_radius_in0,ne)
-            ! write(*,*) 'HERE3'
           endif
-        endif
-        if(nn.eq.2) then
-          if(elem_field(ne_group,ne).eq.0.0_dp.and.R0.lt.prune_rad) then !only applying on arteries
-            if(counter2/10.le.prune_fraction) then
-              R0=0.02_dp
+          if(nn.eq.2) then  ! same thing as nn=1
+            if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
+              if(counter2/100.le.prune_fraction) then
+                cc2=cc2+1.0_dp
+                R0=0.005_dp
+              else
+                R0=elem_field(ne_radius_out0,ne)
+              endif
+              counter2 = counter2 + 1.0_dp
+              if(counter2.ge.101.0_dp) counter2=1.0_dp
             else
               R0=elem_field(ne_radius_out0,ne)
             endif
-            counter2 = counter2 + 1.0_dp
-            if(counter2.ge.11.0_dp) counter2=1.0_dp
-          else
-            R0=elem_field(ne_radius_out0,ne)
           endif
         endif
-          ! write(*,*) 'R0:',R0,ne
-        ! endif
       if(vessel_type.eq.'elastic_g0_beta') then
         if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
           if(Ptm.LT.elasticity_parameters(3).and.elasticity_parameters(1).gt.0.0_dp)then
@@ -1234,7 +1222,6 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       elseif(vessel_type.eq.'elastic_alpha') then
         if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
           if(Ptm.lt.elasticity_parameters(2))then
-            ! write(*,*) 'PTM case 1'
             if(nn.eq.1) then
               if((R0.gt.narrow_rad_one).and.(R0.lt.0.5_dp)) then ! Hypertorphy+narrow factor effect
                 if(R0.lt.0.05_dp) then ! only Narrow_factor
@@ -1248,8 +1235,6 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                 elem_field(ne_radius_in,ne) = R0*((Ptm*elasticity_parameters(1))+1.d0)
               else !Pruning
                 elem_field(ne_radius_in,ne) = R0
-                ! write(*,*) 'R0 stop'
-                ! pause
               endif
             endif
             if(nn.eq.2) then
@@ -1268,7 +1253,6 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
               endif
             endif
           elseif(Ptm.lt.0.0_dp)then !Ptm
-            ! write(*,*) 'Ptm < 0'
             if(Ptm.lt.0) write(*,*) 'Transmural pressure < zero',ne,Ptm,Pblood,Ppl
             if(nn.eq.1) then
               if((R0.gt.narrow_rad_one).and.(R0.lt.0.5)) then ! Hypertophy+narrowing effect
@@ -1296,25 +1280,17 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
             if(nn.eq.1) then
               if((R0.gt.narrow_rad_one).and.(R0.lt.0.5_dp)) then ! Hypertophy+narrowing effect
                 if(R0.lt.0.05_dp) then ! only Narrow_factor
-
                     elem_field(ne_radius_in,ne) = narrow_factor*R0*((Ptm*alt_hyp*alt_fib*elasticity_parameters(1))+1.d0)
-
                 elseif(R0.gt.narrow_rad_two) then ! hypertophy only
                   elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)*alt_hyp*elasticity_parameters(1))+1.d0)
-
                 else ! Both hypertophy and narrowing
-
                     elem_field(ne_radius_in,ne)=narrow_factor*R0*(elasticity_parameters(2)* &
                     alt_hyp*alt_fib*elasticity_parameters(1)+1.d0)
-
                 endif
-                ! pause
               elseif(R0.gt.0.5_dp) then ! Not within the target range, hence, no remodeling
                 elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)*(elasticity_parameters(1)))+1.d0)
-                ! write(*,*) 'Why am I here for ne=80?', R0
               else
                 elem_field(ne_radius_in,ne)=R0
-                ! write(*,*) 'R0 stop ptmax'
               endif
             endif
             if(nn.eq.2) then
@@ -1336,8 +1312,6 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
               endif
             endif
           endif
-          ! if(elem_field(ne_radius_in,ne).lt.0.01_dp) write(*,*) 'crititcally small in!',ne
-          ! if(elem_field(ne_radius_out,ne).lt.0.01_dp) write(*,*) 'crititcally small out!',ne
         else !other than arteries
          if(Ptm.lt.elasticity_parameters(2))then
            if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)

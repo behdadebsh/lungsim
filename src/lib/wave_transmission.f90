@@ -472,7 +472,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
 !DEC$ ATTRIBUTES DLLEXPORT, ALIAD:"SO_characteristic_admittance: characteristic_admittance
   use other_consts, only: MAX_STRING_LEN
   use indices
-  use arrays, only: num_elems,elem_field,elasticity_param,all_admit_param,elem_nodes
+  use arrays, only: num_elems,elem_field,elasticity_param,all_admit_param,elem_nodes,elem_ordrs
   use pressure_resistance_flow, only: calculate_ppl
   use math_utilities, only: bessel_complex
   use diagnostics, only: enter_exit
@@ -495,7 +495,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
   complex(dp) :: f10,bessel0,bessel1
   integer :: ne,nf,nn,np
   integer :: exit_status=0
-  real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out
+  real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out,counter1,counter2
   real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction ! Remodeling parameters
   character(len=60) :: sub_name
   sub_name = 'characteristic_admittance'
@@ -577,89 +577,91 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
   if(remodeling_grade.eq.2) then
     alt_hyp=5.0_dp/6
     alt_fib=1.0_dp
-    prox_fib=1
-    narrow_rad_one=0.015
-    narrow_rad_two=0.15
-    narrow_factor=1
-    prune_rad=0.16E-3
-    prune_fraction=0
+    prox_fib=1.0
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.15_dp
+    narrow_factor=1.0_dp
+    prune_rad=0.16_dp
+    prune_fraction=0.0_dp
   elseif(remodeling_grade.eq.3) then
     alt_hyp=4.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015
-    narrow_rad_two=0.15
-    narrow_factor=0.925
-    prune_rad=0.16E-3
-    prune_fraction=0.0625
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.15_dp
+    narrow_factor=0.925_dp
+    prune_rad=0.16_dp
+    prune_fraction=0.0625_dp
   elseif(remodeling_grade.eq.4) then
     alt_hyp=3.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015
-    narrow_rad_two=0.15
-    narrow_factor=0.85
-    prune_rad=0.16E-3
-    prune_fraction=0.125
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.15_dp
+    narrow_factor=0.85_dp
+    prune_rad=0.16_dp
+    prune_fraction=0.125_dp
   elseif(remodeling_grade.eq.5) then
     alt_hyp=2.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.775
-    prune_rad=0.25E-3
-    prune_fraction=0.1875
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.775_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.1875_dp
   elseif(remodeling_grade.eq.6) then
     alt_hyp=1.0_dp/6
     alt_fib=5.0_dp/6
     prox_fib=(1-0.145)
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.7
-    prune_rad=0.25E-3
-    prune_fraction=0.25
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.7_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.250_dp
   elseif(remodeling_grade.eq.7) then
     alt_hyp=1.0_dp/6
     alt_fib=4.0_dp/6
     prox_fib=(1-2*0.145)
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.625
-    prune_rad=0.25E-3
-    prune_fraction=0.3125
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.625_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.3125_dp
   elseif(remodeling_grade.eq.8) then
     alt_hyp=1.0_dp/6
     alt_fib=3.0_dp/6
     prox_fib=(1-3*0.145)
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.55
-    prune_rad=0.25E-3
-    prune_fraction=0.375
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.55_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.375_dp
   elseif(remodeling_grade.eq.9) then
     alt_hyp=1.0_dp/6
     alt_fib=2.0_dp/6
     prox_fib=(1-4*0.145)
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.55
-    prune_rad=0.25E-3
-    prune_fraction=0.4375
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.55_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.4375_dp
   elseif(remodeling_grade.eq.10) then
     alt_hyp=1.0_dp/6
     alt_fib=1.0_dp/6
     prox_fib=(1-5*0.145)
-    narrow_rad_one=0.015
-    narrow_rad_two=0.25
-    narrow_factor=0.55
-    prune_rad=0.25E-3
-    prune_fraction=0.5
+    narrow_rad_one=0.015_dp
+    narrow_rad_two=0.25_dp
+    narrow_factor=0.55_dp
+    prune_rad=0.25_dp
+    prune_fraction=0.5_dp
   else
     write(*,*) 'Remodeling grade out of range or not implemented yet.'
     call exit(1)
   endif
 
+  counter1 = 1.0_dp
+  counter2 = 1.0_dp
   do ne=1,num_elems
     do nn=1,2
       if(nn.eq.1) np=elem_nodes(1,ne)
@@ -668,6 +670,34 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
       Ptm=Ppl     ! Pa
       if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
       if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
+      if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
+        if(nn.eq.1) then
+          if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
+            if(counter1/100.le.prune_fraction) then ! pruning the right percentage based on the fraction defined
+              R0=0.005_dp ! Setting the radius to a small value
+            else ! the remaining of the canditates that are not pruned because of the fraction
+              R0=elem_field(ne_radius_in0,ne)
+            endif
+            counter1 = counter1 + 1.0_dp ! since a canditate was found, one is added to the counter1
+            if(counter1.ge.101.0_dp) counter1=1.0_dp ! now that the fraction out of hundred was blocked set the counter back to start
+          else ! R0 greater than prune_rad
+            R0=elem_field(ne_radius_in0,ne) ! treating the artery as normal unstrained radius (no constraints)
+          endif
+        endif
+        if(nn.eq.2) then  ! same thing as nn=1
+          if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
+            if(counter2/100.le.prune_fraction) then
+              R0=0.005_dp
+            else
+              R0=elem_field(ne_radius_out0,ne)
+            endif
+            counter2 = counter2 + 1.0_dp
+            if(counter2.ge.101.0_dp) counter2=1.0_dp
+          else
+            R0=elem_field(ne_radius_out0,ne)
+          endif
+        endif
+      endif
       if(admit_param%admittance_type.eq.'duan_zamir')then!alpha controls elasticity
          if(elem_field(ne_group,ne).eq.0.0_dp)then !applying remodeling factors on arteries only
            if(nn.eq.1) then
@@ -679,8 +709,10 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
                else ! both hypertophy and narrowing
                  Rg_in=narrow_factor*R0*(Ptm*alt_hyp*alt_fib*elast_param%elasticity_parameters(1)+1.d0)
                endif
-             else ! out of range of target vessels,hence, No remodeling
+             elseif(R0.gt.0.5) then ! out of range of target vessels,hence, No remodeling
                Rg_in=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
+             else ! Pruning
+               Rg_in=R0
              endif ! radius condition
            endif ! nn=1
            if(nn.eq.2) then
@@ -692,8 +724,10 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
               else ! both hypertophy and narrowing
                 Rg_out=narrow_factor*R0*(Ptm*alt_hyp*alt_fib*elast_param%elasticity_parameters(1)+1.d0)
               endif
-             else ! out of range of target vessels,hence, No remodeling
+             elseif(R0.gt.0.5) then ! out of range of target vessels,hence, No remodeling
                Rg_out=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
+             else ! Pruning
+               Rg_out=R0
              endif ! radius condition
            endif ! nn=2
          else !everything except arteries is treated as normal
