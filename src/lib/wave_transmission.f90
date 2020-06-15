@@ -9,8 +9,14 @@ module wave_transmission
 !*Full Description:*
 !Simulating wave propagation in a 1D tree structure
 !
-  use arrays, only: dp
-  use other_consts, only: PI
+  use arrays
+  use capillaryflow
+  use diagnostics
+  use indices
+  use other_consts
+  use math_utilities
+  use pressure_resistance_flow
+
   implicit none
 
   !Module parameters
@@ -29,7 +35,7 @@ contains
 !##############################################################################
 !
 subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
-    n_time,heartrate,a0,no_freq,a,b,n_adparams,admittance_param,n_model,model_definition,cap_model)
+    n_time,heartrate,a0,no_freq,a,b,n_adparams,admittance_param,n_model,model_definition,cap_model,remodeling_grade)
 !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION" :: EVALUATE_WAVE_TRANSMISSION
 
   integer, intent(in) :: n_time
@@ -44,6 +50,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   real(dp), intent(in) :: model_definition(n_model)
   integer, intent(in) :: grav_dirn
   integer, intent(in) :: cap_model
+  integer, intent(in) :: remodeling_grade
 
   type(all_admit_param) :: admit_param
   type(fluid_properties) :: fluid
@@ -155,6 +162,9 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
     call exit(0)
   endif
 
+  if(remodeling_grade.ne.1.0_dp) then
+    write(*,*) 'Solving remodeling case, grade',remodeling_grade,' - make sure you are using elastic_alpha vessel type'
+  endif
   mechanics_type='linear'
   if (mechanics_type.eq.'linear') then
     mechanics_parameters(1)=5.0_dp*98.07_dp !average pleural pressure (Pa)
@@ -218,7 +228,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   eff_admit=0.0_dp
   !calculate characteristic admittance of each branch
   call characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scale, &
-    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
+    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
 
   !Apply boundary conditions to terminal units
   call boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic_scale,&
@@ -389,9 +399,6 @@ end subroutine evaluate_wave_transmission
 !*boundary_admittance* applies chosen admittance boundary conditions at the terminal units
 subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic_scale,&
   density,viscosity,elast_param,mesh_type)
-!DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_boundary_admittance: boundary_admittance
-  use arrays,only: num_elems,all_admit_param,units,num_units,elasticity_param,elem_cnct
-  use diagnostics, only: enter_exit
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: eff_admit(1:no_freq,num_elems)
@@ -513,11 +520,10 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
 !DEC$ ATTRIBUTES DLLEXPORT, ALIAD:"SO_characteristic_admittance: characteristic_admittance
   use other_consts, only: MAX_STRING_LEN
   use indices
-  use arrays, only: num_elems,elem_field,elasticity_param,all_admit_param,elem_nodes,elem_ordrs
+  use arrays, only: num_elems,elem_field,elasticity_param,all_admit_param,elem_nodes
   use pressure_resistance_flow, only: calculate_ppl
   use math_utilities, only: bessel_complex
   use diagnostics, only: enter_exit
-
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: char_admit(1:no_freq,num_elems)
   complex(dp), intent(inout) :: prop_const(1:no_freq,num_elems)
@@ -526,24 +532,20 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
   real(dp), intent(in) :: viscosity
   real(dp),intent(in) :: mechanics_parameters(2),grav_vect(3)
   integer, intent(in) :: remodeling_grade
-
   type(elasticity_param) :: elast_param
   type(all_admit_param) :: admit_param
-
   !local variables
   real(dp) :: L,C,R, G,omega,gen_factor
   real(dp) :: E,h_bar,h,wavespeed,wolmer !should be global - maybe express as alpha (i.e. pre multiply)
   complex(dp) :: f10,bessel0,bessel1
   integer :: ne,nf,nn,np
   integer :: exit_status=0
-  real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out,counter1,counter2
+  real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out
   real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction ! Remodeling parameters
   character(len=60) :: sub_name
   sub_name = 'characteristic_admittance'
   call enter_exit(sub_name,1)
-
 if(remodeling_grade.eq.1.0_dp) then  ! Solving for Healthy
-
   do ne=1,num_elems
     do nn=1,2
       if(nn.eq.1) np=elem_nodes(1,ne)
@@ -563,7 +565,6 @@ if(remodeling_grade.eq.1.0_dp) then  ! Solving for Healthy
     enddo
     elem_field(ne_radius_out,ne)=(Rg_in+Rg_out)/2.0_dp
   enddo
-
   E=elast_param%elasticity_parameters(1) !Pa
   h_bar=elast_param%elasticity_parameters(2)!this is a fraction of the radius so is unitless
   do ne=1,num_elems
@@ -614,95 +615,91 @@ if(remodeling_grade.eq.1.0_dp) then  ! Solving for Healthy
     endif
   enddo!ne
 else ! Solving for remodeling case - only implemented for elastic_alpha
-
   if(remodeling_grade.eq.2) then
     alt_hyp=5.0_dp/6
     alt_fib=1.0_dp
-    prox_fib=1.0
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.15_dp
-    narrow_factor=1.0_dp
-    prune_rad=0.16_dp
-    prune_fraction=0.0_dp
+    prox_fib=1
+    narrow_rad_one=0.015
+    narrow_rad_two=0.15
+    narrow_factor=1
+    prune_rad=0.16E-3
+    prune_fraction=0
   elseif(remodeling_grade.eq.3) then
     alt_hyp=4.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.15_dp
-    narrow_factor=0.925_dp
-    prune_rad=0.16_dp
-    prune_fraction=0.0625_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.15
+    narrow_factor=0.925
+    prune_rad=0.16E-3
+    prune_fraction=0.0625
   elseif(remodeling_grade.eq.4) then
     alt_hyp=3.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.15_dp
-    narrow_factor=0.85_dp
-    prune_rad=0.16_dp
-    prune_fraction=0.125_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.15
+    narrow_factor=0.85
+    prune_rad=0.16E-3
+    prune_fraction=0.125
   elseif(remodeling_grade.eq.5) then
     alt_hyp=2.0_dp/6
     alt_fib=1.0_dp
     prox_fib=1
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.775_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.1875_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.775
+    prune_rad=0.25E-3
+    prune_fraction=0.1875
   elseif(remodeling_grade.eq.6) then
     alt_hyp=1.0_dp/6
     alt_fib=5.0_dp/6
     prox_fib=(1-0.145)
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.7_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.250_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.7
+    prune_rad=0.25E-3
+    prune_fraction=0.25
   elseif(remodeling_grade.eq.7) then
     alt_hyp=1.0_dp/6
     alt_fib=4.0_dp/6
     prox_fib=(1-2*0.145)
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.625_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.3125_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.625
+    prune_rad=0.25E-3
+    prune_fraction=0.3125
   elseif(remodeling_grade.eq.8) then
     alt_hyp=1.0_dp/6
     alt_fib=3.0_dp/6
     prox_fib=(1-3*0.145)
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.55_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.375_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.55
+    prune_rad=0.25E-3
+    prune_fraction=0.375
   elseif(remodeling_grade.eq.9) then
     alt_hyp=1.0_dp/6
     alt_fib=2.0_dp/6
     prox_fib=(1-4*0.145)
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.55_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.4375_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.55
+    prune_rad=0.25E-3
+    prune_fraction=0.4375
   elseif(remodeling_grade.eq.10) then
     alt_hyp=1.0_dp/6
     alt_fib=1.0_dp/6
     prox_fib=(1-5*0.145)
-    narrow_rad_one=0.015_dp
-    narrow_rad_two=0.25_dp
-    narrow_factor=0.55_dp
-    prune_rad=0.25_dp
-    prune_fraction=0.5_dp
+    narrow_rad_one=0.015
+    narrow_rad_two=0.25
+    narrow_factor=0.55
+    prune_rad=0.25E-3
+    prune_fraction=0.5
   else
     write(*,*) 'Remodeling grade out of range or not implemented yet.'
     call exit(1)
   endif
-
-  counter1 = 1.0_dp
-  counter2 = 1.0_dp
   do ne=1,num_elems
     do nn=1,2
       if(nn.eq.1) np=elem_nodes(1,ne)
@@ -711,34 +708,6 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
       Ptm=Ppl     ! Pa
       if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
       if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
-      if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
-        if(nn.eq.1) then
-          if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
-            if(counter1/100.le.prune_fraction) then ! pruning the right percentage based on the fraction defined
-              R0=0.005_dp ! Setting the radius to a small value
-            else ! the remaining of the canditates that are not pruned because of the fraction
-              R0=elem_field(ne_radius_in0,ne)
-            endif
-            counter1 = counter1 + 1.0_dp ! since a canditate was found, one is added to the counter1
-            if(counter1.ge.101.0_dp) counter1=1.0_dp ! now that the fraction out of hundred was blocked set the counter back to start
-          else ! R0 greater than prune_rad
-            R0=elem_field(ne_radius_in0,ne) ! treating the artery as normal unstrained radius (no constraints)
-          endif
-        endif
-        if(nn.eq.2) then  ! same thing as nn=1
-          if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
-            if(counter2/100.le.prune_fraction) then
-              R0=0.005_dp
-            else
-              R0=elem_field(ne_radius_out0,ne)
-            endif
-            counter2 = counter2 + 1.0_dp
-            if(counter2.ge.101.0_dp) counter2=1.0_dp
-          else
-            R0=elem_field(ne_radius_out0,ne)
-          endif
-        endif
-      endif
       if(admit_param%admittance_type.eq.'duan_zamir')then!alpha controls elasticity
          if(elem_field(ne_group,ne).eq.0.0_dp)then !applying remodeling factors on arteries only
            if(nn.eq.1) then
@@ -750,10 +719,8 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
                else ! both hypertophy and narrowing
                  Rg_in=narrow_factor*R0*(Ptm*alt_hyp*alt_fib*elast_param%elasticity_parameters(1)+1.d0)
                endif
-             elseif(R0.gt.0.5) then ! out of range of target vessels,hence, No remodeling
+             else ! out of range of target vessels,hence, No remodeling
                Rg_in=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
-             else ! Pruning
-               Rg_in=R0
              endif ! radius condition
            endif ! nn=1
            if(nn.eq.2) then
@@ -765,10 +732,8 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
               else ! both hypertophy and narrowing
                 Rg_out=narrow_factor*R0*(Ptm*alt_hyp*alt_fib*elast_param%elasticity_parameters(1)+1.d0)
               endif
-             elseif(R0.gt.0.5) then ! out of range of target vessels,hence, No remodeling
+             else ! out of range of target vessels,hence, No remodeling
                Rg_out=R0*(Ptm*elast_param%elasticity_parameters(1)+1.d0)
-             else ! Pruning
-               Rg_out=R0
              endif ! radius condition
            endif ! nn=2
          else !everything except arteries is treated as normal
@@ -783,7 +748,6 @@ else ! Solving for remodeling case - only implemented for elastic_alpha
     enddo
     elem_field(ne_radius_out,ne)=(Rg_in+Rg_out)/2.0_dp
   enddo
-
   E=elast_param%elasticity_parameters(1) !Pa
   h_bar=elast_param%elasticity_parameters(2)!this is a fraction of the radius so is unitless
   do ne=1,num_elems
@@ -856,9 +820,7 @@ end subroutine characteristic_admittance
 !*tree_admittance:* Calculates the total admittance of a tree
 subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
   min_elem,max_elem,tree_direction)
-  use indices
-  use arrays,only: dp,num_elems,elem_cnct,elem_field
-  use diagnostics, only: enter_exit
+
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: eff_admit(1:no_freq,num_elems)
   complex(dp), intent(in) :: char_admit(1:no_freq,num_elems)
@@ -894,7 +856,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
                     eff_admit(nf,ne)=char_admit(nf,ne)*(1&
                         -reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))/&
                         (1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-                else!a terminal
+                else !a terminal
                     daughter_admit=eff_admit(nf,ne) !a boundary condition is applied here
                     reflect(nf,ne)=(char_admit(nf,ne)-daughter_admit)/&
                         (char_admit(nf,ne)+daughter_admit)
@@ -936,7 +898,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
                     eff_admit(nf,ne)=char_admit(nf,ne)*(1&
                         -reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))/&
                         (1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-                else!a terminal
+                else !a terminal
                     daughter_admit=eff_admit(nf,ne) !a boundary condition is applied here
                     reflect(nf,ne)=(char_admit(nf,ne)-daughter_admit)/&
                         (char_admit(nf,ne)+daughter_admit)
@@ -955,12 +917,6 @@ end subroutine tree_admittance
 !*capillaryadmittance:* Calculates the total admittance of a tree
 subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
   min_elem,max_elem,elast_param,mechanics_parameters,grav_vect,cap_model)
-  use indices
-  use arrays,only: dp,num_elems,elem_cnct,elem_field,capillary_bf_parameters,elem_nodes,&
-    node_field,node_xyz,elasticity_param
-  use pressure_resistance_flow,only: calculate_ppl
-  use capillaryflow, only:cap_flow_admit
-  use diagnostics, only: enter_exit
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: eff_admit(1:no_freq,num_elems)
@@ -1017,9 +973,7 @@ end subroutine capillary_admittance
 !
 !*pressure_factor:* Calculates change in pressure through tree
   subroutine pressure_factor(no_freq,p_factor,reflect,prop_const,harmonic_scale,ne_min,ne_max)
-    use indices
-    use arrays,only: dp,num_elems,elem_cnct,elem_field
-    use diagnostics, only: enter_exit
+
     integer, intent(in) :: no_freq
     complex(dp), intent(inout) :: p_factor(1:no_freq,num_elems)
     complex(dp), intent(inout) :: reflect(1:no_freq,num_elems)
