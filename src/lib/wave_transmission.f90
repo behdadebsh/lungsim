@@ -29,14 +29,8 @@ contains
 !##############################################################################
 !
 subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
-    n_time,heartrate,a0,no_freq,a,b,n_adparams,admittance_param,n_model,model_definition,cap_model,remodeling_grade)
-!DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION: EVALUATE_WAVE_PROPAGATION
-  use indices
-  use arrays, only: dp,all_admit_param,num_elems,elem_field,fluid_properties,elasticity_param,num_units,&
-    units,node_xyz,elem_cnct,elem_nodes,node_field
-  use diagnostics, only: enter_exit
-
-
+    n_time,heartrate,a0,no_freq,a,b,n_adparams,admittance_param,n_model,model_definition,cap_model)
+!DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION" :: EVALUATE_WAVE_TRANSMISSION
 
   integer, intent(in) :: n_time
   real(dp), intent(in) :: heartrate
@@ -50,7 +44,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   real(dp), intent(in) :: model_definition(n_model)
   integer, intent(in) :: grav_dirn
   integer, intent(in) :: cap_model
-  integer, intent(in) :: remodeling_grade
 
   type(all_admit_param) :: admit_param
   type(fluid_properties) :: fluid
@@ -68,13 +61,17 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   complex(dp), allocatable :: p_factor(:,:)
   real(dp), allocatable :: forward_pressure(:)
   real(dp), allocatable :: reflected_pressure(:)
+  real(dp), allocatable :: forward_pressure_previous(:)
+  real(dp), allocatable :: reflected_pressure_previous(:)
   real(dp), allocatable :: forward_flow(:)
   real(dp), allocatable :: reflected_flow(:)
-  integer :: min_art,max_art,min_ven,max_ven,min_cap,max_cap,ne,nu,nt,nf,np
+  real(dp), allocatable :: terminals_radius(:),WSS(:)
+  real(dp), allocatable :: p_terminal(:),p_previous(:),terminal_flow(:)
+  integer :: min_art,max_art,min_ven,max_ven,min_cap,max_cap,ne,nu,nt,nf,np,np_previous,ne_previous
   character(len=30) :: tree_direction,mechanics_type
-  real(dp) start_time,end_time,dt,time,omega
+  real(dp) start_time,end_time,dt,time,omega,delta_p
   real(dp) grav_vect(3),grav_factor,mechanics_parameters(2)
-  integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50
+  integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50,fid6=60,fid7=70
   character(len=60) :: sub_name
 
   sub_name = 'evalulate_wave_transmission'
@@ -158,9 +155,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
     call exit(0)
   endif
 
-  if(remodeling_grade.ne.1.0_dp) then
-    write(*,*) 'Solving remodeling case, grade',remodeling_grade,' - make sure you are using elastic_alpha vessel type'
-  endif
   mechanics_type='linear'
   if (mechanics_type.eq.'linear') then
     mechanics_parameters(1)=5.0_dp*98.07_dp !average pleural pressure (Pa)
@@ -186,7 +180,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   !!Determine steady component of flow
   if(a0.eq.0.0_dp)then !Using steady flow solution at inlet as a0
     steady_flow=elem_field(ne_Qdot,1)!ASSUMING FIRST ELEMENT
-  else!otherwise input a0 is used
+  else !otherwise input a0 is used
     steady_flow=a0
   endif
   !! SET UP PARAMETERS DEFINING COMPLIANCE MODEL
@@ -206,17 +200,25 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   if (AllocateStatus /= 0) STOP "*** Not enough memory for forward_p array ***"
   allocate (reflected_pressure(n_time), STAT = AllocateStatus)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for reflected_p array ***"
-    allocate (forward_flow(n_time), STAT = AllocateStatus)
+  allocate (forward_flow(n_time), STAT = AllocateStatus)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for forward_q array ***"
   allocate (reflected_flow(n_time), STAT = AllocateStatus)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for reflected_q array ***"
+  allocate (forward_pressure_previous(n_time))
+  if (AllocateStatus /= 0) STOP "*** Not enough memory for forward_p_p array ***"
+  allocate (reflected_pressure_previous(n_time))
+  if (AllocateStatus /= 0) STOP "*** Not enough memory for reflected_p_p array ***"
+  allocate (terminals_radius(n_time))
+  if (AllocateStatus /= 0) STOP "*** Not enough memory for terminals_radius array ***"
+  allocate (WSS(n_time))
+  if (AllocateStatus /= 0) STOP "*** Not enough memory for WSS array ***"
 
   !initialise admittance
   char_admit=0.0_dp
   eff_admit=0.0_dp
   !calculate characteristic admittance of each branch
   call characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scale, &
-    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
+    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
 
   !Apply boundary conditions to terminal units
   call boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic_scale,&
@@ -250,7 +252,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
         tree_direction='diverging'
         call tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
             min_art,max_art,tree_direction)
-    else!Assume simple tree
+    else !Assume simple tree
         tree_direction='diverging'
         min_art=1
         max_art=num_elems
@@ -258,16 +260,15 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
             min_art,max_art,tree_direction)
     endif
 
-!
-!    !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
-!    !Also need to implement in reverse for veins
+    !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
+    !Also need to implement in reverse for veins
     call pressure_factor(no_freq,p_factor,reflect,prop_const,harmonic_scale,min_art,max_art)
     open(fid5, file = 'inputimpedance.txt',action='write')
     write(fid5,fmt=*) 'input impedance:'
     do nf=1,no_freq
         omega=nf*harmonic_scale
         write(fid5,fmt=*) omega,abs(eff_admit(nf,1)),&
-            atan2(imagpart(eff_admit(nf,1)),realpart(eff_admit(nf,1)))
+            atan2(dimag(eff_admit(nf,1)),real(eff_admit(nf,1), 8))
     enddo
     close(fid5)
 
@@ -280,57 +281,93 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
     open(fid2, file = 'incident_flow.txt',action='write')
     open(fid3, file = 'total_pressure.txt',action='write')
     open(fid4, file = 'total_flow.txt',action='write')
+    open(fid6, file = 'terminal_radii.txt', action='write')
+    open(fid7, file = 'WSS.txt',action='write')
     do nu =1,num_units
-        ne=units(nu)
+        ne=units(nu) ! terminal elements
+        ne_previous=elem_cnct(-1,1,ne)
+        ! initialisation
         forward_pressure=0.0_dp
         reflected_pressure=0.0_dp
+        forward_pressure_previous=0.0_dp
+        reflected_pressure_previous=0.0_dp
         forward_flow=0.0_dp
         reflected_flow=0.0_dp
+        terminals_radius=0.0_dp
+        WSS=0.0_dp
         do nt=1,n_time
             do nf=1,no_freq
                 omega=2*pi*nf*harmonic_scale
                 forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
-                    atan2(imagpart(p_factor(nf,ne)),realpart(p_factor(nf,ne))))
+                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
+                forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
+                a(nf)*cos(omega*time+b(nf)+atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8)))
 
                 reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
-                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*realpart(prop_const(nf,ne)))*&
+                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
                     cos(omega*time+b(nf)+&
-                    atan2(imagpart(p_factor(nf,ne)),realpart(p_factor(nf,ne)))+&
-                    (-2*elem_field(ne_length,ne))*imagpart(prop_const(nf,ne))+&
-                    atan2(imagpart(reflect(nf,ne)),realpart(reflect(nf,ne))))
+                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                    (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                    atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+                reflected_pressure_previous(nt)=reflected_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
+                a(nf)*abs(reflect(nf,ne_previous))*exp((-2*elem_field(ne_length,ne_previous))*&
+                (real(prop_const(nf,ne_previous), 8)))*cos(omega*time+b(nf)+&
+                    atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8))+&
+                    (-2*elem_field(ne_length,ne_previous))*(dimag(prop_const(nf,ne_previous)))+&
+                    atan2(dimag(reflect(nf,ne_previous)),real(reflect(nf,ne_previous), 8)))
 
                 forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
                     cos(omega*time+b(nf)+&
-                    atan2(imagpart(p_factor(nf,ne)),realpart(p_factor(nf,ne)))+&
-                    atan2(imagpart(char_admit(nf,ne)),realpart(char_admit(nf,ne))))
+                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                    atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
                 reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
-                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*realpart(prop_const(nf,ne)))*&
+                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
                     cos(omega*time+b(nf)+&
-                    atan2(imagpart(p_factor(nf,ne)),realpart(p_factor(nf,ne)))+&
-                    (-2*elem_field(ne_length,ne))*imagpart(prop_const(nf,ne))+&
-                    atan2(imagpart(reflect(nf,ne)),realpart(reflect(nf,ne)))+&
-                    atan2(imagpart(char_admit(nf,ne)),realpart(char_admit(nf,ne))))
+                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                    (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                    atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+                    atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
             enddo
             time=time+dt
         enddo
-        np=elem_nodes(2,ne)
-        write(fid,fmt=*) ne, forward_pressure+node_field(nj_bv_press,np)
-        write(fid2,fmt=*) ne, forward_flow+elem_field(ne_Qdot,ne)
-
-        write(fid3,fmt=*) ne, forward_pressure+reflected_pressure + node_field(nj_bv_press,np)
-        write(fid4,fmt=*) ne, forward_flow-reflected_flow + elem_field(ne_Qdot,ne)
-
+        np=elem_nodes(2,ne) ! terminals
+        np_previous=elem_nodes(1,ne) ! upstream node to terminal nodes
+        if(.not.allocated(p_terminal)) allocate (p_terminal(n_time))
+        if(.not.allocated(p_previous)) allocate (p_previous(n_time))
+        if(.not.allocated(terminal_flow)) allocate (terminal_flow(n_time))
+        terminal_flow=0.0_dp
+        p_terminal = forward_pressure+reflected_pressure + node_field(nj_bv_press,np)
+        p_previous = forward_pressure_previous+reflected_pressure_previous +&
+        node_field(nj_bv_press,np_previous)
+        terminal_flow = forward_flow-reflected_flow + elem_field(ne_Qdot,ne)
+        do nt=1,n_time
+          delta_p = abs(p_terminal(nt) - p_previous(nt))
+          terminals_radius(nt) = sqrt(sqrt((8.0_dp*viscosity*elem_field(ne_length,ne)*terminal_flow(nt))/&
+          (pi*delta_p)))
+          WSS(nt) = (4.0_dp * viscosity * terminal_flow(nt))/(pi * terminals_radius(nt)**3) !wall shear stress at terminals
+        enddo
+        write(fid,fmt=*) ne, forward_pressure+node_field(nj_bv_press,np) ! incident pressure
+        write(fid2,fmt=*) ne, forward_flow+elem_field(ne_Qdot,ne) ! incident flow
+        write(fid3,fmt=*) ne, forward_pressure+reflected_pressure + node_field(nj_bv_press,np) !terminal total pressure
+        write(fid4,fmt=*) ne, forward_flow-reflected_flow + elem_field(ne_Qdot,ne) !terminal total flow
+        write(fid6,fmt=*) ne, terminals_radius ! terminal radii
+        write(fid7,fmt=*) ne, WSS ! terminal elements wall shear stress
 
     enddo
     close(fid)
     close(fid2)
     close(fid3)
     close(fid4)
+    close(fid6)
+    close(fid7)
 
 
   !!DEALLOCATE MEMORY
+  deallocate (p_terminal)
+  deallocate (p_previous)
+  deallocate (terminal_flow)
   deallocate (eff_admit, STAT = AllocateStatus)
   deallocate (char_admit, STAT = AllocateStatus)
   deallocate (reflect, STAT = AllocateStatus)
@@ -338,8 +375,12 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   deallocate (p_factor, STAT=AllocateStatus)
   deallocate (forward_pressure, STAT=AllocateStatus)
   deallocate (reflected_pressure, STAT=AllocateStatus)
+  deallocate (forward_pressure_previous, STAT=AllocateStatus)
+  deallocate (reflected_pressure_previous, STAT=AllocateStatus)
   deallocate (forward_flow, STAT=AllocateStatus)
   deallocate (reflected_flow, STAT=AllocateStatus)
+  deallocate(terminals_radius, STAT=AllocateStatus)
+  deallocate(WSS, STAT=AllocateStatus)
   call enter_exit(sub_name,2)
 end subroutine evaluate_wave_transmission
 !
