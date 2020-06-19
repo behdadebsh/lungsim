@@ -34,8 +34,8 @@ contains
 !
 !##############################################################################
 !
-subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
-    n_time,heartrate,a0,no_freq,a,b,n_adparams,admittance_param,n_model,model_definition,cap_model,remodeling_grade)
+subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,no_freq,a,b,n_adparams,&
+admittance_param,n_model,model_definition,cap_model,remodeling_grade)
 !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION" :: EVALUATE_WAVE_TRANSMISSION
 
   integer, intent(in) :: n_time
@@ -78,7 +78,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
   character(len=30) :: tree_direction,mechanics_type
   real(dp) start_time,end_time,dt,time,omega,delta_p
   real(dp) grav_vect(3),grav_factor,mechanics_parameters(2)
-  integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50,fid6=60,fid7=70
+  integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50,fid6=60,fid7=70,fid8=80,fid9=90
   character(len=60) :: sub_name
 
   sub_name = 'evalulate_wave_transmission'
@@ -351,12 +351,13 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
         p_terminal = forward_pressure+reflected_pressure + node_field(nj_bv_press,np)
         p_previous = forward_pressure_previous+reflected_pressure_previous +&
         node_field(nj_bv_press,np_previous)
-        terminal_flow = forward_flow-reflected_flow + elem_field(ne_Qdot,ne)
+        terminal_flow = abs(forward_flow-reflected_flow+elem_field(ne_Qdot,ne))
         do nt=1,n_time
           delta_p = abs(p_terminal(nt) - p_previous(nt))
           terminals_radius(nt) = sqrt(sqrt((8.0_dp*viscosity*elem_field(ne_length,ne)*terminal_flow(nt))/&
           (pi*delta_p)))
           WSS(nt) = (4.0_dp * viscosity * terminal_flow(nt))/(pi * terminals_radius(nt)**3) !wall shear stress at terminals
+
         enddo
         write(fid,fmt=*) ne, forward_pressure+node_field(nj_bv_press,np) ! incident pressure
         write(fid2,fmt=*) ne, forward_flow+elem_field(ne_Qdot,ne) ! incident flow
@@ -366,12 +367,61 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,&
         write(fid7,fmt=*) ne, WSS ! terminal elements wall shear stress
 
     enddo
+
+    !!! Doing the same for all frequencies for MPA
+    !!! Export MPA flow components (flow/pressure)
+    open(fid8, file = 'Inlet_pressure.txt', action='write')
+    open(fid9, file = 'Inlet_flow.txt',action='write')
+    ne = 1 ! MPA inlet element
+    forward_pressure=0.0_dp
+    reflected_pressure=0.0_dp
+    forward_flow=0.0_dp
+    reflected_flow=0.0_dp
+    terminals_radius=0.0_dp
+    do nt=1,n_time
+        do nf=1,no_freq
+            omega=2*pi*nf*harmonic_scale
+            forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
+                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
+            forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
+            a(nf)*cos(omega*time+b(nf)+atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8)))
+
+            reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
+                abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                cos(omega*time+b(nf)+&
+                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+
+            forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                cos(omega*time+b(nf)+&
+                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+            reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                cos(omega*time+b(nf)+&
+                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+                atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+        enddo
+        time=time+dt
+    enddo
+    np=elem_nodes(1,ne) ! inlet node
+    write(fid8,fmt=*) ne, forward_pressure+reflected_pressure + node_field(nj_bv_press,np) !Inlet total pressure
+    write(fid9,fmt=*) ne, forward_flow-reflected_flow + elem_field(ne_Qdot,ne) !Inlet MPA flow
+
+
     close(fid)
     close(fid2)
     close(fid3)
     close(fid4)
     close(fid6)
     close(fid7)
+    close(fid8)
+    close(fid9)
 
 
   !!DEALLOCATE MEMORY
@@ -965,6 +1015,7 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
     call cap_flow_admit(ne,eff_admit(:,ne),eff_admit_downstream,Lin,Lout,P1,P2,&
                         Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,no_freq,harmonic_scale,&
                         elast_param,cap_model)
+
    enddo!ne
 
 end subroutine capillary_admittance
