@@ -383,8 +383,6 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
             omega=2*pi*nf*harmonic_scale
             forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                 atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
-            forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
-            a(nf)*cos(omega*time+b(nf)+atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8)))
 
             reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
                 abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
