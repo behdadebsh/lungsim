@@ -218,6 +218,9 @@ end subroutine bessel_complex
           end do
        end do
        ua(i) = j
+       ! write ( *, '(a,i8)' ) '  JROW = ', jrow
+       ! write ( *, '(a,i8)' ) '  I    = ', i
+       ! pause
        if ( jrow /= i ) then
           write ( *, '(a)' ) ' '
           write ( *, '(a)' ) 'ILU_CR - Fatal error!'

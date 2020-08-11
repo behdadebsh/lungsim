@@ -35,7 +35,7 @@ contains
 !##############################################################################
 !
 subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,no_freq,a,b,n_adparams,&
-admittance_param,n_model,model_definition,cap_model,remodeling_grade)
+admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
 !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION" :: EVALUATE_WAVE_TRANSMISSION
 
   integer, intent(in) :: n_time
@@ -51,6 +51,7 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
   integer, intent(in) :: grav_dirn
   integer, intent(in) :: cap_model
   integer, intent(in) :: remodeling_grade
+  character(len=60) :: bc_type
 
   type(all_admit_param) :: admit_param
   type(fluid_properties) :: fluid
@@ -66,6 +67,7 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
   complex(dp), allocatable :: reflect(:,:)
   complex(dp), allocatable :: prop_const(:,:)
   complex(dp), allocatable :: p_factor(:,:)
+  complex(dp), allocatable :: q_factor(:,:)
   real(dp), allocatable :: forward_pressure(:)
   real(dp), allocatable :: reflected_pressure(:)
   real(dp), allocatable :: forward_pressure_previous(:)
@@ -79,6 +81,7 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
   real(dp) start_time,end_time,dt,time,omega,delta_p
   real(dp) grav_vect(3),grav_factor,mechanics_parameters(2)
   integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50,fid6=60,fid7=70,fid8=80,fid9=90
+  integer :: fid10=100,fid11=110,fid12=120,fid13=130
   character(len=60) :: sub_name
 
   sub_name = 'evalulate_wave_transmission'
@@ -206,6 +209,8 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for prop_const array ***"
   allocate (p_factor(1:no_freq,num_elems), STAT = AllocateStatus)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for p_factor array ***"
+  allocate (q_factor(1:no_freq,num_elems), STAT = AllocateStatus)
+  if (AllocateStatus /= 0) STOP "*** Not enough memory for q_factor array ***"
   allocate (forward_pressure(n_time), STAT = AllocateStatus)
   if (AllocateStatus /= 0) STOP "*** Not enough memory for forward_p array ***"
   allocate (reflected_pressure(n_time), STAT = AllocateStatus)
@@ -272,9 +277,9 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
 
     !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
     !Also need to implement in reverse for veins
-    call pressure_factor(no_freq,p_factor,reflect,prop_const,harmonic_scale,min_art,max_art)
-    open(fid5, file = 'inputimpedance.txt',action='write')
-    write(fid5,fmt=*) 'input impedance:'
+    call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,min_art,max_art,bc_type)
+    open(fid5, file = 'inputadmittance.txt',action='write')
+    write(fid5,fmt=*) 'input admittance:'
     do nf=1,no_freq
         omega=nf*harmonic_scale
         write(fid5,fmt=*) omega,abs(eff_admit(nf,1)),&
@@ -305,43 +310,93 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
         reflected_flow=0.0_dp
         terminals_radius=0.0_dp
         WSS=0.0_dp
-        do nt=1,n_time
-            do nf=1,no_freq
-                omega=2*pi*nf*harmonic_scale
-                forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
-                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
-                forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
-                a(nf)*cos(omega*time+b(nf)+atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8)))
+        if (bc_type.eq.'pressure') then
+          do nt=1,n_time
+              do nf=1,no_freq
+                  omega=2*pi*nf*harmonic_scale
+                  forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
+                      atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
+                  forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
+                  a(nf)*cos(omega*time+b(nf)+atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8)))
 
-                reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
-                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
-                    cos(omega*time+b(nf)+&
-                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                    (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
-                    atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
-                reflected_pressure_previous(nt)=reflected_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
-                a(nf)*abs(reflect(nf,ne_previous))*exp((-2*elem_field(ne_length,ne_previous))*&
-                (real(prop_const(nf,ne_previous), 8)))*cos(omega*time+b(nf)+&
-                    atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8))+&
-                    (-2*elem_field(ne_length,ne_previous))*(dimag(prop_const(nf,ne_previous)))+&
-                    atan2(dimag(reflect(nf,ne_previous)),real(reflect(nf,ne_previous), 8)))
+                  reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
+                      abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                      (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                      atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+                  reflected_pressure_previous(nt)=reflected_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
+                  a(nf)*abs(reflect(nf,ne_previous))*exp((-2*elem_field(ne_length,ne_previous))*&
+                  (real(prop_const(nf,ne_previous), 8)))*cos(omega*time+b(nf)+&
+                      atan2(dimag(p_factor(nf,ne_previous)),real(p_factor(nf,ne_previous), 8))+&
+                      (-2*elem_field(ne_length,ne_previous))*(dimag(prop_const(nf,ne_previous)))+&
+                      atan2(dimag(reflect(nf,ne_previous)),real(reflect(nf,ne_previous), 8)))
 
-                forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
-                    cos(omega*time+b(nf)+&
-                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                    atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+                  forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                      atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
-                reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
-                    abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
-                    cos(omega*time+b(nf)+&
-                    atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                    (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
-                    atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
-                    atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+                  reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                      abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                      (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                      atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+                      atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
-            enddo
-            time=time+dt
-        enddo
+              enddo
+              time=time+dt
+          enddo
+        elseif (bc_type.eq.'flow') then
+          do nt=1,n_time
+              do nf=1,no_freq
+                  omega=2*pi*nf*harmonic_scale
+
+                  forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+                  cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+                  forward_pressure_previous(nt)=forward_pressure_previous(nt)+(abs(q_factor(nf,ne_previous))/&
+                  abs(char_admit(nf,ne_previous)))*a(nf)*cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne_previous)),real(q_factor(nf,ne_previous), 8))-&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+                  reflected_pressure(nt)=reflected_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+                      abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                      (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                      atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))-&
+                      atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+                  reflected_pressure_previous(nt)=reflected_pressure_previous(nt)+(abs(q_factor(nf,ne_previous))/&
+                  abs(char_admit(nf,ne_previous)))*a(nf)*abs(reflect(nf,ne_previous))*&
+                  exp((-2*elem_field(ne_length,ne_previous))*&
+                  (real(prop_const(nf,ne_previous), 8)))*cos(omega*time+b(nf)+&
+                      atan2(dimag(q_factor(nf,ne_previous)),real(q_factor(nf,ne_previous), 8))+&
+                      (-2*elem_field(ne_length,ne_previous))*(dimag(prop_const(nf,ne_previous)))+&
+                      atan2(dimag(reflect(nf,ne_previous)),real(reflect(nf,ne_previous), 8))-&
+                      atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+                  forward_flow(nt)=forward_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8)))
+
+                  reflected_flow(nt)=reflected_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                      abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                      cos(omega*time+b(nf)+&
+                      atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                      (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                      atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+
+              enddo
+              time=time+dt
+          enddo
+        else ! Wrong Boundary condition type
+          print *, "ERROR: Boundary condition type not recognised. Choose flow or pressure type."
+          call exit(0)
+        endif
         np=elem_nodes(2,ne) ! terminals
         np_previous=elem_nodes(1,ne) ! upstream node to terminal nodes
         if(.not.allocated(p_terminal)) allocate (p_terminal(n_time))
@@ -372,44 +427,109 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
     !!! Export MPA flow components (flow/pressure)
     open(fid8, file = 'Inlet_pressure.txt', action='write')
     open(fid9, file = 'Inlet_flow.txt',action='write')
+    open(fid10, file = 'Inlet_forward_flow.txt',action='write')
+    open(fid11, file = 'Inlet_reflected_flow.txt',action='write')
+    open(fid12, file = 'Inlet_forward_pressure.txt',action='write')
+    open(fid13, file = 'Inlet_reflected_pressure.txt',action='write')
     ne = 1 ! MPA inlet element
-    forward_pressure=0.0_dp
-    reflected_pressure=0.0_dp
-    forward_flow=0.0_dp
-    reflected_flow=0.0_dp
-    terminals_radius=0.0_dp
-    do nt=1,n_time
-        do nf=1,no_freq
-            omega=2*pi*nf*harmonic_scale
-            forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
-                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
+    forward_pressure=0.0_dp ! reseting the for MPA
+    reflected_pressure=0.0_dp ! reseting the for MPA
+    if (bc_type.eq.'pressure')then
+      do nt=1,n_time
+          do nf=1,no_freq
+              omega=2*pi*nf*harmonic_scale
+              forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
 
-            reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
-                abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
-                cos(omega*time+b(nf)+&
-                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
-                atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+              reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
 
-            forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
-                cos(omega*time+b(nf)+&
-                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+              forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
-            reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
-                abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
-                cos(omega*time+b(nf)+&
-                atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
-                (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
-                atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
-                atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+              reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
 
-        enddo
-        time=time+dt
-    enddo
+          enddo
+          time=time+dt
+      enddo
+    elseif(bc_type.eq.'flow')then
+      do nt=1,n_time
+          do nf=1,no_freq
+              omega=2*pi*nf*harmonic_scale
+
+              forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+              cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
+              atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+              reflected_pressure(nt)=reflected_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))-&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+              forward_flow(nt)=forward_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8)))
+
+              reflected_flow(nt)=reflected_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+
+          enddo
+          time=time+dt
+      enddo
+    else
+      print *, "ERROR: Boundary condition type not recognised. Choose flow or pressure type."
+      call exit(0)
+    endif
     np=elem_nodes(1,ne) ! inlet node
-    write(fid8,fmt=*) ne, forward_pressure+reflected_pressure + node_field(nj_bv_press,np) !Inlet total pressure
-    write(fid9,fmt=*) ne, forward_flow-reflected_flow + elem_field(ne_Qdot,ne) !Inlet MPA flow
+    write(fid8,fmt=*) forward_pressure+reflected_pressure + node_field(nj_bv_press,np) !Inlet total pressure
+    ! ne = 1
+    ! do nt=1,n_time
+    !     do nf=1,no_freq
+    !         omega=2*pi*nf*harmonic_scale
+    !
+    !         forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+    !             cos(omega*time+b(nf)+&
+    !             atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+    !             atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+    !
+    !         reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+    !             abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+    !             cos(omega*time+b(nf)+&
+    !             atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+    !             (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+    !             atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+    !             atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+    !
+    !         ! write(*,*) 'forward_flow:', forward_flow(nt)
+    !         ! write(*,*) 'reflected_flow:', reflected_flow(nt)
+    !         ! pause
+    !     enddo
+    !     time=time+dt
+    ! enddo
+    write(fid9,fmt=*) forward_flow - reflected_flow + elem_field(ne_Qdot,ne) !Inlet MPA flow
+    write(fid10,fmt=*) forward_flow !Inlet forward flow
+    write(fid11,fmt=*) reflected_flow !Inlet reflected flow
+    write(fid12,fmt=*) forward_pressure !Inlet forward pressure
+    write(fid13,fmt=*) reflected_pressure !Inlet reflected pressure
 
 
     close(fid)
@@ -431,6 +551,7 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade)
   deallocate (reflect, STAT = AllocateStatus)
   deallocate (prop_const, STAT=AllocateStatus)
   deallocate (p_factor, STAT=AllocateStatus)
+  deallocate (q_factor, STAT=AllocateStatus)
   deallocate (forward_pressure, STAT=AllocateStatus)
   deallocate (reflected_pressure, STAT=AllocateStatus)
   deallocate (forward_pressure_previous, STAT=AllocateStatus)
@@ -1021,14 +1142,17 @@ end subroutine capillary_admittance
 !################################################
 !
 !*pressure_factor:* Calculates change in pressure through tree
-  subroutine pressure_factor(no_freq,p_factor,reflect,prop_const,harmonic_scale,ne_min,ne_max)
+  subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,ne_min,ne_max,bc_type)
 
     integer, intent(in) :: no_freq
     complex(dp), intent(inout) :: p_factor(1:no_freq,num_elems)
+    complex(dp), intent(inout) :: q_factor(1:no_freq,num_elems)
     complex(dp), intent(inout) :: reflect(1:no_freq,num_elems)
     complex(dp), intent(in) :: prop_const(1:no_freq,num_elems)
+    complex(dp), intent(in) :: char_admit(1:no_freq,num_elems)
     real(dp), intent(in) :: harmonic_scale
     integer, intent(in) :: ne_min,ne_max
+    character(len=60) :: bc_type
 
 
 
@@ -1037,28 +1161,53 @@ end subroutine capillary_admittance
     integer :: ne, nf,ne_up
     real(dp) :: omega
 
-    sub_name = 'pressure_factor'
+    sub_name = 'pressure_flow_factor'
     call enter_exit(sub_name,1)
 
     p_factor=1.0_dp
-    do nf=1,no_freq
-      omega=nf*2*PI*harmonic_scale
-      do ne=ne_min,ne_max
-        !look for upstream element
-        if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
-        ne_up=ne_min
-          p_factor(nf,ne)=(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
-            !exp(-1.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne))!/&
-            !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-        else
-          ne_up=elem_cnct(-1,1,ne)
-          p_factor(nf,ne)=p_factor(nf,ne_up)*(1+reflect(nf,ne_up))* &
-            exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
-            (1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne)))
-        endif!neup
-      enddo!ne
-    enddo!nf
+    q_factor=1.0_dp
+    if (bc_type.eq.'pressure') then
+      do nf=1,no_freq
+        omega=nf*2*PI*harmonic_scale
+        do ne=ne_min,ne_max
+          !look for upstream element
+          if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
+          ne_up=ne_min
+            p_factor(nf,ne)=(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
+              !exp(-1.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne))!/&
+              !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
+          else
+            ne_up=elem_cnct(-1,1,ne)
+            p_factor(nf,ne)=p_factor(nf,ne_up)*(1+reflect(nf,ne_up))* &
+              exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
+              (1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne)))
+          endif!neup
+        enddo!ne
+      enddo!nf
+    elseif (bc_type.eq.'flow') then
+      do nf=1,no_freq
+        omega=nf*2*PI*harmonic_scale
+        do ne=ne_min,ne_max
+          !look for upstream element
+          if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
+          ne_up=ne_min
+            q_factor(nf,ne)=(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
+              !exp(-1.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne))!/&
+              !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
+          else
+            ne_up=elem_cnct(-1,1,ne)
+            q_factor(nf,ne)=q_factor(nf,ne_up)*char_admit(nf,ne)*(1+reflect(nf,ne_up))* &
+              exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
+              (char_admit(nf,ne_up)*(1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne))))
+          endif!neup
+        enddo!ne
+      enddo!nf
+    else
+      print *, "ERROR: Boundary condition not recognised - pressure_flow_factor subroutine"
+      call exit(0)
+    endif
 
     call enter_exit(sub_name,2)
-end subroutine pressure_factor
+end subroutine pressure_flow_factor
+
 end module wave_transmission
