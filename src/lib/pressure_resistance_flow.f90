@@ -757,7 +757,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         ! write(*,*) 'depvar:',depvar
         ! write(*,*) 'fixed:',FIX(depvar)
         ! pause
-        write(*,*) 'prq_solution:', prq_solution
+        ! write(*,*) 'prq_solution:', prq_solution
         ! write(*,*) 'depvar1:', NodePressureDone(np), FIX(depvar)
         if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then !check if this node is not fixed and hasn't already been processed (as nodes are shared between elements)
           ! write(*,*) 'sup', ne, nn
@@ -933,7 +933,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
       endif
     enddo !ne
   else ! sparse setup for coupling case boundary condition
-    write(*,*) 'prq_solution:', prq_solution
+    ! write(*,*) 'prq_solution:', prq_solution
     do ne=1,4
         np1=elem_nodes(1,ne)
         depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
@@ -978,6 +978,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         NodePressureDone(np1) = .TRUE.
         ElementPressureEquationDone(ne) = .TRUE.
       enddo
+    ! do ne = 5,num_elems
     ne = 5
     !look at pressure variables at each node
     do nn=1,2 !2 nodes in 1D element
@@ -1161,10 +1162,11 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
           ElementPressureEquationDone(ne) = .TRUE.
       endif
     endif
-    write(*,*) 'SparseCol:', SparseCol
-    write(*,*) 'SparseRow:', SparseRow
-    write(*,*) 'SparseVal:', SparseVal
+  ! enddo
   endif
+  write(*,*) 'SparseCol:', SparseCol
+  write(*,*) 'SparseRow:', SparseRow
+  write(*,*) 'SparseVal:', SparseVal
     call enter_exit(sub_name,2)
   end subroutine calc_sparse_1dtree
 
