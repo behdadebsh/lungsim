@@ -752,13 +752,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
       do nn=1,2 !2 nodes in 1D element
         np=elem_nodes(nn,ne)
         depvar = depvar_at_node(np,1,1)
-        ! write(*,*) 'ne:',ne
-        ! write(*,*) 'np:',np
-        ! write(*,*) 'depvar:',depvar
-        ! write(*,*) 'fixed:',FIX(depvar)
-        ! pause
-        ! write(*,*) 'prq_solution:', prq_solution
-        ! write(*,*) 'depvar1:', NodePressureDone(np), FIX(depvar)
         if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then !check if this node is not fixed and hasn't already been processed (as nodes are shared between elements)
           ! write(*,*) 'sup', ne, nn
             ne2=0
@@ -792,10 +785,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                 depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
                 depvar3=depvar_at_elem(0,1,ne2) !flow variable for element
                 grav=0.d0
-                ! write(*,*) 'depvar1:', depvar1
-                ! write(*,*) 'depvar2:', depvar2
-                ! write(*,*) 'depvar3:', depvar3
-                ! pause
                 if(elem_field(ne_group,ne2).eq.1.0_dp)then
                 elseif(elem_ordrs(no_gen,ne2).eq.1)then !gravitational head not applied in inlets
                 else
@@ -814,7 +803,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                     nzz=nzz+1 !next column
                     RHS(nzz_row) = grav
                 endif
-                ! write(*,*) 'offset1', ne, offset
                 if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
                     !store known variable - outlet pressure
                     RHS(nzz_row) = prq_solution(depvar2,1) + grav
@@ -825,7 +813,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                     SparseVal(nzz)=-1.0_dp !variable coefficient
                     nzz=nzz+1 !next column
                 endif
-                ! write(*,*) 'offset2', ne, offset
                 if(FIX(depvar3))then !checking if flow at element ne2 is fixed
                     !store known variable - inlet flow * resistance for element ne
                     RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne2)
@@ -838,8 +825,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                     update_resistance_entries(ne2) = nzz
                     nzz=nzz+1 !next column
                 endif
-                ! write(*,*) 'offset3', ne, offset
-                ! pause
                 nzz_row=nzz_row+1 !store next row position
                     SparseRow(nzz_row)=nzz
                 NodePressureDone(np) = .TRUE.
@@ -847,12 +832,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
             endif
         endif
       enddo !nn
-      ! write(*,*) 'SparseVal:', SparseVal
-      ! write(*,*) 'SparseRow:', SparseRow
-      ! write(*,*) 'SparseCol:', SparseCol
-      ! write(*,*) 'NodePressureDone:', NodePressureDone
-      ! write(*,*) 'ElementPressureEquationDone:', ElementPressureEquationDone
-      ! write(*,*) 'prq_sol:', prq_solution(:,1)
 
       !look at flow variable for the element
       flow_var = depvar_at_elem(0,1,ne)
@@ -933,8 +912,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
       endif
     enddo !ne
   else ! sparse setup for coupling case boundary condition
-    ! write(*,*) 'prq_solution:', prq_solution
-    do ne=1,4
+    do ne=1,4 ! Going through the first 4 elements to setup the sparse matrix for them
         np1=elem_nodes(1,ne)
         depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
         np2=elem_nodes(2,ne) !second node
@@ -975,23 +953,17 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         endif
         nzz_row=nzz_row+1 !store next row position
             SparseRow(nzz_row)=nzz
-        NodePressureDone(np1) = .TRUE.
+        NodePressureDone(np2) = .TRUE.
         ElementPressureEquationDone(ne) = .TRUE.
       enddo
-    ! do ne = 5,num_elems
-    ne = 5
+    do ne = 5,num_elems
+    ! ne = 5 ! doing only for elem number 5 which is the point passed fixed BC to see what will be the next row
     !look at pressure variables at each node
     do nn=1,2 !2 nodes in 1D element
       np=elem_nodes(nn,ne)
       depvar = depvar_at_node(np,1,1)
-      ! write(*,*) 'ne:',ne
-      ! write(*,*) 'np:',np
-      ! write(*,*) 'depvar:',depvar
-      ! write(*,*) 'fixed:',FIX(depvar)
-      ! pause
-      ! write(*,*) 'depvar1:', NodePressureDone(np), FIX(depvar)
+      ! write(*,*) 'fixed node 1:', FIX(depvar)
       if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then !check if this node is not fixed and hasn't already been processed (as nodes are shared between elements)
-        ! write(*,*) 'sup', ne, nn
           ne2=0
           if(nn.EQ.1)then !first node of the element
               ne2=ne! use the current element
@@ -1023,10 +995,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
               depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
               depvar3=depvar_at_elem(0,1,ne2) !flow variable for element
               grav=0.d0
-              ! write(*,*) 'depvar1:', depvar1
-              ! write(*,*) 'depvar2:', depvar2
-              ! write(*,*) 'depvar3:', depvar3
-              ! pause
               if(elem_field(ne_group,ne2).eq.1.0_dp)then
               elseif(elem_ordrs(no_gen,ne2).eq.1)then !gravitational head not applied in inlets
               else
@@ -1045,7 +1013,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                   nzz=nzz+1 !next column
                   RHS(nzz_row) = grav
               endif
-              ! write(*,*) 'offset1', ne, offset
               if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
                   !store known variable - outlet pressure
                   RHS(nzz_row) = prq_solution(depvar2,1) + grav
@@ -1056,7 +1023,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                   SparseVal(nzz)=-1.0_dp !variable coefficient
                   nzz=nzz+1 !next column
               endif
-              ! write(*,*) 'offset2', ne, offset
               if(FIX(depvar3))then !checking if flow at element ne2 is fixed
                   !store known variable - inlet flow * resistance for element ne
                   RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne2)
@@ -1069,8 +1035,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
                   update_resistance_entries(ne2) = nzz
                   nzz=nzz+1 !next column
               endif
-              ! write(*,*) 'offset3', ne, offset
-              ! pause
               nzz_row=nzz_row+1 !store next row position
                   SparseRow(nzz_row)=nzz
               NodePressureDone(np) = .TRUE.
@@ -1162,7 +1126,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
           ElementPressureEquationDone(ne) = .TRUE.
       endif
     endif
-  ! enddo
+  enddo
   endif
   write(*,*) 'SparseCol:', SparseCol
   write(*,*) 'SparseRow:', SparseRow
