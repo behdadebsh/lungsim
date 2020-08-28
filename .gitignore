@@ -36,12 +36,18 @@ CMakeLists.txt.user
 # Eclipse
 .project
 
+#BBEdit
+*.bbproject*
+
 #Linux autosavefiles
 *~
 
 # Compiled Python files
 *.pyc
 __pycache__/
+
+#Atom temp cache
+.nfs*
 
 # PyCharm
 .idea/

@@ -685,14 +685,8 @@ end subroutine boundary_admittance
 !
 !*characteristic_admittance* calculates the characteristic admittance of each
 subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scale,&
-  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
-!DEC$ ATTRIBUTES DLLEXPORT, ALIAD:"SO_characteristic_admittance: characteristic_admittance
-  use other_consts, only: MAX_STRING_LEN
-  use indices
-  use arrays, only: num_elems,elem_field,elasticity_param,all_admit_param,elem_nodes
-  use pressure_resistance_flow, only: calculate_ppl
-  use math_utilities, only: bessel_complex
-  use diagnostics, only: enter_exit
+  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
+
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: char_admit(1:no_freq,num_elems)
   complex(dp), intent(inout) :: prop_const(1:no_freq,num_elems)
