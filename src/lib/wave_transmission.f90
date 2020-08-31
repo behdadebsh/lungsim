@@ -685,7 +685,7 @@ end subroutine boundary_admittance
 !
 !*characteristic_admittance* calculates the characteristic admittance of each
 subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scale,&
-  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
+  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: char_admit(1:no_freq,num_elems)

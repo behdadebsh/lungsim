@@ -421,7 +421,7 @@ write(*,*) 'Non-Z:', NonZeros
     character(len=60) ::bc_type,mesh_type
 
   ! local variables
-    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix
+    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix,ny2
     real(dp) :: grav
     character(len=60) :: sub_name
 
@@ -448,19 +448,19 @@ write(*,*) 'Non-Z:', NonZeros
               prq_solution(ny1,1)=inletbc !Putting BC value into solution array
               np_in=elem_nodes(1,ne)
            elseif(BC_TYPE == 'coupling')then
-             ! do ne_fix=3
-             ne_fix = 3
-              ny1=depvar_at_elem(0,1,ne_fix) !fixed
-              FIX(ny1)=.TRUE. !set fixed
-              ! if(ne_fix.eq.1.or.ne_fix.eq.2)then
-                prq_solution(ny1,1)=inletbc !Putting BC value into solution array
-              ! elseif(ne_fix.eq.3)then
-              !   prq_solution(ny1,1)=0.4_dp*inletbc !Putting BC value into solution array
-              ! elseif(ne_fix.eq.4)then
-              !   prq_solution(ny1,1)=0.6_dp*inletbc !Putting BC value into solution array
-              ! endif
-              np_in=elem_nodes(1,1) !ne=1 to be gravity reference
-            ! enddo
+              do ne_fix=1,4 ! first four elements
+                np=elem_nodes(1,ne_fix)
+                ny1=depvar_at_elem(0,1,ne_fix) ! depvat number for flows at elements 1 to 4
+                ny2=depvar_at_node(np,1,1) !depvar number for pressures at nodes 1 to 4
+                FIX(ny1)=.TRUE. ! Fixing flow depvar on respective element
+                FIX(ny2)=.TRUE. ! Fixing pressure depvar on respective starting node of elem
+                if(ne_fix.eq.3)then
+                  prq_solution(ny1,1)=0.4_dp*inletbc !Putting BC value into solution array
+                elseif(ne_fix.eq.4)then
+                  prq_solution(ny1,1)=0.6_dp*inletbc !Putting BC value into solution array
+                endif
+                np_in=elem_nodes(1,1) !ne=1 to be gravity reference
+             enddo
            endif
         endif
      enddo
@@ -958,7 +958,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     !     NodePressureDone(np2) = .TRUE.
     !     ElementPressureEquationDone(ne) = .TRUE.
     !   enddo
-    do ne = 1,num_elems ! Going through the rest of the elements that are not flow fixed
+    do ne = 5,num_elems ! Going through the rest of the elements that are not flow fixed
     !look at pressure variables at each node
       do nn=1,2 !2 nodes in 1D element
         np=elem_nodes(nn,ne)
