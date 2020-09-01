@@ -258,26 +258,6 @@ write(*,*) 'Non-Z:', NonZeros
         endif
       endif!first or subsequent iteration
 !! ----CALL SOLVER----
-! SparseVal = (/1.0, -1.0, -1.0, 1.0, -1.0, -2.0,1.0, -1.0, 1.0,-1.0,1.0,-1.0,-1.0,-1.0,&
-! 1.0,-1.0,-4.0,-1.0,1.0,-1.0,-5.0,1.0,-1.0,1.0,-1.0,-6.0,1.0,-1.0,1.0,-1.0,-7.0, &
-! 1.0,-1.0,1.0,-1.0,-8.0,1.0,-1.0,1.0,-9.0,-1.0,1.0,-1.0,1.0,-10.0,-1.0,1.0,1.0,-1.0,1.0,-11.0,&
-! -1.0,1.0,1.0,-1.0,1.0,-12.0,-1.0,1.0,1.0,-1.0,1.0,-13.0,-1.0,1.0,-1.0,1.0,-14.0,-1.0,1.0,&
-! -1.0,1.0,-15.0,-1.0,1.0,-1.0,1.0,-16.0,-1.0,1.0,1.0,-1.0,-17.0,1.0,-1.0,-18.0,1.0,-1.0,&
-! -19.0,1.0,-1.0,-20.0/)
-! SparseCol = (/1,2,3,2,4,5,3,5,4,6,5,8,10,12,4,7,8,8,6,9,10,10,33,6,11,12,12,34,7,13,14,14,35,7,15,16,&
-! 16,36,17,18,18,20,17,19,20,20,22,24,19,21,22,22,26,28,19,23,24,24,30,32,21,25,26,26,33,21,27,28,28,34,23,29,&
-! 30,30,35,23,31,32,32,36,9,25,33,11,27,34,13,29,35,15,31,36/)
-! SparseRow = (/1,4,7,9,11,13,15,18,19,22,24,27,29,32,34,37,39,41,43,46,48,51,54,57,60,63,65,68,70,73,75,78,80,83,86,89,92/)
-! RHS = (/0.0,0.0,0.0,4000.0,500.0,-4000.0,0.0,-6000.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,600.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,&
-! 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0/)
-! write(*,*) 'solver_sol:', solver_solution
-! write(*,*) 'SparceVal:', SparseVal
-! write(*,*) 'SparceRow:', SparseRow
-! write(*,*) 'SparceCol:', SparseCol
-! write(*,*) 'RHS:', RHS
-! write(*,*) 'Matrix size:', MatrixSize
-! NonZeros = 92
-! write(*,*) 'Non-Z:', NonZeros
       call pmgmres_ilu_cr(MatrixSize, NonZeros, SparseRow, SparseCol, SparseVal, &
          solver_solution, RHS, 500, 500,1.d-5,1.d-4,SOLVER_FLAG)
        if(SOLVER_FLAG == 0)then
@@ -747,7 +727,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     ElementPressureEquationDone = .FALSE.
     offset=0!variable position offset
 
-write(*,*) 'nZsss',NonZeros
   if(bc_type.ne.'coupling')then
     do ne=1,num_elems
       !look at pressure variables at each node
