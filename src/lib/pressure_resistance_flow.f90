@@ -187,7 +187,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 
 !! Calculate sparsity structure for solution matrices
     !Determine size of and allocate solution vectors/matrices
-    call calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize)
+    call calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize,bc_type)
     allocate (SparseCol(NonZeros), STAT = AllocateStatus)!Note we should be able to calculate the nonzeros and matrix size analtyically then we wont need this.
     if (AllocateStatus /= 0) STOP "*** Not enough memory for SparseCol array ***"
     allocate (SparseRow(MatrixSize+1), STAT = AllocateStatus)
@@ -747,7 +747,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     ElementPressureEquationDone = .FALSE.
     offset=0!variable position offset
 
-
+write(*,*) 'nZsss',NonZeros
   if(bc_type.ne.'coupling')then
     do ne=1,num_elems
       !look at pressure variables at each node
@@ -1136,15 +1136,16 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
 !
 !*calc_sparse_size:* Calculates sparsity sizes
 
-subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize)
+subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize,bc_type)
 
   integer, intent(in) :: mesh_dof
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
     logical, intent(in) :: FIX(mesh_dof)
     integer :: NonZeros,MatrixSize
+    character(len=60) :: bc_type
 !local variables
-    integer :: i,ne,np,fixed_variables, fixed_flows, fixed_pressures
+    integer :: i,ne,np,fixed_variables, fixed_flows, fixed_pressures, count
     character(len=60) :: sub_name
     sub_name = 'calc_sparse_size'
     call enter_exit(sub_name,1)
@@ -1173,13 +1174,27 @@ subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,
     write(*,*) 'fixed_variables:', fixed_variables
     !count of pressure equations = (number of elements * 3 variables in each equation) - fixed pressures - fixed flows
     NonZeros = num_elems*3 - fixed_pressures - fixed_flows
+    count = 0 ! initialise
     !count of conservation of flow equations = sum of elements connected to nodes which have at least 2 connected elements - fixed flows
-    do np=1, num_nodes
-        if(elems_at_node(np,0).gt.1)then
-            NonZeros = NonZeros + elems_at_node(np,0)
-        endif
-    enddo
-    NonZeros = NonZeros - fixed_flows
+    if(bc_type.eq.'coupling')then
+      do np=1, num_nodes
+          if(elems_at_node(np,0).gt.1)then
+            if(FIX(depvar_at_node(np,1,1)))then ! if the pressure is fixed at that node disregard adding Non-zero (for coupling bc)
+              count = elems_at_node(np,0) + count ! counting number of pressure fixed nodes with more than one element connected to them
+            else
+              NonZeros = NonZeros + elems_at_node(np,0)
+            endif
+          endif
+      enddo
+      NonZeros = NonZeros - count - 2 ! 2 is for the branches with fixed flows feeding each lung which need to be removed
+    else
+      do np=1, num_nodes
+          if(elems_at_node(np,0).gt.1)then
+              NonZeros = NonZeros + elems_at_node(np,0)
+          endif
+      enddo
+      NonZeros = NonZeros - fixed_flows
+    endif
     call enter_exit(sub_name,2)
   end subroutine calc_sparse_size
 
