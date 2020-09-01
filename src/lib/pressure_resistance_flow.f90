@@ -893,50 +893,6 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
       endif
     enddo !ne
   else ! sparse setup for coupling case boundary condition
-    ! do ne=1,4 ! Going through the first 4 elements to setup the sparse matrix for them
-    !     np1=elem_nodes(1,ne)
-    !     depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
-    !     np2=elem_nodes(2,ne) !second node
-    !     depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
-    !     depvar3=depvar_at_elem(0,1,ne) !flow variable for element
-    !     if(FIX(depvar1))then !checking if pressure at 1st node is fixed
-    !         !store known variable - inlet pressure
-    !         RHS(nzz_row) = -prq_solution(depvar1,1) + grav
-    !     else
-    !         !unknown variable -pressure for node 1
-    !         call get_variable_offset(depvar1,mesh_dof,FIX,offset)
-    !         SparseCol(nzz) = depvar1 - offset !variable number
-    !         SparseVal(nzz)=1.0_dp !variable coefficient
-    !         nzz=nzz+1 !next column
-    !         RHS(nzz_row) = grav
-    !     endif
-    !     if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
-    !         !store known variable - outlet pressure
-    !         RHS(nzz_row) = prq_solution(depvar2,1) + grav
-    !     else
-    !         !unknown variable - pressure for node 2
-    !         call get_variable_offset(depvar2,mesh_dof,FIX,offset)
-    !         SparseCol(nzz) = depvar2 - offset !variable number
-    !         SparseVal(nzz)=-1.0_dp !variable coefficient
-    !         nzz=nzz+1 !next column
-    !     endif
-    !     if(FIX(depvar3))then !checking if flow at element ne is fixed
-    !         !store known variable - inlet flow * resistance for element ne
-    !         RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne)
-    !         update_flow_nzz_row = nzz_row
-    !     else
-    !         !unknown flow
-    !         call get_variable_offset(depvar3,mesh_dof,FIX,offset)
-    !         SparseCol(nzz) = depvar3-offset !variable position in the unknown variable vector
-    !         SparseVal(nzz)=-elem_field(ne_resist,ne) !variable coefficient = resistance for element ne
-    !         update_resistance_entries(ne) = nzz
-    !         nzz=nzz+1 !next column
-    !     endif
-    !     nzz_row=nzz_row+1 !store next row position
-    !         SparseRow(nzz_row)=nzz
-    !     NodePressureDone(np2) = .TRUE.
-    !     ElementPressureEquationDone(ne) = .TRUE.
-    !   enddo
     do ne = 5,num_elems ! Going through the rest of the elements that are not flow fixed
     !look at pressure variables at each node
       do nn=1,2 !2 nodes in 1D element
