@@ -702,7 +702,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     integer, intent(inout) :: update_flow_nzz_row
 !local variables
     integer :: ne,nn,np,np1,np2,depvar,depvar1,depvar2,depvar3,flow_var,fixed_var_index,offset,nzz,&
-      nzz_row,ne2,noelem2,ne3
+      nzz_row,ne2,noelem2,ne3,start_elem
     logical :: FlowBalancedNodes(num_nodes)
     logical :: NodePressureDone(num_nodes)
     logical :: ElementPressureEquationDone(num_elems)
@@ -728,7 +728,12 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     offset=0!variable position offset
 
   if(bc_type.ne.'coupling')then
-    do ne=1,num_elems
+    start_elem = 1
+  else
+    start_elem = 5
+  endif
+
+    do ne=start_elem,num_elems
       !look at pressure variables at each node
       do nn=1,2 !2 nodes in 1D element
         np=elem_nodes(nn,ne)
@@ -822,7 +827,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         do nn=1,2 !do flow balance for each element node
           np = elem_nodes(nn,ne)
           if((elems_at_node(np,0).GT.1).AND.(.NOT.FlowBalancedNodes(np)))then !if there is more than one element at a node and the node is not already flow balanced
-            if((bc_type.EQ.'pressure').OR.((bc_type.EQ.'flow').AND.(.NOT.one_node_balanced)))then !do just one flow balance equation for bc_type flow
+            if((bc_type.EQ.'pressure').OR.(((bc_type.EQ.'flow').OR.(bc_type.EQ.'coupling')).AND.(.NOT.one_node_balanced)))then !do just one flow balance equation for bc_type flow
                 !go through each element connected to node np and add the conservation of flow equation for the elements
                 do noelem2=1,elems_at_node(np,0)
                     ne2=elems_at_node(np,noelem2)
@@ -892,173 +897,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         endif
       endif
     enddo !ne
-  else ! sparse setup for coupling case boundary condition
-    do ne = 5,num_elems ! Going through the rest of the elements that are not flow fixed
-    !look at pressure variables at each node
-      do nn=1,2 !2 nodes in 1D element
-        np=elem_nodes(nn,ne)
-        depvar = depvar_at_node(np,1,1)
-        ! write(*,*) 'fixed node 1:', FIX(depvar)
-        if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then !check if this node is not fixed and hasn't already been processed (as nodes are shared between elements)
-            ne2=0
-            if(nn.EQ.1)then !first node of the element
-                ne2=ne! use the current element
-            elseif(nn.EQ.2)then !second node of the element
-                if((bc_type.EQ.'pressure').OR.(.NOT.ElementPressureEquationDone(ne)))then !if bc_type is pressure or element pressure equation for the current element hasn't been used
-                    ne2=ne! use the current element
-                else
-                    !look for another element connected to this node with pressure equation that hasn't been used
-                    if (elems_at_node(np,0).GT.1)then
-                        elem_found=.FALSE.
-                        noelem2 = 1
-                        do while ((.NOT.elem_found).AND.(noelem2.LE.elems_at_node(np,0)))
-                            ne3=elems_at_node(np,noelem2)
-                            if((ne3.NE.ne).AND.(.NOT.ElementPressureEquationDone(ne3)))then
-                                ne2 = ne3
-                                elem_found=.TRUE.
-                            endif
-                            noelem2 = noelem2 + 1
-                        end do
-                    endif
-                endif
-            endif
-            if(ne2.GT.0)then
-                !do the pressure equation for element ne2
-                !pressure for node 1 - pressure for node 2 - resistance * flow at element ne2 = 0
-                np1=elem_nodes(1,ne2)
-                depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
-                np2=elem_nodes(2,ne2) !second node
-                depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
-                depvar3=depvar_at_elem(0,1,ne2) !flow variable for element
-                grav=0.d0
-                if(elem_field(ne_group,ne2).eq.1.0_dp)then
-                elseif(elem_ordrs(no_gen,ne2).eq.1)then !gravitational head not applied in inlets
-                else
-                  do nj=1,3
-                    grav=grav+density*grav_vect(nj)*9810.0_dp*(node_xyz(nj,elem_nodes(1,ne2))-node_xyz(nj,elem_nodes(2,ne2)))!rho g L cos theta (Pa)
-                  enddo
-                endif
-                if(FIX(depvar1))then !checking if pressure at 1st node is fixed
-                    !store known variable - inlet pressure
-                    RHS(nzz_row) = -prq_solution(depvar1,1) + grav
-                else
-                    !unknown variable -pressure for node 1
-                    call get_variable_offset(depvar1,mesh_dof,FIX,offset)
-                    SparseCol(nzz) = depvar1 - offset !variable number
-                    SparseVal(nzz)=1.0_dp !variable coefficient
-                    nzz=nzz+1 !next column
-                    RHS(nzz_row) = grav
-                endif
-                if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
-                    !store known variable - outlet pressure
-                    RHS(nzz_row) = prq_solution(depvar2,1) + grav
-                else
-                    !unknown variable - pressure for node 2
-                    call get_variable_offset(depvar2,mesh_dof,FIX,offset)
-                    SparseCol(nzz) = depvar2 - offset !variable number
-                    SparseVal(nzz)=-1.0_dp !variable coefficient
-                    nzz=nzz+1 !next column
-                endif
-                if(FIX(depvar3))then !checking if flow at element ne2 is fixed
-                    !store known variable - inlet flow * resistance for element ne
-                    RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne2)
-                    update_flow_nzz_row = nzz_row
-                else
-                    !unknown flow
-                    call get_variable_offset(depvar3,mesh_dof,FIX,offset)
-                    SparseCol(nzz) = depvar3-offset !variable position in the unknown variable vector
-                    SparseVal(nzz)=-elem_field(ne_resist,ne2) !variable coefficient = resistance for element ne2
-                    update_resistance_entries(ne2) = nzz
-                    nzz=nzz+1 !next column
-                endif
-                nzz_row=nzz_row+1 !store next row position
-                    SparseRow(nzz_row)=nzz
-                NodePressureDone(np) = .TRUE.
-                ElementPressureEquationDone(ne2) = .TRUE.
-            endif
-        endif
-      enddo !nn
-
-    !look at flow variable for the element
-    flow_var = depvar_at_elem(0,1,ne)
-    if(.NOT.FIX(flow_var))then !don't do anything if flow is fixed
-      one_node_balanced = .FALSE.
-      !check if node 1 or node 2 are unbalanced
-      do nn=1,2 !do flow balance for each element node
-        np = elem_nodes(nn,ne)
-        if((elems_at_node(np,0).GT.1).AND.(.NOT.FlowBalancedNodes(np)))then !if there is more than one element at a node and the node is not already flow balanced
-          if((bc_type.EQ.'coupling').AND.(.NOT.one_node_balanced))then !do just one flow balance equation for bc_type flow
-          ! if(.NOT.one_node_balanced)then ! Since we know there will be now fixed pressure in these set of elems
-              !go through each element connected to node np and add the conservation of flow equation for the elements
-              do noelem2=1,elems_at_node(np,0)
-                  ne2=elems_at_node(np,noelem2)
-                  depvar=depvar_at_elem(1,1,ne2)
-                  flow_term = 0
-                  if(np.EQ.elem_nodes(2,ne2))then !end node
-                      flow_term = 1.0_dp
-                  elseif(np.EQ.elem_nodes(1,ne2))then !start node
-                      flow_term = -1.0_dp
-                  endif
-                  if(FIX(depvar))then
-                      RHS(nzz_row)=-prq_solution(depvar,1)*flow_term
-                  else
-                      !populate SparseCol and SparseVal
-                      call get_variable_offset(depvar,mesh_dof,FIX,offset)
-                      SparseCol(nzz) = depvar - offset
-                      SparseVal(nzz) = flow_term
-                      nzz = nzz + 1
-                  endif
-              enddo
-              FlowBalancedNodes(np) = .TRUE.
-              nzz_row=nzz_row+1 !store next row position
-                  SparseRow(nzz_row)=nzz
-                  one_node_balanced = .TRUE.
-              endif !checking bc_type
-        endif !flow at node np is unbalanced
-      enddo !nn
-
-      !if flow balancing hasn't been done for any node for element ne and pressure equation hasn't already been done, do the pressure equation for the element
-      if((.NOT.one_node_balanced).AND.(.NOT.ElementPressureEquationDone(ne)))then
-
-          !do the pressure equation for element ne
-          !pressure for node 1 - pressure for node 2 - resistance * flow at element ne = 0
-          np1=elem_nodes(1,ne)
-          depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
-          np2=elem_nodes(2,ne) !second node
-          depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
-
-          !unknown variable -pressure for node 1
-          call get_variable_offset(depvar1,mesh_dof,FIX,offset)
-          SparseCol(nzz) = depvar1 - offset !variable number
-          SparseVal(nzz)=1.0_dp !variable coefficient
-          nzz=nzz+1 !next column
-
-          if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
-              !store known variable - outlet pressure
-              RHS(nzz_row) = prq_solution(depvar2,1)
-          else
-              !unknown variable - pressure for node 2
-              call get_variable_offset(depvar2,mesh_dof,FIX,offset)
-              SparseCol(nzz) = depvar2 - offset !variable number
-              SparseVal(nzz)=-1.0_dp !variable coefficient
-              nzz=nzz+1 !next column
-          endif
-
-          !unknown flow
-          call get_variable_offset(flow_var,mesh_dof,FIX,offset)
-          SparseCol(nzz) = flow_var-offset !variable position in the unknown variable vector
-          SparseVal(nzz)=-elem_field(ne_resist,ne) !variable coefficient = resistance for element ne
-          update_resistance_entries(ne) = nzz
-          nzz=nzz+1 !next column
-
-          nzz_row=nzz_row+1 !store next row position
-          SparseRow(nzz_row)=nzz
-
-          ElementPressureEquationDone(ne) = .TRUE.
-      endif
-    endif
-  enddo
-  endif
+  
   write(*,*) 'SparseCol:', SparseCol
   write(*,*) 'SparseRow:', SparseRow
   write(*,*) 'SparseVal:', SparseVal
