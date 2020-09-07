@@ -702,7 +702,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     integer, intent(inout) :: update_flow_nzz_row
 !local variables
     integer :: ne,nn,np,np1,np2,depvar,depvar1,depvar2,depvar3,flow_var,fixed_var_index,offset,nzz,&
-      nzz_row,ne2,noelem2,ne3,start_elem
+      nzz_row,ne2,noelem2,ne3,start_elem,coupling_link,ne_start
     logical :: FlowBalancedNodes(num_nodes)
     logical :: NodePressureDone(num_nodes)
     logical :: ElementPressureEquationDone(num_elems)
@@ -732,6 +732,76 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
   else
     start_elem = 5
   endif
+
+!!! For coupling since the first two depvars are not in the same element we need to change the code in order to not
+!!! get a zero diagonal in the sparse matrix
+ne_start = start_elem ! setting ne to be the starting point
+  if(bc_type.eq.'coupling')then
+    do coupling_link = 1,2
+      np1=elem_nodes(1,ne_start) ! getting the first node of the starting element
+      depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
+      np2=elem_nodes(2,ne_start) ! getting the second node of the starting element
+      depvar2=depvar_at_node(np2,1,1) !pressure variable for second node
+      depvar3=depvar_at_elem(0,1,ne_start) !flow variable for the starting element
+      !do the pressure equation for element ne
+      !pressure for node 1 - pressure for node 2 - resistance * flow at element ne = 0
+
+      grav=0.d0
+      if(elem_field(ne_group,ne_start).eq.1.0_dp)then
+      elseif(elem_ordrs(no_gen,ne_start).eq.1)then !gravitational head not applied in inlets
+      else
+        do nj=1,3
+          grav=grav+density*grav_vect(nj)*9810.0_dp*(node_xyz(nj,elem_nodes(1,ne_start))-node_xyz(nj,elem_nodes(2,ne_start)))!rho g L cos theta (Pa)
+        enddo
+      endif
+      if(FIX(depvar1))then !checking if pressure at 1st node is fixed
+          !store known variable - inlet pressure
+          RHS(nzz_row) = -prq_solution(depvar1,1) + grav
+      else
+          !unknown variable -pressure for node 1
+          call get_variable_offset(depvar1,mesh_dof,FIX,offset)
+          SparseCol(nzz) = depvar1 - offset !variable number
+          SparseVal(nzz)=1.0_dp !variable coefficient
+          nzz=nzz+1 !next column
+          RHS(nzz_row) = grav
+      endif
+      if(FIX(depvar2))then !checking if pressure at 2nd node is fixed
+          !store known variable - outlet pressure
+          RHS(nzz_row) = prq_solution(depvar2,1) + grav
+      else
+          !unknown variable - pressure for node 2
+          call get_variable_offset(depvar2,mesh_dof,FIX,offset)
+          SparseCol(nzz) = depvar2 - offset !variable number
+          SparseVal(nzz)=-1.0_dp !variable coefficient
+          nzz=nzz+1 !next column
+      endif
+      if(FIX(depvar3))then !checking if flow at element ne2 is fixed
+          !store known variable - inlet flow * resistance for element ne
+          RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne_start)
+          update_flow_nzz_row = nzz_row
+      else
+          !unknown flow
+          call get_variable_offset(depvar3,mesh_dof,FIX,offset)
+          SparseCol(nzz) = depvar3-offset !variable position in the unknown variable vector
+          SparseVal(nzz)=-elem_field(ne_resist,ne_start) !variable coefficient = resistance for element ne2
+          update_resistance_entries(ne_start) = nzz
+          nzz=nzz+1 !next column
+      endif
+      nzz_row=nzz_row+1 !store next row position
+          SparseRow(nzz_row)=nzz
+      NodePressureDone(np1) = .TRUE.
+      ElementPressureEquationDone(ne_start) = .TRUE.
+      ne_start = ne_start + 2
+    enddo ! coupling_link
+  endif
+! Now that the two first rows are set as we wish, we reset the values and go through the elems again
+! Due to NodePressureDone(node 4 & 5) and also ElementPressureEquationDone(element 5 & 7) on the start of the first elements
+! Those lines won't be re-assessed
+    if(bc_type.ne.'coupling')then
+      start_elem = 1
+    else
+      start_elem = 5
+    endif
 
     do ne=start_elem,num_elems
       !look at pressure variables at each node
@@ -897,7 +967,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         endif
       endif
     enddo !ne
-  
+
   write(*,*) 'SparseCol:', SparseCol
   write(*,*) 'SparseRow:', SparseRow
   write(*,*) 'SparseVal:', SparseVal
