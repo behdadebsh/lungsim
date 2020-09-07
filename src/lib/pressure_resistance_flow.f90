@@ -247,7 +247,7 @@ write(*,*) 'Non-Z:', NonZeros
             SparseVal(nz)=-elem_field(ne_resist,ne) !Just updating resistance
           endif
         enddo
-        if(bc_type.eq.'flow'.or.bc_type.eq.'coupling')then !update RHS to account for element resistance
+        if(bc_type.eq.'flow')then !update RHS to account for element resistance
           do ne=1,num_elems
             depvar = depvar_at_elem(1,1,ne)
             if(FIX(depvar))then
@@ -775,7 +775,7 @@ ne_start = start_elem ! setting ne to be the starting point
           SparseVal(nzz)=-1.0_dp !variable coefficient
           nzz=nzz+1 !next column
       endif
-      if(FIX(depvar3))then !checking if flow at element ne2 is fixed
+      if(FIX(depvar3))then !checking if flow at element ne_start is fixed
           !store known variable - inlet flow * resistance for element ne
           RHS(nzz_row) = prq_solution(depvar3,1)*elem_field(ne_resist,ne_start)
           update_flow_nzz_row = nzz_row
@@ -783,7 +783,7 @@ ne_start = start_elem ! setting ne to be the starting point
           !unknown flow
           call get_variable_offset(depvar3,mesh_dof,FIX,offset)
           SparseCol(nzz) = depvar3-offset !variable position in the unknown variable vector
-          SparseVal(nzz)=-elem_field(ne_resist,ne_start) !variable coefficient = resistance for element ne2
+          SparseVal(nzz)=-elem_field(ne_resist,ne_start) !variable coefficient = resistance for element ne_start
           update_resistance_entries(ne_start) = nzz
           nzz=nzz+1 !next column
       endif
