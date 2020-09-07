@@ -31,7 +31,7 @@ contains
 !###################################################################################
 !
 !*evaluate_PRQ:* Solves for pressure and flow in a rigid or compliant tree structure
-  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,remodeling_grade)
+  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,RMPA_flow,LMPA_flow,remodeling_grade)
   !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_PRQ" :: EVALUATE_PRQ
 
     !local variables
@@ -50,7 +50,7 @@ contains
 
     integer, intent(in) :: remodeling_grade ! Remodeling if applicable, 1 stands for healthy and 2-10 are remodeling grades
     real(dp), allocatable :: prq_solution(:,:),solver_solution(:)
-    real(dp) :: viscosity,density,inlet_bc,outlet_bc,inletbc,outletbc,grav_vect(3),gamma,total_resistance,ERR
+    real(dp) :: viscosity,density,inlet_bc,outlet_bc,inletbc,outletbc,grav_vect(3),gamma,total_resistance,ERR,RMPA_flow,LMPA_flow
     logical, allocatable :: FIX(:)
     logical :: ADD=.FALSE.,CONVERGED=.FALSE.
     character(len=60) :: sub_name,mesh_type,vessel_type,mechanics_type,bc_type
@@ -169,16 +169,16 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 !! Define boundary conditions
     !first call to define inlet boundary conditions
     call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-      depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+      RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
     !second call if simple tree need to define pressure bcs at all terminal branches
     if(mesh_type.eq.'simple_tree')then
         ADD=.TRUE.
         call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-            depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
     elseif(mesh_type.eq.'full_plus_ladder')then
         ADD=.TRUE.
         call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-            depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
     endif
 
     KOUNT=0
