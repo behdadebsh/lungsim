@@ -31,7 +31,8 @@ contains
 !###################################################################################
 !
 !*evaluate_PRQ:* Solves for pressure and flow in a rigid or compliant tree structure
-  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,RMPA_flow,LMPA_flow,remodeling_grade)
+  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,&
+    RMPA_flow,LMPA_flow,remodeling_grade)
   !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_PRQ" :: EVALUATE_PRQ
 
     !local variables
@@ -50,13 +51,13 @@ contains
 
     integer, intent(in) :: remodeling_grade ! Remodeling if applicable, 1 stands for healthy and 2-10 are remodeling grades
     real(dp), allocatable :: prq_solution(:,:),solver_solution(:)
-    real(dp) :: viscosity,density,inlet_bc,outlet_bc,inletbc,outletbc,grav_vect(3),gamma,total_resistance,ERR,RMPA_flow,LMPA_flow
+    real(dp) :: viscosity,density,inlet_bc,outlet_bc,inletbc,outletbc,grav_vect(3),gamma,total_resistance,ERR
     logical, allocatable :: FIX(:)
     logical :: ADD=.FALSE.,CONVERGED=.FALSE.
     character(len=60) :: sub_name,mesh_type,vessel_type,mechanics_type,bc_type
     integer :: grav_dirn,no,depvar,KOUNT,nz,ne,SOLVER_FLAG,ne0,ne1,nj
     real(dp) :: MIN_ERR,N_MIN_ERR,elasticity_parameters(3),mechanics_parameters(2),grav_factor,P1
-    real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout
+    real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout,RMPA_flow,LMPA_flow
     integer :: update_flow_nzz_row
 
 
@@ -132,6 +133,8 @@ elseif(bc_type.eq.'flow')then
 elseif(bc_type.eq.'coupling')then
     inletbc=inlet_bc
     outletbc=outlet_bc
+    ! RMPAflow = RMPA_flow
+    ! LMPAflow = LMPA_flow
 elseif((bc_type.NE.'pressure').AND.(bc_type.NE.'flow').AND.(bc_type.NE.'coupling'))then
     print *,"unsupported bc_type",bc_type
     call exit(1)
@@ -390,18 +393,18 @@ write(*,*) 'Non-Z:', NonZeros
 !
 !*boundary_conditions:* Defines boundary conditions for prq problems
  subroutine boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-       depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+       RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
 
     integer :: mesh_dof
     integer :: depvar_at_elem(0:2,2,num_elems)
     integer :: depvar_at_node(num_nodes,0:2,2)
-    real(dp) :: prq_solution(mesh_dof,2),inletbc,outletbc,density,grav_vect(3)
+    real(dp) :: prq_solution(mesh_dof,2),inletbc,outletbc,density,grav_vect(3),RMPA_flow,LMPA_flow
     logical:: ADD
     logical :: FIX(mesh_dof)
     character(len=60) ::bc_type,mesh_type
 
   ! local variables
-    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix,ny2
+    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix,ny2,max_order1,index,maxgen2_elems(2)
     real(dp) :: grav
     character(len=60) :: sub_name
 
@@ -411,6 +414,19 @@ write(*,*) 'Non-Z:', NonZeros
      ! Initial values
      FIX(1:mesh_dof)=.FALSE.
      prq_solution = 0
+     ! Finding the most distal TWO elements feeding the third generation
+     ! for purpose of putting the boundary conditions on those elements
+     ! initialisation
+     index = 1
+     maxgen2_elems = 0 ! maxgen2_elems has the last two elements
+     do ne=1,num_elems
+       if((elem_ordrs(1,ne).eq.2).and.(elem_field(ne_group,ne).eq.0.0_dp))then
+         if(elem_ordrs(1,elem_cnct(1,1,ne)).eq.3)then ! Last element on 2nd generation branch
+           maxgen2_elems(index) = ne
+           index = index + 1
+         endif
+       endif
+     enddo
      ! Fixed boundary conditions
      ! These are inlet BCs, apply to all inlet BCs (there should only be one)
      do ne=1,num_elems
@@ -427,23 +443,29 @@ write(*,*) 'Non-Z:', NonZeros
               FIX(ny1)=.TRUE. !set fixed
               prq_solution(ny1,1)=inletbc !Putting BC value into solution array
               np_in=elem_nodes(1,ne)
-           elseif(BC_TYPE == 'coupling')then
-              do ne_fix=1,4 ! first four elements
-                np=elem_nodes(1,ne_fix)
-                ny1=depvar_at_elem(0,1,ne_fix) ! depvat number for flows at elements 1 to 4
-                ny2=depvar_at_node(np,1,1) !depvar number for pressures at nodes 1 to 4
-                FIX(ny1)=.TRUE. ! Fixing flow depvar on respective element
-                FIX(ny2)=.TRUE. ! Fixing pressure depvar on respective starting node of elem
-                if(ne_fix.eq.3)then
-                  prq_solution(ny1,1)=0.4_dp*inletbc !Putting BC value into solution array
-                elseif(ne_fix.eq.4)then
-                  prq_solution(ny1,1)=0.6_dp*inletbc !Putting BC value into solution array
-                endif
-                np_in=elem_nodes(1,1) !ne=1 to be gravity reference
-             enddo
            endif
         endif
      enddo
+     ! setting up coupling inlet boundary conditions
+     if(BC_TYPE == 'coupling')then
+       do ne_fix=1,maxgen2_elems(2)
+         np=elem_nodes(1,ne_fix) ! first node number of each element
+         ny1=depvar_at_elem(0,1,ne_fix) ! depvar number for flows
+         ny2=depvar_at_node(np,1,1) !depvar number for pressures
+         FIX(ny1)=.TRUE. ! Fixing flow depvar on respective element
+         FIX(ny2)=.TRUE. ! Fixing pressure depvar on respective starting node of elem
+         if(elem_ordrs(1,ne_fix).eq.1)then
+           prq_solution(ny1,1)=inletbc
+         endif
+         if(ne_fix.eq.maxgen2_elems(1))then ! prescribing the LeftMainPulmonary flow
+           prq_solution(ny1,1)=LMPA_flow !Putting BC value into solution array
+         elseif(ne_fix.eq.maxgen2_elems(2))then ! prescribing the RightMainPulmonary flow
+           prq_solution(ny1,1)=RMPA_flow !Putting BC value into solution array
+         endif
+         np_in=elem_nodes(1,1) !ne=1 to be gravity reference(setting gravity reference)
+
+       enddo
+     endif
   else !Add terminal pressure BC for all terminal branches
     if(mesh_type.eq.'simple_tree')then !NEED TO SET GRAVITY IN THIS CASE
       do nonode=1,num_units
