@@ -58,7 +58,7 @@ contains
     integer :: grav_dirn,no,depvar,KOUNT,nz,ne,SOLVER_FLAG,ne0,ne1,nj
     real(dp) :: MIN_ERR,N_MIN_ERR,elasticity_parameters(3),mechanics_parameters(2),grav_factor,P1
     real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout,RMPA_flow,LMPA_flow
-    integer :: update_flow_nzz_row
+    integer :: update_flow_nzz_row,maxgen2_elems(2)
 
 
     sub_name = 'evaluate_prq'
@@ -133,8 +133,6 @@ elseif(bc_type.eq.'flow')then
 elseif(bc_type.eq.'coupling')then
     inletbc=inlet_bc
     outletbc=outlet_bc
-    ! RMPAflow = RMPA_flow
-    ! LMPAflow = LMPA_flow
 elseif((bc_type.NE.'pressure').AND.(bc_type.NE.'flow').AND.(bc_type.NE.'coupling'))then
     print *,"unsupported bc_type",bc_type
     call exit(1)
@@ -164,7 +162,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
     if (AllocateStatus /= 0) STOP "*** Not enough memory for FIX array ***"
 
 
-
+    maxgen2_elems = 0 ! initialisation
 !! Setting up mappings between nodes, elements and solution depvar
     call calc_depvar_maps(mesh_from_depvar,depvar_at_elem,&
                 depvar_totals,depvar_at_node,mesh_dof,num_vars)
@@ -172,16 +170,16 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 !! Define boundary conditions
     !first call to define inlet boundary conditions
     call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-      RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+      RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type,maxgen2_elems)
     !second call if simple tree need to define pressure bcs at all terminal branches
     if(mesh_type.eq.'simple_tree')then
         ADD=.TRUE.
         call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type,maxgen2_elems)
     elseif(mesh_type.eq.'full_plus_ladder')then
         ADD=.TRUE.
         call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+            RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type,maxgen2_elems)
     endif
 
     KOUNT=0
@@ -207,10 +205,8 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
     !calculate the sparsity structure
     call calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_elem, &
         depvar_at_node,NonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS, &
-        prq_solution,update_resistance_entries,update_flow_nzz_row)
+        prq_solution,update_resistance_entries,update_flow_nzz_row,maxgen2_elems)
 !!! --ITERATIVE LOOP--
-write(*,*) 'RHS:', RHS
-write(*,*) 'Non-Z:', NonZeros
     MIN_ERR=1.d10
     N_MIN_ERR=0
     do while(.NOT.CONVERGED)
@@ -393,7 +389,7 @@ write(*,*) 'Non-Z:', NonZeros
 !
 !*boundary_conditions:* Defines boundary conditions for prq problems
  subroutine boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
-       RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type)
+       RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type,maxgen2_elems)
 
     integer :: mesh_dof
     integer :: depvar_at_elem(0:2,2,num_elems)
@@ -404,7 +400,8 @@ write(*,*) 'Non-Z:', NonZeros
     character(len=60) ::bc_type,mesh_type
 
   ! local variables
-    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix,ny2,max_order1,index,maxgen2_elems(2)
+    integer :: nonode,np,ne,ny1,nj,np_in,ne_fix,ny2,index
+    integer,intent(out) :: maxgen2_elems(2)
     real(dp) :: grav
     character(len=60) :: sub_name
 
@@ -498,8 +495,8 @@ write(*,*) 'Non-Z:', NonZeros
 
      endif
   endif
+  
     call enter_exit(sub_name,2)
-    write(*,*) 'prq_sol:', prq_solution
   end subroutine boundary_conditions
 !
 !###################################################################################
@@ -704,7 +701,7 @@ subroutine initialise_solution(pressure_in,pressure_out,cardiac_output,mesh_dof,
 
 subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
         depvar_at_node,NonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS,&
-        prq_solution,update_resistance_entries,update_flow_nzz_row)
+        prq_solution,update_resistance_entries,update_flow_nzz_row,maxgen2_elems)
 
     character(len=60) :: bc_type
     real(dp), intent(in) :: density
@@ -713,6 +710,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     logical, intent(in) :: FIX(mesh_dof)
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
+    integer,intent(in) :: maxgen2_elems(2)
 
     integer, intent(in) :: NonZeros,MatrixSize
     integer, intent(inout) :: SparseCol(NonZeros)
@@ -724,7 +722,7 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     integer, intent(inout) :: update_flow_nzz_row
 !local variables
     integer :: ne,nn,np,np1,np2,depvar,depvar1,depvar2,depvar3,flow_var,fixed_var_index,offset,nzz,&
-      nzz_row,ne2,noelem2,ne3,start_elem,coupling_link,ne_start
+      nzz_row,ne2,noelem2,ne3,coupling_link,ne_start
     logical :: FlowBalancedNodes(num_nodes)
     logical :: NodePressureDone(num_nodes)
     logical :: ElementPressureEquationDone(num_elems)
@@ -749,16 +747,11 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     ElementPressureEquationDone = .FALSE.
     offset=0!variable position offset
 
-  if(bc_type.ne.'coupling')then
-    start_elem = 1
-  else
-    start_elem = 5
-  endif
 
 !!! For coupling since the first two depvars are not in the same element we need to change the code in order to not
 !!! get a zero diagonal in the sparse matrix
-ne_start = start_elem ! setting ne to be the starting point
   if(bc_type.eq.'coupling')then
+    ne_start = elem_cnct(1,1,maxgen2_elems(1))
     do coupling_link = 1,2
       np1=elem_nodes(1,ne_start) ! getting the first node of the starting element
       depvar1=depvar_at_node(np1,1,1) !pressure variable for first node
@@ -813,19 +806,18 @@ ne_start = start_elem ! setting ne to be the starting point
           SparseRow(nzz_row)=nzz
       NodePressureDone(np1) = .TRUE.
       ElementPressureEquationDone(ne_start) = .TRUE.
-      ne_start = ne_start + 2
+      ne_start = elem_cnct(1,1,maxgen2_elems(2))
     enddo ! coupling_link
+  else ! for not coupling case we want to start from first element
+    ne_start = 1
   endif
-! Now that the two first rows are set as we wish, we reset the values and go through the elems again
-! Due to NodePressureDone(node 4 & 5) and also ElementPressureEquationDone(element 5 & 7) on the start of the first elements
+! Now that the two first rows are set as we wish(in case of coupling), we reset the values and go through the elems again
+! Due to NodePressureDone and also ElementPressureEquationDone on the start of the first elements
 ! Those lines won't be re-assessed
-    if(bc_type.ne.'coupling')then
-      start_elem = 1
-    else
-      start_elem = 5
-    endif
-
-    do ne=start_elem,num_elems
+  if(bc_type.eq.'coupling')then
+    ne_start = elem_cnct(1,1,maxgen2_elems(1)) ! resetting the loop
+  endif
+    do ne=ne_start,num_elems
       !look at pressure variables at each node
       do nn=1,2 !2 nodes in 1D element
         np=elem_nodes(nn,ne)
@@ -990,9 +982,6 @@ ne_start = start_elem ! setting ne to be the starting point
       endif
     enddo !ne
 
-  write(*,*) 'SparseCol:', SparseCol
-  write(*,*) 'SparseRow:', SparseRow
-  write(*,*) 'SparseVal:', SparseVal
     call enter_exit(sub_name,2)
   end subroutine calc_sparse_1dtree
 
@@ -1011,7 +1000,7 @@ subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,
     integer :: NonZeros,MatrixSize
     character(len=60) :: bc_type
 !local variables
-    integer :: i,ne,np,fixed_variables, fixed_flows, fixed_pressures, count
+    integer :: i,ne,np,fixed_variables, fixed_flows, fixed_pressures, count, flow_counts
     character(len=60) :: sub_name
     sub_name = 'calc_sparse_size'
     call enter_exit(sub_name,1)
@@ -1035,25 +1024,24 @@ subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,
     enddo
 
     fixed_pressures = fixed_variables - fixed_flows
-    write(*,*) 'fixed_flows:', fixed_flows
-    write(*,*) 'fixed_pressure:', fixed_pressures
-    write(*,*) 'fixed_variables:', fixed_variables
-    !count of pressure equations = (number of elements * 3 variables in each equation) - fixed pressures - fixed flows
     NonZeros = num_elems*3 - fixed_pressures - fixed_flows
     count = 0 ! initialise
+    flow_counts = 0 ! initialise
     !count of conservation of flow equations = sum of elements connected to nodes which have at least 2 connected elements - fixed flows
     if(bc_type.eq.'coupling')then
+      NonZeros = num_elems*3 ! Total number of NonZeros from pressure equations
       do np=1, num_nodes
+        if(FIX(depvar_at_node(np,1,1)))then
+          NonZeros = NonZeros - 3
           if(elems_at_node(np,0).gt.1)then
-            if(FIX(depvar_at_node(np,1,1)))then ! if the pressure is fixed at that node disregard adding Non-zero (for coupling bc)
-              count = elems_at_node(np,0) + count ! counting number of pressure fixed nodes with more than one element connected to them
-            else
-              NonZeros = NonZeros + elems_at_node(np,0)
-            endif
+            count = elems_at_node(np,0) + count ! counting number of pressure fixed nodes with more than one element connected to them
           endif
+        else
+          NonZeros = NonZeros + elems_at_node(np,0)
+        endif
       enddo
-      NonZeros = NonZeros - count - 2 ! 2 is for the branches with fixed flows feeding each lung which need to be removed
-    else
+      NonZeros = NonZeros - 3 ! 3 is for other side of bifuctions point (Usually node 5)
+    else ! bc_type flow or pressure
       do np=1, num_nodes
           if(elems_at_node(np,0).gt.1)then
               NonZeros = NonZeros + elems_at_node(np,0)
