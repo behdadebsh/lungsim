@@ -14,6 +14,8 @@ module pressure_resistance_flow
   use diagnostics
   use indices
   use other_consts
+  use geometry
+  use ventilation,only: sum_elem_field_from_periphery
   use solve, only: BICGSTAB_LinSolv,pmgmres_ilu_cr
 
   implicit none
@@ -26,7 +28,7 @@ module pressure_resistance_flow
 
   !Interfaces
   private
-  public evaluate_prq,calculate_ppl
+  public evaluate_prq,calculate_ppl,find_occlusion
 contains
 !###################################################################################
 !
@@ -169,6 +171,8 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 
 !! Define boundary conditions
     !first call to define inlet boundary conditions
+    ADD=.FALSE. ! BEHDAD ADDED THIS FOR COUPLING PURPOSES
+    CONVERGED=.FALSE. ! BEHDAD ADDED THIS FOR COUPLING PURPOSES
     call boundary_conditions(ADD,FIX,bc_type,grav_vect,density,inletbc,outletbc,&
       RMPA_flow,LMPA_flow,depvar_at_node,depvar_at_elem,prq_solution,mesh_dof,mesh_type,maxgen2_elems)
     !second call if simple tree need to define pressure bcs at all terminal branches
@@ -495,7 +499,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 
      endif
   endif
-  
+
     call enter_exit(sub_name,2)
   end subroutine boundary_conditions
 !
@@ -1551,5 +1555,130 @@ subroutine get_variable_offset(depvar,mesh_dof,FIX,offset)
     enddo
 
 end subroutine get_variable_offset
+
+!
+!##################################################################
+!
+subroutine find_occlusion(cluster_number,intensity_ratio)
+!*Description*: This subroutine finds the occlusions in CTEPH(or whatever) by labelling all the tree to clusters
+! using elem connectivity. Occlusion is found when the label of that branch and its sister do not match.
+  real(dp), intent(in) :: cluster_number,intensity_ratio  ! The cluster label for an under-perfused cluster - user input
+
+  ! Local Variables
+  real(dp) :: cutoff
+  integer :: i,np,np_last,ne,parent,n,parent_elem,sister_elem,hari
+  integer,allocatable :: elemlist(:),elem_CTEPH(:)
+  logical :: FOUND=.FALSE.
+  character(len=60) :: sub_name
+  character(len=MAX_FILENAME_LEN) :: FILE
+
+
+  sub_name = 'find_occlusion'
+
+  call enter_exit(sub_name,1)
+
+  allocate(elem_CTEPH(num_elems))
+
+  call assign_label_tree()
+
+  ! write(*,*) '5 intensity:', elem_field(ne_intensity,5)
+  ! write(*,*) '6 intensity:', elem_field(ne_intensity,6)
+  ! write(*,*) '7 intensity:', elem_field(ne_intensity,7)
+  ! write(*,*) '11 intensity:', elem_field(ne_intensity,11)
+  ! write(*,*) '12 intensity:', elem_field(ne_intensity,12)
+  ! write(*,*) '17 intensity:', elem_field(ne_intensity,17)
+  ! write(*,*) '55 intensity:', elem_field(ne_intensity,55)
+  ! write(*,*) '24 intensity:', elem_field(ne_intensity,24)
+  ! pause
+
+  do i=1,num_units  ! loop in terminal units
+    FOUND=.FALSE.
+    if (unit_field(nu_label,i).eq.cluster_number) then !check to see if we are on the right cluster
+      ne=units(i)  ! find the terminal element
+      np=elem_nodes(1,ne)  ! find the first node of the terminal element
+      do while ((elem_ordrs(no_sord,ne).lt.12).and.(.Not.FOUND)) ! go upstream from the terminal
+        ! find the label of the sister element
+        parent_elem = elem_cnct(-1,1,ne) ! going in -1 (upstream) direction
+        if(elem_cnct(1,1,parent_elem).eq.ne) then ! going in +1 (downstream) direction to find the sister
+          ! if it was equal the original ne means it is not the sister, then the other downstream element
+          ! is the sister
+          sister_elem = elem_cnct(1,2,parent_elem)
+        else
+          sister_elem = elem_cnct(1,1,parent_elem)
+        endif
+        ! conditions for occlusion
+        if ((elem_field(ne_label,ne).ne.elem_field(ne_label,sister_elem)).and.((elem_CTEPH(ne).ne.1).and.&
+            elem_CTEPH(sister_elem).ne.1).and.(sister_elem.ne.0).and.(elem_ordrs(no_sord,ne).lt.12).and.&
+            (elem_ordrs(no_sord,ne).gt.1).and.(elem_ordrs(no_sord,sister_elem).gt.1).and.elem_field(ne_intensity,ne)&
+            .gt.0.and.((elem_field(ne_intensity,sister_elem))*(elem_field(ne_intensity,ne))).lt.0.0) then
+          FOUND=.TRUE.
+          elem_CTEPH(ne) = 1
+          write(*,*) 'Element', ne, 'is underperfused'
+          write(*,*) 'by', elem_field(ne_intensity,ne)*100 ,'percent'
+
+        endif
+        ne=elem_cnct(-1,1,ne) !upstream element number
+
+      enddo
+      FOUND=.FALSE.
+    endif
+
+  enddo
+  write(*,*) 'TOTAL:', count(elem_CTEPH.eq.1)
+  call enter_exit(sub_name,2)
+
+end subroutine find_occlusion
+
+!
+!##################################################################
+!
+subroutine assign_label_tree()
+!*Description*: This subroutine assigns labels to the whole tree based on terminal clusters
+
+integer :: i,ne,np
+character(len=60) :: sub_name
+
+sub_name = 'assign_label_tree'
+
+call enter_exit(sub_name,1)
+
+elem_field(ne_label,:) = 100 ! initialise to a value that never happens as a cluster label
+do i=1,num_units
+  ne=units(i)  ! find the terminal element
+  np=elem_nodes(1,ne)  ! find the first node of the terminal element
+  do while((elem_ordrs(no_sord,ne).lt.12).and.((elem_field(ne_label,elem_cnct(-1,1,ne)).eq.100).or.((elem_field(ne_label,&
+    elem_cnct(-1,1,ne))).eq.(unit_field(nu_label,i))))) ! go upstream
+    elem_field(ne_label,ne) = unit_field(nu_label,i) ! set terminal element label field
+    ne=elem_cnct(-1,1,ne) !upstream element number
+  enddo
+
+enddo
+
+call enter_exit(sub_name,2)
+
+end subroutine assign_label_tree
+
+!
+!##################################################################
+!
+subroutine sum_intensity_up_tree()
+
+  character(len=60) :: sub_name
+  integer :: ne,i
+
+  sub_name = 'sum_intensity_up_tree'
+
+  call enter_exit(sub_name,1)
+
+  do i=1,num_units
+    ne=units(i)  ! find the terminal element
+    elem_field(ne_intensity,ne) = unit_field(nu_flow_map,i)
+  end do
+
+  call sum_elem_field_from_periphery(ne_intensity)
+
+  call enter_exit(sub_name,2)
+
+end subroutine sum_intensity_up_tree
 
 end module pressure_resistance_flow

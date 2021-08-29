@@ -14,9 +14,9 @@ module indices
 
   use diagnostics
   use other_consts
-  
+
   implicit none
-  
+
   !parameters
   ! indices for elem_ordrs
   integer :: num_ord=4,no_gen=1,no_hord=2,no_sord=3,no_type = 4
@@ -28,11 +28,11 @@ module indices
        ne_resist=0,ne_t_resist=0,ne_Vdot=0,ne_Vdot0=0,ne_a_A=0,&
        ne_dvdt=0,ne_radius_in=0,ne_radius_in0=0,&
        ne_radius_out=0,ne_radius_out0=0,ne_group=0,ne_Qdot=0, &
-       ne_vd_bel=0, ne_vol_bel=0
+       ne_vd_bel=0, ne_vol_bel=0, ne_label=0, ne_intensity=0
   ! indices for unit_field
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
-       nu_vd=0,nu_perf=0,nu_blood_press=0
+       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_flow_map=0,nu_label=0
   !indices for gas exchange field
   ! indices for gasex_field
   integer,parameter :: num_gx = 12
@@ -48,47 +48,47 @@ module indices
   integer,parameter :: ng_sa=10           ! index for unit's capillary surface area
   integer,parameter :: ng_tt=11           ! index for transit time in unit
   integer,parameter :: ng_time=12         ! index for time elapsed for RBC in capillaries
-  
+
   !model type
   character(len=60) :: model_type
-  
+
   public num_ord,no_gen,no_hord,no_sord,no_type
-  
+
   public num_nj,nj_aw_press,nj_bv_press,nj_conc1,nj_conc2
-  
+
   public num_ne,ne_radius,ne_length,ne_vol,&
        ne_resist,ne_t_resist,ne_Vdot,ne_Vdot0,ne_a_A,&
        ne_dvdt,ne_radius_in,ne_radius_in0,ne_radius_out,&
        ne_radius_out0,ne_group,ne_Qdot, &
-       ne_vd_bel, ne_vol_bel
-  
+       ne_vd_bel, ne_vol_bel, ne_label,ne_intensity
+
   public num_nu,nu_vol,nu_comp, nu_conc2,nu_Vdot0,nu_Vdot1, &
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
        nu_conc1,nu_vent,nu_vd,&
-       nu_perf,nu_blood_press
-  
+       nu_perf,nu_blood_press,nu_flow_map,nu_label
+
   public num_gx, ng_p_alv_o2,ng_p_alv_co2,ng_p_ven_o2,ng_p_ven_co2, &
        ng_p_cap_o2, ng_p_cap_co2,ng_source_o2,ng_source_co2, &
        ng_Vc, ng_sa, ng_tt, ng_time
-  
-  
+
+
   public model_type
-  
+
   !Interfaces
   private
   public define_problem_type,ventilation_indices, perfusion_indices, get_ne_radius, get_nj_conc1, &
        growing_indices
-  
+
 contains
-  
+
   !> Define problem type
   subroutine define_problem_type(PROBLEM_TYPE)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_DEFINE_PROBLEM_TYPE" :: DEFINE_PROBLEM_TYPE
-    
+
     character(len=MAX_FILENAME_LEN),intent(in) :: PROBLEM_TYPE
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'define_problem_type'
     call enter_exit(sub_name,1)
     select case (PROBLEM_TYPE)
@@ -114,13 +114,13 @@ contains
     model_type=TRIM(PROBLEM_TYPE)
     call enter_exit(sub_name,2)
   end subroutine define_problem_type
-  
+
   !>Gas mixing indices
   subroutine exchange_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GASMIX_INDICES" :: GASMIX_INDICES
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'exchange_indices'
     call enter_exit(sub_name,1)
     ! indices for elem_ordrs. These dont usually change.
@@ -128,7 +128,7 @@ contains
     num_nj=3
     nj_conc1=2
     nj_conc2=3
-    
+
     ! indices for elem_field
     num_ne = 11
     ne_radius = 1
@@ -140,7 +140,7 @@ contains
     ne_dvdt = 7
     ne_vd_bel = 8
     ne_vol_bel = 9
-    
+
     ! indices for unit_field
     num_nu=7
     nu_vol=1
@@ -150,17 +150,17 @@ contains
     nu_perf=5
     nu_conc1=6
     nu_conc2=7
-    
-    
+
+
     call enter_exit(sub_name,2)
   end subroutine exchange_indices
-  
+
   !>Gas mixing indices
   subroutine gasmix_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GASMIX_INDICES" :: GASMIX_INDICES
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'gasmix_indices'
     call enter_exit(sub_name,1)
     ! indices for elem_ordrs. These dont usually change.
@@ -196,13 +196,13 @@ contains
     nu_vent=11
     call enter_exit(sub_name,2)
   end subroutine gasmix_indices
-  
+
   !> Ventilation indices
   subroutine ventilation_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_VENTILATION_INDICES" :: VENTILATION_INDICES
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'ventilation_indices'
     call enter_exit(sub_name,1)
     ! indices for elem_ordrs. These dont usually change.
@@ -241,14 +241,14 @@ contains
   subroutine growing_indices
     !* Growing indices:* set up indices for growing (1D tree) arrays
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GROWING_INDICES" :: GROWING_INDICES
-    
+
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
 
     sub_name = 'growing_indices'
     call enter_exit(sub_name,1)
-    
+
     ! indices for elem_ordrs. These dont usually change.
     ! indices for node_field
     num_nj = 0 !number of nodal fields
@@ -261,9 +261,9 @@ contains
     ne_vol_bel = 5
     ! indices for unit_field
     num_nu = 0
-    
+
     call enter_exit(sub_name,2)
-    
+
   end subroutine growing_indices
   !
   !######################################################################
@@ -271,17 +271,17 @@ contains
   !> Perfusion indices
   subroutine perfusion_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_PERFUSION_INDICES" :: PERFUSION_INDICES
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'perfusion_indices'
     call enter_exit(sub_name,1)
-    
+
     ! indices for node_field
     num_nj=1
     nj_bv_press=1 !pressure in blood vessel
     ! indices for elem_field
-    num_ne=9
+    num_ne=11
     ne_radius=1 !strained average radius over whole element
     ne_radius_in=2 !strained radius into an element
     ne_radius_out=3 !strained radius out of an element
@@ -291,41 +291,45 @@ contains
     ne_Qdot=7 !flow in an element
     ne_resist=8 !resistance of a blood vessel
     ne_group=9!Groups vessels into arteries (field=0), capillaries (field=1) and veins(field=2)
-    !indices for units
-    num_nu=2
+    ne_label=10 ! cluster label for that element
+    ne_intensity = 11 ! flow map intensity
+    !indices for unit_field
+    num_nu=4
     nu_perf=1
     nu_blood_press=2
-    
+    nu_flow_map=3 ! flow intensity map
+    nu_label=4 ! terminal cluster
+
     call enter_exit(sub_name,2)
   end subroutine perfusion_indices
-  
+
   function get_ne_radius() result(res)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GET_NE_RADIUS" :: GET_NE_RADIUS
-    
+
     implicit none
     character(len=60) :: sub_name
     integer :: res
-    
+
     sub_name = 'get_ne_radius'
     call enter_exit(sub_name,1)
-    
+
     res=ne_radius
-    
+
     call enter_exit(sub_name,2)
   end function get_ne_radius
-  
+
   function get_nj_conc1() result(res)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GET_NJ_CONC1" :: GET_NJ_CONC1
-    
+
     character(len=60) :: sub_name
     integer :: res
-    
+
     sub_name = 'get_nj_conc1'
     call enter_exit(sub_name,1)
-    
+
     res = nj_conc1
-    
+
     call enter_exit(sub_name,2)
   end function get_nj_conc1
-  
+
 end module indices

@@ -11,7 +11,7 @@ module arrays
 !This module defines arrays
 
   use precision
-  
+
   implicit none
 
   integer :: num_elems,num_elems_2d,num_nodes,num_data,num_nodes_2d,num_units,num_lines_2d,maxgen
@@ -38,6 +38,7 @@ module arrays
   integer,allocatable :: elems_at_node(:,:)
   integer,allocatable :: elems_at_node_2d(:,:)
   integer,allocatable :: units(:)
+  integer,allocatable :: elem_CTEPH(:) ! elem_occluded because of CTEPH - 0 not occluded, 1 occluded
 
   real(dp),allocatable :: arclength(:,:)
   real(dp),allocatable :: elem_field(:,:) !properties of elements

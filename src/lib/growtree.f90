@@ -126,11 +126,11 @@ contains
   ! defined point to some fraction along a line towards the centre of mass of a
   ! collection of seed points.
   !
-  subroutine branch_to_cofm(map_seed_to_elem,nen,np1,COFM,branch_fraction,length_limit,&
+  subroutine branch_to_cofm(map_seed_to_elem,map_seed_to_space,nen,np1,COFM,branch_fraction,length_limit,&
     length_parent,shortest_length,candidate_xyz,make_branch)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_BRANCH_TO_COFM" :: BRANCH_TO_COFM
 
-    integer :: map_seed_to_elem(*),nen,np1
+    integer :: map_seed_to_elem(*),map_seed_to_space(*),nen,np1
     real(dp) :: COFM(3),branch_fraction,length_limit,length_parent,&
          shortest_length,candidate_xyz(3)
     logical :: make_branch
@@ -202,6 +202,7 @@ contains
        do N = 1,NUM_CLOSEST
           nd = NCLOSEST(N)
           map_seed_to_elem(nd) = 0
+          map_seed_to_space(nd) = nen ! recording element number
        enddo
     endif !NOT.make_branch
 
@@ -252,16 +253,17 @@ contains
   ! to a maximum (user-defined) value, and makes sure branch remains internal
   ! to the host volume
   !
-  subroutine check_branch_rotation_plane(map_seed_to_elem,ne,&
+  subroutine check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,&
        ne_grnd_parent,ne_parent,local_parent_temp,num_next_parents,&
-       np,np1,np2,np3,num_terminal,rotation_limit)
+       np,np1,np2,np3,num_terminal,rotation_limit,to_export)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_CHECK_BRANCH_ROTATION_PLANE" :: CHECK_BRANCH_ROTATION_PLANE
 
-    integer :: map_seed_to_elem(*),ne,ne_grnd_parent,ne_parent, &
+    integer :: map_seed_to_elem(*),map_seed_to_space(*),ne,ne_grnd_parent,ne_parent, &
          num_next_parents,np,np1,np2,np3,num_terminal
     ! np == end node; np1 == np_start; np2 == np_prnt_start; np3 == np_grnd_start
     integer :: local_parent_temp(*)
     real(dp),intent(in) :: rotation_limit
+    logical :: to_export
 
     !Local variables
     integer :: COUNT,nd_min,ne_other,nes,np4,offset
@@ -321,6 +323,10 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       map_seed_to_space(nd_min) = ne-1 ! recording element number
+       if(to_export) then
+         write(40,*) nd_min,ne-1
+       endif
 
     endif
 
@@ -353,6 +359,10 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       map_seed_to_space(nd_min) = ne ! recording element number
+       if(to_export) then
+         write(40,*) nd_min,ne
+       endif
 
     endif
 
@@ -606,13 +616,13 @@ contains
   ! to the closest ending of branches in the current generation.
   !
   subroutine group_seeds_with_branch(map_array,num_next_parents,num_seeds_from_elem, &
-       num_terminal,local_parent,DISTANCE_LIMIT,FIRST)
+       num_terminal,local_parent,DISTANCE_LIMIT,FIRST,to_export)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_GROUP_SEEDS_WITH_BRANCH" :: GROUP_SEEDS_WITH_BRANCH
 
     integer :: num_next_parents,local_parent(:),map_array(:),num_seeds_from_elem(*),&
          num_terminal
     real(dp),intent(in) :: DISTANCE_LIMIT
-    logical :: FIRST
+    logical :: FIRST, to_export
 
     !Local variables
     integer :: i,n,m,nd,nd_min,ne,n_elm_temp,ne_min,noelem,np,np_temp
@@ -726,6 +736,9 @@ contains
              N_ELM_TEMP=N_ELM_TEMP-1
              local_parent(N)=0
              num_terminal=num_terminal+1
+             if(to_export) then
+               write(40,*) nd_min,ne_min
+             endif
 
           else if(num_seeds_from_elem(ne_min).eq.1)then
              do nd=1,num_data
@@ -734,6 +747,9 @@ contains
                    local_parent(N)=0
                    N_ELM_TEMP=N_ELM_TEMP-1
                    num_terminal=num_terminal+1
+                   if(to_export) then
+                     write(40,*) nd,ne_min
+                   endif
                 endif
              enddo !nd
 
@@ -763,6 +779,31 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine group_seeds_with_branch
+
+  !###############################################################
+  !
+  !*map_terminal_elem_to_seed:* find all the terminal elements after growing
+  ! to a seed point and write the mapping file
+
+  subroutine map_terminal_elem_to_seed(parent_ne,map_seed_to_elem)
+    integer,intent(in) :: parent_ne   ! Elem number entering the lobe to find terminals in
+    integer,intent(in) :: map_seed_to_elem(*)
+
+    !Local variables
+    integer :: temp, nunit
+
+    call append_units()
+    call group_elem_parent_term(parent_ne)
+    write(*,*) 'num_elems', num_elems
+    write(*,*) 'terminal', num_units
+    write(*,*) 'one random terminal', units(3)
+    do nunit = 1,num_units ! for all terminal elems
+       temp = closest_seed_to_node(map_seed_to_elem,elem_nodes(2,units(1)))
+    enddo !num_units
+
+    write(*,*) 'seed_point', temp
+
+  end subroutine
 
 
   !###############################################################
@@ -872,7 +913,7 @@ contains
 !!! points with the closest terminal branch. This grouping can be manipulated to take into account
 !!! the size of the initial terminal branches. e.g. smaller diameter --> smaller set of seeds
 
-    do noelem_parent = 1,num_parents
+    do noelem_parent = 1,num_parents ! THIS GOES 6 times for a cluster of data points in RLL
        ne_stem = parentlist(noelem_parent) ! the 'stem' parent element for the 'space'
        map_seed_to_elem = 0 ! initialise the seed mapping array
        num_seeds_in_space = 0 !initialise the number of seed points in the 'space'
@@ -920,7 +961,7 @@ contains
                    call calculate_seed_cofm(map_seed_to_elem,ne,COFM)
                    ! Generate a branch directed towards the centre of mass. Returns location
                    ! of end node in candidate_xyz (adjusted below based on length and shape criteria)
-                   call branch_to_cofm(map_seed_to_elem,ne,np_start,&
+                   call branch_to_cofm(map_seed_to_elem,map_seed_to_space,ne,np_start,&
                         COFM,branch_fraction,length_limit,length_parent,shortest_length,&
                         candidate_xyz,make_branch)
                    node_xyz(1:3,np) = candidate_xyz(1:3) ! the new node location is as returned by 'branch_to_cofm'
@@ -1031,9 +1072,9 @@ contains
                    ! Check the angle of rotation between child and parent branching planes.
                    ! If absolute angle is larger than a user-specified limit, adjust to be
                    ! the limit value. This is used for making sure that the CFD geometry turns out ok.
-                   call check_branch_rotation_plane(map_seed_to_elem,ne,ne_grnd_parent,ne_parent, &
+                   call check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,ne_grnd_parent,ne_parent, &
                         local_parent_temp,num_next_parents, &
-                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit)
+                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit,to_export)
                    internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
                 endif
 
@@ -1053,7 +1094,7 @@ contains
           local_parent(1:num_next_parents) = local_parent_temp(1:num_next_parents)
           ! Regroup the seed points with the closest current parent
           call group_seeds_with_branch(map_seed_to_elem,num_next_parents,num_seeds_from_elem,&
-               num_terminal,local_parent,DISTANCE_LIMIT,.FALSE.)
+               num_terminal,local_parent,DISTANCE_LIMIT,.FALSE.,to_export)
 
        enddo ! while still parent branches
 

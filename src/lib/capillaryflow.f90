@@ -17,7 +17,7 @@ module capillaryflow
   use other_consts
   use precision
   use solve
-  
+
   implicit none
 
 

@@ -34,4 +34,24 @@ call evaluate_prq(mesh_type_f,vessel_type_f,grav_dirn,grav_factor,bc_type_f,inle
 end subroutine evaluate_prq_c
 
 !###################################################################################
+
+subroutine find_occlusion_c(cluster_number, intensity_ratio) bind(C, name="find_occlusion_c")
+
+use utils_c, only: strncpy
+use other_consts, only: MAX_STRING_LEN
+use arrays, only: dp
+use pressure_resistance_flow, only: find_occlusion
+implicit none
+
+real(dp),intent(in) :: cluster_number, intensity_ratio
+
+#if defined _WIN32 && defined __INTEL_COMPILER
+call so_find_occlusion(cluster_number, intensity_ratio)
+#else
+call find_occlusion(cluster_number, intensity_ratio)
+#endif
+
+end subroutine find_occlusion_c
+
+!###################################################################################
 end module pressure_resistance_flow_c
