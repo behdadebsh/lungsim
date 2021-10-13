@@ -26,17 +26,18 @@ module lymphatics
   !Interfaces
 !  private
   public alveolar_capillary_flux
+  public lymphatic_transport
 contains
   
 !!!#############################################################################
   
-  subroutine alveolar_capillary_flux(num_nodes)
+  subroutine alveolar_capillary_flux(ne)
     !*alveolar_capillary_flux:* calculate fluid flux from blood to interstitium
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_ALVEOLAR_CAPILLARY_FLUX" :: ALVEOLAR_CAPILLARY_FLUX
 
     use other_consts,only: pi
     
-    integer,intent(in) :: num_nodes
+    integer,intent(in) :: ne
 
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 0 ! 0 = male, 1 = female
@@ -73,7 +74,7 @@ contains
 
     
     ! Local variables
-    integer :: i,liflowcount,printcount,time_loop
+    integer :: i,liflowcount,nunit,printcount,time_loop
     real(dp) :: alveolar_volume,breathing_function,capillary_flow,capillary_vps,capillary_osmotic,capillary_osm_n, &
          capillary_volume,capillary_volume_raw,cap_osm_conc,diffusion,excess,flux_a,flux_b,flux_c,gas_diffusion_restriction, &
          initial_lymphatic_flow,initial_lymphatic_pressure,initial_lymphatic_surface_area,initial_lymphatic_volume, &
@@ -90,6 +91,14 @@ contains
     sub_name = 'alveolar_capillary_flux'
     call enter_exit(sub_name,1)
 
+    ! get information for the unit fron unit_field 
+    ! ne is the 'linker' element in the artery-capillary-vein model, so nunit is for the parent element
+    nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+    !      unit_field(nu_blood_press,nunit)
+    !      unit_field(nu_tt,nunit)
+    !      unit_field(nu_sa,nunit)
+    ! 
+    
     ! Calculated values
     lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g; gives female lung weight of 639g and male of 840g
     capillary_volume_raw = body_mass/0.3474_dp                  ! Gehr 213 ml and body mass of 74 kg - rough estimate?
@@ -300,11 +309,11 @@ contains
        total_flux = total_hydro_flux ! +total_osm_flux
        sumuptake = sumuptake + initial_lymphatic_flow
        printcount = printcount + 1
-       if (printcount.eq.100)then
-          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time, &
-               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
-               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-               initial_lymphatic_volume,total_flux,alveolar_volume
+       !if (printcount.eq.100)then
+       !   write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time, &
+       !        flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+       !        100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+       !        initial_lymphatic_volume,total_flux,alveolar_volume
 !          write(*,*) 'at ',time, ' s:'
 !          write(*,*) '     flux per second is ',flux_c/transit_time*1000,' ul'
 !          write(*,*) '     interstitial volume is ',interstitial_volume,' mL'
@@ -318,13 +327,42 @@ contains
 !          write(*,*) '     total flux is ',total_flux,' mL'
 !          write(*,*) '     alveolar volume is ',alveolar_volume
           printcount = 0
-       endif
+       !endif
     enddo ! while
+    write(*,'(i8,f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') nunit,time, &
+         flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+         100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+         initial_lymphatic_volume,total_flux,alveolar_volume
     
     call enter_exit(sub_name,2)
     
   end subroutine alveolar_capillary_flux
   
+!!!#############################################################################
+
+  subroutine lymphatic_transport()
+    !*lymphatic_transport:* whole system transport
+    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_LYMPHATIC_TRANSPORT" :: LYMPHATIC_TRANSPORT
+
+    integer :: ne
+    
+    character(len=60) :: sub_name
+    
+    ! --------------------------------------------------------------------------
+    
+    sub_name = 'lymphatic_transport'
+    call enter_exit(sub_name,1)
+
+    do ne = 1,num_elems
+       if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
+          call alveolar_capillary_flux(ne)
+       endif
+    enddo
+
+    call enter_exit(sub_name,2)
+    
+  end subroutine lymphatic_transport
+
 !!!#############################################################################
 
 end module lymphatics
