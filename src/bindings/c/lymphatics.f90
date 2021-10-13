@@ -24,5 +24,21 @@ contains
 !
 !###################################################################################
 !
+!*lymphatic_transport* 
+  subroutine lymphatic_transport_c() bind(C, name="lymphatic_transport_c")
+    use lymphatics,only: lymphatic_transport
+    implicit none
+    
+#if defined _WIN32 && defined __INTEL_COMPILER
+    call so_lymphatic_transport()
+#else
+    call lymphatic_transport()
+#endif
+    
+  end subroutine lymphatic_transport_c
+
+!
+!###################################################################################
+!
 
 end module lymphatics_c
