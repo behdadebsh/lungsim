@@ -139,9 +139,11 @@ contains
 
     do while(time < 32400.0_dp)
        time = time + transit_time
-       write(*,'(''code is running at '',f8.2)')time
-       write(*,'(''time variable '',f8.2)')time_variable
-       write(*,'(''breathing function '',f8.2)')breathing_function
+       !write(*,'(''code is running at '',f8.2)')time
+       !write(*,'(''time variable '',f8.2)')time_variable
+       !write(*,'(''breathing function '',f8.2)')breathing_function
+       write(*,*) 'time=',time,transit_time,time2
+       write(*,*) 'ia,b',interstitial_volume_a, interstitial_volume_b
        do while(time2 < 97.0_dp)
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
           interstitial_saturation = interstitial_volume / interstitial_capacity  ! saturation as a proportion of 0-100%
@@ -154,6 +156,10 @@ contains
                ((-3.98_dp * (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
                8.03_dp * (interstitial_volume_b / interstitial_capacity_b) - 6.52_dp)
           ! pressure determined from saturation equation based of literature (currently linear, but likely not)
+          
+          write(*,*) time_variable,interstitial_pressure_a,interstitial_pressure_b,interstitial_volume_a, &
+               interstitial_volume_b
+          
           if(capillary_pressure > interstitial_pressure_a)then
              flux_a = 0.5_dp * (capillary_conductivity * capillary_SA * (capillary_pressure - &
                   interstitial_pressure_a)) * (transit_time/time_loop)
@@ -172,6 +178,7 @@ contains
           if(interstitial_volume_a + flux_a > interstitial_capacity_a)then
              excess = flux_a - (interstitial_capacity_a - interstitial_volume_a)
              interstitial_volume_a = interstitial_capacity_a
+             write(*,*) 'up1:',interstitial_volume_a
              alveolar_volume = alveolar_volume + 0.5_dp*excess
 
              if((interstitial_volume_b + 0.5_dp*excess) > interstitial_capacity_b)then
@@ -183,6 +190,7 @@ contains
              endif
           else
              interstitial_volume_a = interstitial_volume_a + flux_a
+             write(*,*) 'up2:',interstitial_volume_a, flux_a
           endif
           
           interstitial_volume_b = interstitial_volume_b + flux_b
@@ -191,6 +199,7 @@ contains
                (160_dp*1.1_dp))*(transit_time/time_loop)
           interstitial_volume_b = interstitial_volume_b + diffusion
           interstitial_volume_a = interstitial_volume_a - diffusion
+          write(*,*) 'up3:',interstitial_volume_a, diffusion
           !alveolar_volume = alveolar_volume - 4.45e-5
 
           ! Osmotic
@@ -267,8 +276,8 @@ contains
           !gas_diffusion_restriction = 0.0000152587890625_dp * exp(13.8629436112_dp*(interstitial_saturation/100.0_dp))
 
           time2 = time2 + 1
-       write(*,'(''capillary pressure is '',f8.2)')capillary_pressure
-       write(*,'(''interstitial pressure is '',f8.2)')interstitial_pressure_b
+       !write(*,'(''capillary pressure is '',f8.2)')capillary_pressure
+       !write(*,'(''interstitial pressure is '',f8.2)')interstitial_pressure_b
        enddo
        
        time2 = 1
@@ -281,7 +290,8 @@ contains
        total_flux = total_hydro_flux ! +total_osm_flux
        sumuptake = sumuptake + initial_lymphatic_flow
        printcount = printcount + 1
-       if (printcount.eq.100)then
+       !if (printcount.eq.100)then
+       if (printcount.eq.1)then
           write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time, &
                flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
                100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
@@ -300,6 +310,7 @@ contains
           write(*,*) '     alveolar volume is ',alveolar_volume
           printcount = 0
        endif
+       read(*,*)
     enddo !while
     write(*,'(i8,f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') nunit,time, &
          flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
