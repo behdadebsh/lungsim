@@ -108,6 +108,16 @@ module arrays
     real(dp) :: air_density
   end type fluid_properties
 
+  type default_lymphatic_properties
+     ! default values for lymphatic model parameters
+     real(dp) :: lymphatic_density = 1.0_dp !to be calculated from CT??
+     real(dp) :: lymphatic_integrity = 1.0_dp ! a measure of how 'leaky' the lymphatic vessels are and prone to backflow
+     real(dp) :: reflection_coefficient = 0.0_dp
+  end type default_lymphatic_properties
+
+!!! arrays that start with default values, updated during simulations/by user
+  type(default_lymphatic_properties) :: lymphatic_properties
+  
 ! temporary, for debugging:
   real(dp) :: unit_before
 
@@ -120,8 +130,9 @@ module arrays
          elem_units_below, maxgen,capillary_bf_parameters, zero_tol,loose_tol,gasex_field, &
          num_lines_2d, lines_2d, line_versn_2d, lines_in_elem, nodes_in_line, elems_2d, &
          elem_cnct_2d, elem_nodes_2d, elem_versn_2d, elem_lines_2d, elems_at_node_2d, arclength, &
-         scale_factors_2d, parentlist, fluid_properties, elasticity_vessels, admittance_param, &
-         elasticity_param, all_admit_param
+         scale_factors_2d, parentlist, fluid_properties, lymphatic_properties,  &
+         elasticity_vessels, admittance_param, &
+         elasticity_param, all_admit_param, update_parameter
 
 contains
   subroutine set_node_field_value(row, col, value)
@@ -135,5 +146,24 @@ contains
 
   end subroutine set_node_field_value
 
+  subroutine update_parameter(parameter_name, parameter_value)
+    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_UPDATE_PARAMETER" :: UPDATE_PARAMETER
+    implicit none
+    real(dp), intent(in) :: parameter_value
+    character(len=*), intent(in) :: parameter_name
+    
+    select case(parameter_name)
+       
+!!! lymphatic_properties
+    case('lymphatic_density')
+       lymphatic_properties%lymphatic_density = parameter_value
+    case('lymphatic_integrity')
+       lymphatic_properties%lymphatic_integrity = parameter_value
+    case('reflection_coefficient')
+       lymphatic_properties%reflection_coefficient = parameter_value
+
+    end select
+    
+  end subroutine update_parameter
 
 end module arrays
