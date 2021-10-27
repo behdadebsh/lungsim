@@ -113,6 +113,7 @@ module arrays
      real(dp) :: lymphatic_density = 1.0_dp !to be calculated from CT??
      real(dp) :: lymphatic_integrity = 1.0_dp ! a measure of how 'leaky' the lymphatic vessels are and prone to backflow
      real(dp) :: reflection_coefficient = 0.0_dp
+     real(dp) :: test_time = 86400.0_dp !number of seconds for test to be run
   end type default_lymphatic_properties
 
 !!! arrays that start with default values, updated during simulations/by user
@@ -161,6 +162,8 @@ contains
        lymphatic_properties%lymphatic_integrity = parameter_value
     case('reflection_coefficient')
        lymphatic_properties%reflection_coefficient = parameter_value
+    case('test_time')
+       lymphatic_properties%test_time = parameter_value
 
     end select
     
