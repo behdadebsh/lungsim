@@ -64,9 +64,10 @@ contains
          initial_lymph_conc,initial_osm_n,interstitial_capacity,interstitial_capacity_a,interstitial_capacity_b, &
          interstitial_osmotic,interstitial_pressure_a,interstitial_pressure_b,interstitial_saturation,interstitial_volume, &
          int_osm_conc,int_osm_n,interstitial_volume_a,interstitial_volume_b,lung_mass,lymphatic_conductivity,max_Pe, &
-         min_Pe,net_flux, &
+         min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
+         
     
     character(len=60) :: sub_name
     
@@ -122,6 +123,16 @@ contains
     printcount = 0
     total_hydro_flux = 0.0_dp
 
+    intPmax = -1.00_dp
+    intPmin = -8.00_dp
+    lymphPmax = 1.00_dp
+    lymphPmin = -8.00_dp
+    mx_pe = max_Pe/133.32239_dp
+    mn_pe = min_Pe/133.32239_dp
+    fluctuation = ((mx_pe-mn_pe)/2.0_dp)
+    write(*,'(''max pressure is '',f8.4)')mx_pe
+    write(*,'(''min pressure is '',f8.4)')mn_pe
+    write(*,'(''fluctuation '',f8.4)')fluctuation
     ! dt or n_timesteps should be controlled by the user
     n_timesteps = 96
     dt = transit_time/real(n_timesteps)
@@ -133,8 +144,8 @@ contains
     write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
          &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')') 
 
-!    do while(time < 32400.0_dp)
-    do while(time < 3.0_dp)
+    do while(time < 86400.0_dp)
+!    do while(time < 3.0_dp)
        time_sum = dt
        do while(time_sum < transit_time)
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
@@ -142,12 +153,14 @@ contains
           time_variable = time + time_sum
           
           ! calculating flux from capillary into interstitium
-          interstitial_pressure_a = 1.47_dp * sin(time_variable * breathing_function) + &
-               ((-3.98_dp * (interstitial_volume_a / interstitial_capacity_a)**2.0_dp) + &
-               8.03_dp * (interstitial_volume_a / interstitial_capacity_a) - 6.52_dp)
-          interstitial_pressure_b = 1.47_dp * sin(time_variable * breathing_function) + &
-               ((-3.98_dp * (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
-               8.03_dp * (interstitial_volume_b / interstitial_capacity_b) - 6.52_dp)
+          interstitial_pressure_a = fluctuation * sin(time_variable * breathing_function) + &
+               (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_a / interstitial_capacity_a)**2.0_dp) + &
+               ((intPmin-intPmax+(fluctuation*2.0_dp))*(-2.0_dp)) * (interstitial_volume_a / interstitial_capacity_a) + &
+               (intPmin + fluctuation))
+          interstitial_pressure_b = fluctuation * sin(time_variable * breathing_function) + &
+               (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
+               ((intPmin-intPmax+(fluctuation*2.0_dp))*(-2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b) + &
+               (intPmin + fluctuation))
 
           ! pressure determined from saturation equation based of literature (currently linear, but likely not)
            if(capillary_pressure > interstitial_pressure_a)then
@@ -183,7 +196,7 @@ contains
           
           interstitial_volume_b = interstitial_volume_b + flux_b
           diffusion = (((interstitial_volume_a/interstitial_capacity_a)-(interstitial_volume_b/interstitial_capacity_b))/ &
-               (160.0_dp*1.1_dp)) * dt
+               (340_dp)) * dt
           interstitial_volume_b = interstitial_volume_b + diffusion
           interstitial_volume_a = interstitial_volume_a - diffusion
 
@@ -226,9 +239,9 @@ contains
                   + 11.812_dp)* 4.41335e-8_dp !(capillary_conductivity)
           endif
 
-          initial_lymphatic_pressure = ((1.47_dp * sin(time_variable * breathing_function + pi/2.0_dp)) + &
-               ((6.82_dp* (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + (0.77_dp * (interstitial_volume_b / &
-               interstitial_capacity_b)) - 6.52_dp))
+          initial_lymphatic_pressure = ((fluctuation * sin(time_variable * breathing_function + pi/2.0_dp)) + &
+               (((lymphPmin-lymphPmax+(fluctuation*2.0_dp))* (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
+               (lymphPmin + fluctuation)))
 
           if(interstitial_volume.le.0.0_dp)then
              initial_lymphatic_flow = 0.0_dp
@@ -262,17 +275,26 @@ contains
 
           total_flux = total_hydro_flux ! +total_osm_flux
           sumuptake = sumuptake + initial_lymphatic_flow
-          printcount = printcount + 1
+          !printcount = printcount + 1
           !if (printcount.eq.100)then
-          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
-               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
-               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-               initial_lymphatic_volume,total_flux,alveolar_volume
+!          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
+!               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+!               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+!               initial_lymphatic_volume,total_flux,alveolar_volume
           !endif
 
        enddo
        
        time = time + transit_time
+
+       printcount = printcount + 1
+       if (printcount.eq.100)then
+          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
+               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+               initial_lymphatic_volume,total_flux,alveolar_volume
+          printcount = 0
+       endif
 
     enddo !while
     
