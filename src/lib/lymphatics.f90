@@ -84,6 +84,8 @@ contains
     max_Pe = unit_field(nu_Pe_max,nunit)
     min_Pe = unit_field(nu_Pe_min,nunit)
 
+    write(*,*) 'lp',lymphatic_properties%reflection_coefficient
+
     write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' cmH2O'')') &
          nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/98.0665_dp
 
