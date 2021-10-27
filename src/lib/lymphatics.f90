@@ -85,7 +85,8 @@ contains
     max_Pe = unit_field(nu_Pe_max,nunit)
     min_Pe = unit_field(nu_Pe_min,nunit)
 
-    write(*,*) 'lp',lymphatic_properties%reflection_coefficient
+    write(*,*) 'lp -reflcoef',lymphatic_properties%reflection_coefficient
+    write(*,*) 'ld',lymphatic_properties%lymphatic_density
 
     write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' cmH2O'')') &
          nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/98.0665_dp
@@ -105,7 +106,7 @@ contains
     interstitial_volume_b = 0.49_dp*interstitial_capacity
     alveolar_volume = 0.0_dp
     liflowcount = 0
-    initial_lymphatic_surface_area = capillary_SA*3.648_dp   
+    initial_lymphatic_surface_area = capillary_SA*0.64_dp   
 
     ! initial lymphatic values
     initial_lymphatic_volume = 0.0_dp
@@ -144,7 +145,7 @@ contains
     write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
          &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')') 
 
-    do while(time < 86400.0_dp)
+    do while(time < lymphatic_properties%test_time)
 !    do while(time < 3.0_dp)
        time_sum = dt
        do while(time_sum < transit_time)
@@ -232,11 +233,11 @@ contains
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
              lymphatic_conductivity = 0.9_dp * capillary_conductivity
           else
-             lymphatic_conductivity = ((-1625.1_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
-                  (3815.1_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (-3229.5_dp * &
-                  (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (1258.0_dp * (interstitial_volume_b / &
-                  interstitial_capacity_b)**2.0_dp) + (-213.23_dp * (interstitial_volume_b / interstitial_capacity_b)) &
-                  + 11.812_dp)* 4.41335e-8_dp !(capillary_conductivity)
+             lymphatic_conductivity = ((31.019_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
+                  (-43.674_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (-4.609_dp * &
+                  (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (20.561_dp * (interstitial_volume_b / &
+                  interstitial_capacity_b)**2.0_dp) + (1.4381_dp * (interstitial_volume_b / interstitial_capacity_b)) &
+                  + 0.0288_dp)* 4.41335e-8_dp !(capillary_conductivity)
           endif
 
           initial_lymphatic_pressure = ((fluctuation * sin(time_variable * breathing_function + pi/2.0_dp)) + &
