@@ -41,7 +41,7 @@ contains
 
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 0 ! 0 = male, 1 = female
-    integer,parameter :: au = 32768 ! number of acinar units
+    integer,parameter :: au = 30676 ! number of acinar units
     real(dp),parameter :: height = 175.0_dp, weight = 75.0_dp, body_mass = 74.0_dp
     
     ! Capillary parameters
@@ -85,11 +85,11 @@ contains
     max_Pe = unit_field(nu_Pe_max,nunit)
     min_Pe = unit_field(nu_Pe_min,nunit)
 
-    write(*,*) 'lp -reflcoef',lymphatic_properties%reflection_coefficient
-    write(*,*) 'ld',lymphatic_properties%lymphatic_density
+    !write(*,*) 'lp -reflcoef',lymphatic_properties%reflection_coefficient
+    !write(*,*) 'ld',lymphatic_properties%lymphatic_density
 
-    write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' cmH2O'')') &
-         nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/98.0665_dp
+    write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' mmHg'')') &
+         nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/133.32239_dp
 
     ! Calculated values
     lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g; gives female lung weight of 639g and male of 840g
@@ -103,10 +103,10 @@ contains
     interstitial_capacity_a = 0.005_dp*interstitial_capacity
     interstitial_capacity_b = 0.995_dp*interstitial_capacity
     interstitial_volume_a = 0.0_dp
-    interstitial_volume_b = 0.49_dp*interstitial_capacity
+    interstitial_volume_b = 0.00049_dp*interstitial_capacity
     alveolar_volume = 0.0_dp
     liflowcount = 0
-    initial_lymphatic_surface_area = capillary_SA*0.64_dp   
+    initial_lymphatic_surface_area = capillary_SA  
 
     ! initial lymphatic values
     initial_lymphatic_volume = 0.0_dp
@@ -131,8 +131,7 @@ contains
     mx_pe = max_Pe/133.32239_dp
     mn_pe = min_Pe/133.32239_dp
     fluctuation = ((mx_pe-mn_pe)/2.0_dp)
-    write(*,'(''max pressure is '',f8.4)')mx_pe
-    write(*,'(''min pressure is '',f8.4)')mn_pe
+
     write(*,'(''fluctuation '',f8.4)')fluctuation
     ! dt or n_timesteps should be controlled by the user
     n_timesteps = 96
@@ -146,7 +145,6 @@ contains
          &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')') 
 
     do while(time < lymphatic_properties%test_time)
-!    do while(time < 3.0_dp)
        time_sum = dt
        do while(time_sum < transit_time)
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
@@ -162,9 +160,9 @@ contains
                (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
                ((intPmin-intPmax+(fluctuation*2.0_dp))*(-2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b) + &
                (intPmin + fluctuation))
-
+          !write(*,'(''Pint: '',f8.4)')interstitial_pressure_b
           ! pressure determined from saturation equation based of literature (currently linear, but likely not)
-           if(capillary_pressure > interstitial_pressure_a)then
+          if(capillary_pressure > interstitial_pressure_a)then
              flux_a = 0.5_dp * (capillary_conductivity * capillary_SA * (capillary_pressure - &
                   interstitial_pressure_a)) * dt
           else
@@ -197,7 +195,7 @@ contains
           
           interstitial_volume_b = interstitial_volume_b + flux_b
           diffusion = (((interstitial_volume_a/interstitial_capacity_a)-(interstitial_volume_b/interstitial_capacity_b))/ &
-               (340_dp)) * dt
+               (140_dp)) * dt
           interstitial_volume_b = interstitial_volume_b + diffusion
           interstitial_volume_a = interstitial_volume_a - diffusion
 
@@ -231,30 +229,30 @@ contains
           
           !calculating flux from interstitium to initial lymphatics
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
-             lymphatic_conductivity = 0.9_dp * capillary_conductivity
+             lymphatic_conductivity = 1.48_dp * capillary_conductivity
           else
-             lymphatic_conductivity = ((31.019_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
-                  (-43.674_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (-4.609_dp * &
-                  (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (20.561_dp * (interstitial_volume_b / &
-                  interstitial_capacity_b)**2.0_dp) + (1.4381_dp * (interstitial_volume_b / interstitial_capacity_b)) &
-                  + 0.0288_dp)* 4.41335e-8_dp !(capillary_conductivity)
+             !lymphatic_conductivity = ((-595.5_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
+                  !(1140.8_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (-716.43_dp * &
+                  !(interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (212.1_dp * (interstitial_volume_b / &
+                  !interstitial_capacity_b)**2.0_dp) + (-20.077_dp * (interstitial_volume_b / interstitial_capacity_b)) &
+                  !- 0.0004_dp)* 4.41335e-8_dp !(capillary_conductivity)
+             lymphatic_conductivity = ((-57.556_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
+                  (-268.41_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (593.68_dp * &
+                  (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (-293.78_dp * (interstitial_volume_b / &
+                  interstitial_capacity_b)**2.0_dp) + (47.955_dp * (interstitial_volume_b / interstitial_capacity_b)) &
+                  - 0.0049_dp)* 4.41335e-8_dp !(capillary_conductivity)
           endif
 
-          initial_lymphatic_pressure = ((fluctuation * sin(time_variable * breathing_function + pi/2.0_dp)) + &
-               (((lymphPmin-lymphPmax+(fluctuation*2.0_dp))* (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
+          initial_lymphatic_pressure = fluctuation * sin((time_variable * breathing_function) + pi/2.0_dp) + &
+               ((((lymphPmax-lymphPmin-(fluctuation*2.0_dp))* ((interstitial_volume_b / interstitial_capacity_b)**2.0_dp)) + &
                (lymphPmin + fluctuation)))
-
+          !write(*,'(''Plym: '',f8.4)')initial_lymphatic_pressure
           if(interstitial_volume.le.0.0_dp)then
              initial_lymphatic_flow = 0.0_dp
              interstitial_volume = 0.0_dp
           elseif (interstitial_pressure_b > initial_lymphatic_pressure)then
-             if((lymphatic_conductivity * initial_lymphatic_surface_area * (interstitial_pressure_b-initial_lymphatic_pressure)) &
-                  * dt > ((27.0_dp * capillary_conductivity * capillary_SA) * transit_time)) then
-                initial_lymphatic_flow = ((27.0_dp * capillary_conductivity * capillary_SA) * transit_time)
-             else
-                initial_lymphatic_flow = (lymphatic_conductivity * initial_lymphatic_surface_area * (interstitial_pressure_b - &
+             initial_lymphatic_flow = (lymphatic_conductivity * initial_lymphatic_surface_area * (interstitial_pressure_b - &
                      initial_lymphatic_pressure)) * dt
-             endif
           else
              initial_lymphatic_flow = 0.0_dp
           endif
