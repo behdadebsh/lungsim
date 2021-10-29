@@ -13,6 +13,7 @@ module lymphatics
   use arrays
   use diagnostics
   use indices
+  use other_consts
   use precision ! sets dp for precision
   
   implicit none
@@ -31,13 +32,14 @@ contains
   
 !!!#############################################################################
   
-  subroutine alveolar_capillary_flux(ne)
+  subroutine alveolar_capillary_flux(ne,write_out)
     !*alveolar_capillary_flux:* calculate fluid flux from blood to interstitium
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_ALVEOLAR_CAPILLARY_FLUX" :: ALVEOLAR_CAPILLARY_FLUX
 
     use other_consts,only: pi
     
     integer,intent(in) :: ne
+    logical,intent(in) :: write_out
 
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 0 ! 0 = male, 1 = female
@@ -88,8 +90,10 @@ contains
     !write(*,*) 'lp -reflcoef',lymphatic_properties%reflection_coefficient
     !write(*,*) 'ld',lymphatic_properties%lymphatic_density
 
-    write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' mmHg'')') &
-         nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/133.32239_dp
+    if(write_out)then
+       write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' mmHg'')') &
+            nunit,capillary_pressure,transit_time,capillary_SA,(max_Pe-min_Pe)/133.32239_dp
+    endif
 
     ! Calculated values
     lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g; gives female lung weight of 639g and male of 840g
@@ -132,17 +136,19 @@ contains
     mn_pe = min_Pe/133.32239_dp
     fluctuation = ((mx_pe-mn_pe)/2.0_dp)
 
-    write(*,'(''fluctuation '',f8.4)')fluctuation
+    if(write_out) write(*,'(''fluctuation '',f8.4)')fluctuation
     ! dt or n_timesteps should be controlled by the user
     n_timesteps = 96
     dt = transit_time/real(n_timesteps)
     
     breathing_function = (2.0_dp*pi)/(60.0_dp/breathing_rate)
 
-    write(*,'(8X,''Time|'',5X,''flux/s| intrstl|  a.intrstl| b.intrstl| intrstl|'',X, &
-         &''init lymph|init lymph|     total|  alveolar|'')') 
-    write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
-         &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')') 
+    if(write_out) then
+       write(*,'(8X,''Time|'',5X,''flux/s| intrstl|  a.intrstl| b.intrstl| intrstl|'',X, &
+            &''init lymph|init lymph|     total|  alveolar|'')') 
+       write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
+            &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')')
+    endif
 
     do while(time < lymphatic_properties%test_time)
        time_sum = dt
@@ -286,13 +292,15 @@ contains
        
        time = time + transit_time
 
-       printcount = printcount + 1
-       if (printcount.eq.100)then
-          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
-               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
-               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-               initial_lymphatic_volume,total_flux,alveolar_volume
-          printcount = 0
+       if(write_out)then
+          printcount = printcount + 1
+          if (printcount.eq.100)then
+             write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
+                  flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+                  100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+                  initial_lymphatic_volume,total_flux,alveolar_volume
+             printcount = 0
+          endif
        endif
 
     enddo !while
@@ -303,12 +311,14 @@ contains
   
 !!!#############################################################################
 
-  subroutine lymphatic_transport()
+  subroutine lymphatic_transport(filename)
     !*lymphatic_transport:* whole system transport
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_LYMPHATIC_TRANSPORT" :: LYMPHATIC_TRANSPORT
 
+    character(len=MAX_FILENAME_LEN), intent(in) :: filename
+    ! Local parameters
     integer :: ne
-    
+    character(len=300) :: writefile
     character(len=60) :: sub_name
     
     ! --------------------------------------------------------------------------
@@ -316,12 +326,24 @@ contains
     sub_name = 'lymphatic_transport'
     call enter_exit(sub_name,1)
 
+    if(index(filename, ".oplymph")> 0) then !full filename is given
+       writefile = filename
+    else ! need to append the correct filename extension
+       writefile = trim(filename)//'.oplymph'
+    endif
+    
+    open(10, file=writefile, status='replace')
+    
     do ne = 1,num_elems
        if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
-          call alveolar_capillary_flux(ne)
+          call alveolar_capillary_flux(ne,.false.)
+          write(10,'(i8)') ne
+          write(*,*) ne
        endif
     enddo
 
+    close(10)
+    
     call enter_exit(sub_name,2)
     
   end subroutine lymphatic_transport
