@@ -69,6 +69,9 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
+    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2)
+
+    logical :: continue
          
     
     character(len=60) :: sub_name
@@ -143,14 +146,20 @@ contains
     
     breathing_function = (2.0_dp*pi)/(60.0_dp/breathing_rate)
 
-    if(write_out) then
-       write(*,'(8X,''Time|'',5X,''flux/s| intrstl|  a.intrstl| b.intrstl| intrstl|'',X, &
-            &''init lymph|init lymph|     total|  alveolar|'')') 
-       write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
-            &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')')
-    endif
+!    if(write_out) then
+!       write(*,'(8X,''Time|'',5X,''flux/s| intrstl|  a.intrstl| b.intrstl| intrstl|'',X, &
+!            &''init lymph|init lymph|     total|  alveolar|'')') 
+!       write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
+!            &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')')
+!    endf
 
-    do while(time < lymphatic_properties%test_time)
+    continue = .true.
+    time_av_flux = 0.0_dp
+    time_av_vol = 0.0_dp
+    time_av_flow = 0.0_dp
+    
+    !do while(time < lymphatic_properties%test_time)
+    do while (continue)
        time_sum = dt
        do while(time_sum < transit_time)
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
@@ -289,22 +298,41 @@ contains
           !endif
 
        enddo
-       
+
+       time_av_flux(2) = time_av_flux(1)
+       time_av_flow(2) = time_av_flow(1)
+       time_av_vol(2) = time_av_vol(1)
+       time_av_flux(1) = (time_av_flux(1)*time + flux_c)/(time + transit_time) ! time averaged flux/s
+       time_av_flow(1) = (time_av_flow(1)*time + initial_lymphatic_flow*transit_time)/(time + transit_time)
+       time_av_vol(1) = (time_av_vol(1)*time + interstitial_volume*transit_time)/(time + transit_time)
+
        time = time + transit_time
 
        if(write_out)then
           printcount = printcount + 1
           if (printcount.eq.100)then
-             write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
+             write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), 4(e12.4))') time_variable, &
                   flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
                   100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-                  initial_lymphatic_volume,total_flux,alveolar_volume
+                  initial_lymphatic_volume,total_flux,alveolar_volume,time_av_flux(1)*1000.0_dp,time_av_vol(1), &
+                  time_av_flow(1)*1000.0_dp
              printcount = 0
           endif
        endif
+       
+       if(time.gt.200.0_dp*transit_time)then
+          if((abs(100.0_dp*(time_av_flux(1)-time_av_flux(2))/time_av_flux(2)).le.0.1_dp).and. &
+               (abs(100.0_dp*(time_av_flow(1)-time_av_flow(2))/time_av_flow(2)).le.0.1_dp).and. &
+               (abs(100.0_dp*(time_av_vol(1)-time_av_vol(2))/time_av_vol(2)).le.0.1_dp))then
+             continue = .false.
+          endif
+       endif
+       if(time .gt.10000.0_dp*transit_time) continue = .false.
 
     enddo !while
-    
+
+    unit_field(nu_flux,nunit) = time_av_flux(1)
+
     call enter_exit(sub_name,2)
     
   end subroutine alveolar_capillary_flux
@@ -317,7 +345,7 @@ contains
 
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     ! Local parameters
-    integer :: ne
+    integer :: ne,np,nunit
     character(len=300) :: writefile
     character(len=60) :: sub_name
     
@@ -333,15 +361,19 @@ contains
     endif
     
     open(10, file=writefile, status='replace')
-    
+
     do ne = 1,num_elems
        if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
           call alveolar_capillary_flux(ne,.false.)
-          write(10,'(i8)') ne
-          write(*,*) ne
        endif
     enddo
 
+    do nunit = 1,num_units
+       ne = units(nunit)
+       np = elem_nodes(2,ne)
+       write(10,'(i8,4(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit)
+    enddo
+    
     close(10)
     
     call enter_exit(sub_name,2)
