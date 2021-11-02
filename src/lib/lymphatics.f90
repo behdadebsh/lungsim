@@ -69,7 +69,8 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
-    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2)
+    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_intsat,nu_time,sat1,sat2,sat3,sat4,sat5, &
+         nu_lymphflow,nu_av_flux
 
     logical :: continue
          
@@ -157,6 +158,11 @@ contains
     time_av_flux = 0.0_dp
     time_av_vol = 0.0_dp
     time_av_flow = 0.0_dp
+    sat1 = 1.0_dp
+    sat2 = 2.0_dp
+    sat3 = 3.0_dp
+    sat4 = 4.0_dp
+    sat5 = 5.0_dp
     
     !do while(time < lymphatic_properties%test_time)
     do while (continue)
@@ -311,27 +317,42 @@ contains
        if(write_out)then
           printcount = printcount + 1
           if (printcount.eq.100)then
+             sat5 = sat4
+             sat4 = sat3
+             sat3 = sat2
+             sat2 = sat1
+             sat1 = interstitial_saturation
              write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), 4(e12.4))') time_variable, &
                   flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
                   100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
                   initial_lymphatic_volume,total_flux,alveolar_volume,time_av_flux(1)*1000.0_dp,time_av_vol(1), &
-                  time_av_flow(1)*1000.0_dp
+                  time_av_flow(1)*1000.0_dp,sat1,sat2,sat3,sat4,sat5,(abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1))
              printcount = 0
+             if(time.gt.200.0_dp*transit_time)then
+                if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1)).le.0.000005)then
+                   continue = .false.
+                endif
+             endif
           endif
        endif
        
-       if(time.gt.200.0_dp*transit_time)then
-          if((abs(100.0_dp*(time_av_flux(1)-time_av_flux(2))/time_av_flux(2)).le.0.1_dp).and. &
-               (abs(100.0_dp*(time_av_flow(1)-time_av_flow(2))/time_av_flow(2)).le.0.1_dp).and. &
-               (abs(100.0_dp*(time_av_vol(1)-time_av_vol(2))/time_av_vol(2)).le.0.1_dp))then
-             continue = .false.
-          endif
-       endif
-       if(time .gt.10000.0_dp*transit_time) continue = .false.
+!       if(time.gt.200.0_dp*transit_time)then
+!          if((abs(100.0_dp*(time_av_flux(1)-time_av_flux(2))/time_av_flux(2)).le.0.01_dp).and. &
+!               (abs(100.0_dp*(time_av_flow(1)-time_av_flow(2))/time_av_flow(2)).le.0.01_dp).and. &
+!               (abs(100.0_dp*(time_av_vol(1)-time_av_vol(2))/time_av_vol(2)).le.0.01_dp))then
+!             continue = .false.
+!          endif
+!       endif
+
+       if(time.gt.10000.0_dp*transit_time) continue = .false.
 
     enddo !while
 
     unit_field(nu_flux,nunit) = time_av_flux(1)
+    unit_field(nu_intsat,nunit) = interstitial_saturation
+    !unit_field(nu_time,nunit) = time
+    !unit_field(nu_av_flux,nunit) = total_flux/time
+    !unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
 
     call enter_exit(sub_name,2)
     
@@ -348,7 +369,7 @@ contains
     integer :: ne,np,nunit
     character(len=300) :: writefile
     character(len=60) :: sub_name
-    
+    real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_intsat!,nu_av_flux,nu_lymphflow,nu_time    
     ! --------------------------------------------------------------------------
     
     sub_name = 'lymphatic_transport'
@@ -371,7 +392,8 @@ contains
     do nunit = 1,num_units
        ne = units(nunit)
        np = elem_nodes(2,ne)
-       write(10,'(i8,4(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit)
+       write(10,'(i8,4(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit),unit_field(nu_intsat,nunit)!, &
+       !unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit),unit_field(nu_time,nunit)
     enddo
     
     close(10)
