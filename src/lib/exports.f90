@@ -504,7 +504,6 @@ contains
           VALUE_INDEX=1
           if(FIRST_NODE)THEN
              write(10,'( '' #Fields=3'' )')
-             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
              do nj=1,3
                 if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
@@ -528,8 +527,8 @@ contains
           do nj=1,3
              write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
           enddo !njj2
-          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_flux,NOLIST))
-          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_intsat,nolist))
+          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_flux,NOLIST))
+          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_intsat,nolist))
           
           FIRST_NODE=.FALSE.
           np_last=np
@@ -570,7 +569,6 @@ contains
           VALUE_INDEX=1
           if(FIRST_NODE)THEN
              write(10,'( '' #Fields=8'' )')
-             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
              do nj=1,3
                 if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
