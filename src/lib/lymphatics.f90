@@ -69,7 +69,7 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
-    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_intsat,nu_time,sat1,sat2,sat3,sat4,sat5, &
+    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_time,sat1,sat2,sat3,sat4,sat5, &
          nu_lymphflow,nu_av_flux
 
     logical :: continue
@@ -369,7 +369,7 @@ contains
     integer :: ne,np,nunit
     character(len=300) :: writefile
     character(len=60) :: sub_name
-    real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_intsat!,nu_av_flux,nu_lymphflow,nu_time    
+    real(dp) :: interstitial_saturation,interstitial_pressure_b !,nu_av_flux,nu_lymphflow,nu_time    
     ! --------------------------------------------------------------------------
     
     sub_name = 'lymphatic_transport'
