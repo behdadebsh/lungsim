@@ -69,8 +69,8 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
-    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_time,sat1,sat2,sat3,sat4,sat5, &
-         nu_lymphflow,nu_av_flux
+    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_time,sat1,sat2,sat3,sat4,sat5!, &
+         !nu_lymphflow,nu_av_flux
 
     logical :: continue
          
@@ -252,11 +252,7 @@ contains
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
              lymphatic_conductivity = 1.48_dp * capillary_conductivity
           else
-             !lymphatic_conductivity = ((-57.556_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
-              !    (-268.41_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (593.68_dp * &
-               !   (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (-293.78_dp * (interstitial_volume_b / &
-                !  interstitial_capacity_b)**2.0_dp) + (47.955_dp * (interstitial_volume_b / interstitial_capacity_b)) &
-                 ! - 0.0049_dp)* 4.41335e-8_dp !(capillary_conductivity)
+
              lymphatic_conductivity = ((845.87_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
                   (-2416.7_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (2388.5_dp * &
                   (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (-922.24_dp * (interstitial_volume_b / &
@@ -295,13 +291,6 @@ contains
 
           total_flux = total_hydro_flux ! +total_osm_flux
           sumuptake = sumuptake + initial_lymphatic_flow
-          !printcount = printcount + 1
-          !if (printcount.eq.100)then
-!          write(*,'(f12.2, e12.3, f9.3, e12.3, f11.3, f9.3, e12.3, 2(f11.3), e12.3)') time_variable, &
-!               flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
-!               100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-!               initial_lymphatic_volume,total_flux,alveolar_volume
-          !endif
 
        enddo
 
@@ -350,9 +339,12 @@ contains
 
     unit_field(nu_flux,nunit) = time_av_flux(1)
     unit_field(nu_intsat,nunit) = interstitial_saturation
-    !unit_field(nu_time,nunit) = time
-    !unit_field(nu_av_flux,nunit) = total_flux/time
-    !unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
+    unit_field(nu_time,nunit) = time
+    unit_field(nu_av_flux,nunit) = total_flux/time
+    unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
+    write(*,'('' T='',f9.4,'': intsat='',f4.3,'' %; flux='',f8.7,'' ul/s; avFlux='',f8.7,'' ul/s; lyFlo='',f8.7,'' ul/s'')') &
+         unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
+         unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
 
     call enter_exit(sub_name,2)
     
@@ -370,7 +362,7 @@ contains
     real(dp) :: time_to_run,time_0
     character(len=300) :: writefile
     character(len=60) :: sub_name
-    real(dp) :: interstitial_saturation,interstitial_pressure_b !,nu_av_flux,nu_lymphflow,nu_time    
+    !real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_av_flux,nu_lymphflow,nu_time    
     ! --------------------------------------------------------------------------
     
     sub_name = 'lymphatic_transport'
