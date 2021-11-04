@@ -366,8 +366,8 @@ contains
 
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     ! Local parameters
-    integer :: ne,np,nunit
-    integer :: n_test_run
+    integer :: i,ne,ne_child,np,nunit
+    real(dp) :: time_to_run,time_0
     character(len=300) :: writefile
     character(len=60) :: sub_name
     real(dp) :: interstitial_saturation,interstitial_pressure_b !,nu_av_flux,nu_lymphflow,nu_time    
@@ -384,6 +384,7 @@ contains
     
     open(10, file=writefile, status='replace')
 
+    call cpu_time(time_0)
     do ne = 1,num_elems
        if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
           nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
@@ -392,8 +393,29 @@ contains
           write(10,'(i8,5(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit),unit_field(nu_intsat,nunit)
        endif
     enddo
-    
+    time_to_run = time_0
+    call cpu_time(time_0)
+    time_to_run = time_to_run - time_0
+    write(*,*) 'run time=',time_to_run
     close(10)
+
+    do ne = num_elems,1,-1
+       if(elem_field(ne_group,ne).eq.1.0_dp)then 
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+          elem_field(ne_radius_in0,ne) = unit_field(nu_flux,nunit)
+          elem_field(ne_radius_out0,ne) = unit_field(nu_intsat,nunit)
+       else if(elem_field(ne_group,ne).eq.0.0_dp)then ! artery
+          elem_field(ne_radius_in0,ne) = 0.0_dp
+          elem_field(ne_radius_out0,ne) = 0.0_dp
+          do i = 1,elem_cnct(1,0,ne) ! each child branch
+             ne_child = elem_cnct(1,i,ne)
+             elem_field(ne_radius_in0,ne) = elem_field(ne_radius_in0,ne) + elem_field(ne_radius_in0,ne_child)
+             elem_field(ne_radius_out0,ne) = elem_field(ne_radius_out0,ne) + elem_field(ne_radius_out0,ne_child)
+          enddo
+          elem_field(ne_radius_in0,ne) = elem_field(ne_radius_in0,ne)/real(elem_cnct(1,0,ne))
+          elem_field(ne_radius_out0,ne) = elem_field(ne_radius_out0,ne)/real(elem_cnct(1,0,ne))
+       endif
+    enddo
     
     call enter_exit(sub_name,2)
     
