@@ -303,24 +303,24 @@ contains
 
        time = time + transit_time
 
-       if(write_out)then
-          printcount = printcount + 1
-          if (printcount.eq.100)then
-             sat5 = sat4
-             sat4 = sat3
-             sat3 = sat2
-             sat2 = sat1
-             sat1 = interstitial_saturation
-             !write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), 4(e12.4))') time_variable, &
-             !     flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
-             !     100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-             !     initial_lymphatic_volume,total_flux,alveolar_volume,time_av_flux(1)*1000.0_dp,time_av_vol(1), &
-             !     time_av_flow(1)*1000.0_dp,sat1,sat2,sat3,sat4,sat5,(abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1))
-             printcount = 0
-             if(time.gt.200.0_dp*transit_time)then
-                if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1)).le.0.000005)then
-                   continue = .false.
-                endif
+       printcount = printcount + 1
+       if (printcount.eq.100)then
+          sat5 = sat4
+          sat4 = sat3
+          sat3 = sat2
+          sat2 = sat1
+          sat1 = interstitial_saturation
+          if(write_out)then
+             write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), 4(e12.4))') time_variable, &
+                  flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
+                  100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
+                  initial_lymphatic_volume,total_flux,alveolar_volume,time_av_flux(1)*1000.0_dp,time_av_vol(1), &
+                  time_av_flow(1)*1000.0_dp,sat1,sat2,sat3,sat4,sat5,(abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1))
+          endif
+          printcount = 0
+          if(time.gt.200.0_dp*transit_time)then
+             if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le.0.000005_dp)then
+                continue = .false.
              endif
           endif
        endif
@@ -358,7 +358,8 @@ contains
 
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     ! Local parameters
-    integer :: ne,np,nunit
+    integer :: i,ne,ne_child,np,nunit
+    real(dp) :: time_to_run,time_0
     character(len=300) :: writefile
     character(len=60) :: sub_name
     !real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_av_flux,nu_lymphflow,nu_time    
@@ -375,20 +376,38 @@ contains
     
     open(10, file=writefile, status='replace')
 
+    call cpu_time(time_0)
     do ne = 1,num_elems
        if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
-          call alveolar_capillary_flux(ne,.true.)
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+          call alveolar_capillary_flux(ne,.false.)
+          np = elem_nodes(2,ne)
+          write(10,'(i8,5(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit),unit_field(nu_intsat,nunit)
        endif
     enddo
-
-    do nunit = 1,num_units
-       ne = units(nunit)
-       np = elem_nodes(2,ne)
-       write(10,'(i8,4(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit),unit_field(nu_intsat,nunit), &
-       unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit),unit_field(nu_time,nunit)
-    enddo
-    
+    time_to_run = time_0
+    call cpu_time(time_0)
+    time_to_run = time_to_run - time_0
+    write(*,*) 'run time=',time_to_run
     close(10)
+
+    do ne = num_elems,1,-1
+       if(elem_field(ne_group,ne).eq.1.0_dp)then 
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+          elem_field(ne_radius_in0,ne) = unit_field(nu_flux,nunit)
+          elem_field(ne_radius_out0,ne) = unit_field(nu_intsat,nunit)
+       else if(elem_field(ne_group,ne).eq.0.0_dp)then ! artery
+          elem_field(ne_radius_in0,ne) = 0.0_dp
+          elem_field(ne_radius_out0,ne) = 0.0_dp
+          do i = 1,elem_cnct(1,0,ne) ! each child branch
+             ne_child = elem_cnct(1,i,ne)
+             elem_field(ne_radius_in0,ne) = elem_field(ne_radius_in0,ne) + elem_field(ne_radius_in0,ne_child)
+             elem_field(ne_radius_out0,ne) = elem_field(ne_radius_out0,ne) + elem_field(ne_radius_out0,ne_child)
+          enddo
+          elem_field(ne_radius_in0,ne) = elem_field(ne_radius_in0,ne)/real(elem_cnct(1,0,ne))
+          elem_field(ne_radius_out0,ne) = elem_field(ne_radius_out0,ne)/real(elem_cnct(1,0,ne))
+       endif
+    enddo
     
     call enter_exit(sub_name,2)
     
