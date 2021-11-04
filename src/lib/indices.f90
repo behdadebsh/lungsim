@@ -257,7 +257,7 @@ contains
     call enter_exit(sub_name,1)
     
     ! indices for unit_field
-    num_nu = 8
+    num_nu = 11
     nu_perf = 1
     nu_blood_press = 2
     nu_sa = 3

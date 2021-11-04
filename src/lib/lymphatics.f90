@@ -69,7 +69,7 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
-    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),nu_time,sat1,sat2,sat3,sat4,sat5!, &
+    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),sat1,sat2,sat3,sat4,sat5!, &
          !nu_lymphflow,nu_av_flux
 
     logical :: continue
@@ -342,7 +342,7 @@ contains
     unit_field(nu_time,nunit) = time
     unit_field(nu_av_flux,nunit) = total_flux/time
     unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
-    write(*,'('' T='',f9.4,'': intsat='',f4.3,'' %; flux='',f8.7,'' ul/s; avFlux='',f8.7,'' ul/s; lyFlo='',f8.7,'' ul/s'')') &
+    write(*,'('' T='',e12.3,'': intsat='',e12.3,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.3,'' ul/s'')') &
          unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
          unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
 
