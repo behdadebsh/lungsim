@@ -107,14 +107,14 @@ contains
 
     ! interstitial values
     ! interstitial_capacity == maximal volume before spillover into alveolar in mm^3 - based on 30ml.100g of fluid (Drake 2002)
-    interstitial_capacity = ((30.0_dp*(lung_mass/100.0_dp))/real(num_units))*1000.0_dp 
+    interstitial_capacity = ((30.0_dp*(lung_mass/100.0_dp))/real(num_units))*1000.0_dp
     interstitial_capacity_a = 0.005_dp*interstitial_capacity
     interstitial_capacity_b = 0.995_dp*interstitial_capacity
     interstitial_volume_a = 0.0_dp
     interstitial_volume_b = 0.49_dp*interstitial_capacity
     alveolar_volume = 0.0_dp
     liflowcount = 0
-    initial_lymphatic_surface_area = capillary_SA  
+    initial_lymphatic_surface_area = capillary_SA
 
     ! initial lymphatic values
     initial_lymphatic_volume = 0.0_dp
@@ -250,7 +250,7 @@ contains
           
           !calculating flux from interstitium to initial lymphatics
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
-             lymphatic_conductivity = 1.48_dp * capillary_conductivity
+             lymphatic_conductivity = 1.48_dp * 4.41335e-8_dp!capillary_conductivity
           else
 
              lymphatic_conductivity = ((845.87_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
@@ -311,11 +311,10 @@ contains
           sat2 = sat1
           sat1 = interstitial_saturation
           if(write_out)then
-             write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), 4(e12.4))') time_variable, &
+             write(*,'(f12.2, e12.4, f9.4, e12.4, f11.4, f9.4, e12.4, 2(f11.4), f12.8,f12.4)') time_variable, &
                   flux_c/transit_time*1000.0_dp,interstitial_volume,interstitial_volume_a,interstitial_volume_b, &
                   100.0_dp*interstitial_saturation,initial_lymphatic_flow*1000.0_dp, &
-                  initial_lymphatic_volume,total_flux,alveolar_volume,time_av_flux(1)*1000.0_dp,time_av_vol(1), &
-                  time_av_flow(1)*1000.0_dp,sat1,sat2,sat3,sat4,sat5,(abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5)-sat1))
+                  initial_lymphatic_volume,total_flux,alveolar_volume,interstitial_pressure_b
           endif
           printcount = 0
           if(time.gt.200.0_dp*transit_time)then
@@ -342,7 +341,7 @@ contains
     unit_field(nu_time,nunit) = time
     unit_field(nu_av_flux,nunit) = total_flux/time
     unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
-    write(*,'('' T='',e12.3,'': intsat='',e12.3,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.3,'' ul/s'')') &
+    write(*,'('' T='',e12.3,'': intsat='',e12.6,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.6,'' ul/s'')') &
          unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
          unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
 
@@ -382,7 +381,8 @@ contains
           nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
           call alveolar_capillary_flux(ne,.false.)
           np = elem_nodes(2,ne)
-          write(10,'(i8,5(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_flux,nunit),unit_field(nu_intsat,nunit)
+          write(10,'(i8,6(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_av_flux,nunit),unit_field(nu_intsat,nunit), &
+               unit_field(nu_lymphflow,nunit)
        endif
     enddo
     time_to_run = time_0
