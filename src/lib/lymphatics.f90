@@ -331,7 +331,6 @@ contains
 !             continue = .false.
 !          endif
 !       endif
-
        if(time.gt.10000.0_dp*transit_time) continue = .false.
 
     enddo !while

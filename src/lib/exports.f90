@@ -503,7 +503,7 @@ contains
           !*** Write the field information
           VALUE_INDEX=1
           if(FIRST_NODE)THEN
-             write(10,'( '' #Fields=6'' )')
+             write(10,'( '' #Fields=7'' )')
              write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
              do nj=1,3
                 if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
@@ -536,6 +536,11 @@ contains
              write(10,'('' 6) cap_SA, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             VALUE_INDEX=VALUE_INDEX+1
+
+             write(10,'('' 6) lymf_flow, field, rectangular cartesian, #Components=1'')')
+             write(10,'(2X,''1.  '')',advance="no")
+             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
@@ -547,6 +552,7 @@ contains
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_tt,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_blood_press,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_sa,nolist))
+          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_lymphflow,nolist))
           
           FIRST_NODE=.FALSE.
           np_last=np
