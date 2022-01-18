@@ -43,19 +43,21 @@ contains
 
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 0 ! 0 = male, 1 = female
-    integer,parameter :: au = 30676 ! number of acinar units
-    real(dp),parameter :: height = 175.0_dp, weight = 75.0_dp, body_mass = 74.0_dp
+    !sex only determines the weight and therefore size of the lung. Should be updated based on CT
+    integer,parameter :: au = 30676 ! number of acinar units - currently manually updated but should be imported directly. 
+    real(dp),parameter :: height = 175.0_dp, weight = 75.0_dp, body_mass = 74.0_dp !placeholders values
+    !bodymass used to calculate capillary volume
     
     ! Capillary parameters
-    real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp !  obtained from literature - Parker range in cm H2O
+    real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp !ml/s/mmHg  obtained from Parker (6e-8 cm H2O)
 
     ! Osmotic pressure parameters
-    real(dp),parameter :: capillary_molar_conc = 0.0010250_dp ! mol/L in blood plasma
+    real(dp),parameter :: capillary_molar_conc = 0.0010250_dp ! this number is currenlty g/L, likely needs to change for osmolar to work...
     real(dp),parameter :: IGC = 62.3630_dp ! ideal gas constant in mmHg.L.mol-1.K-1
     real(dp),parameter :: T = 310.0_dp ! temperature in Kelvin - based on 37C blood temp
 
     ! Simulation parameters
-    real(dp),parameter :: breathing_rate = 15.0_dp
+    real(dp),parameter :: breathing_rate = 15.0_dp !constant but should be imported directly from ventilation model
 
     
     ! Local variables
@@ -85,7 +87,7 @@ contains
     ! get information for the unit fron unit_field 
     ! ne is the 'linker' element in the artery-capillary-vein model, so nunit is for the parent element
     nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
-    capillary_pressure = unit_field(nu_blood_press,nunit)/133.0_dp
+    capillary_pressure = unit_field(nu_blood_press,nunit)/133.0_dp !converted to mmHg
     transit_time = unit_field(nu_tt,nunit)
     capillary_SA = unit_field(nu_sa,nunit)
     max_Pe = unit_field(nu_Pe_max,nunit)
@@ -100,21 +102,23 @@ contains
     endif
 
     ! Calculated values
-    lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g; gives female lung weight of 639g and male of 840g
-    open_capillaries = 1.0_dp/6.0_dp
-    capillary_volume_raw = body_mass/0.3474_dp                  ! Gehr 213 ml and body mass of 74 kg - rough estimate?
+    lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g;female lung weight of 639g and male of 840g - should be updated from CT
+    open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model
+    capillary_volume_raw = body_mass/0.3474_dp  !gives a capillary volume of 213 ml (Gehr 1978) based on a body mass of 74 kg 
     capillary_volume = (capillary_volume_raw*open_capillaries)/real(num_units)
 
     ! interstitial values
     ! interstitial_capacity == maximal volume before spillover into alveolar in mm^3 - based on 30ml.100g of fluid (Drake 2002)
-    interstitial_capacity = ((30.0_dp*(lung_mass/100.0_dp))/real(num_units))*1000.0_dp
-    interstitial_capacity_a = 0.005_dp*interstitial_capacity
-    interstitial_capacity_b = 0.995_dp*interstitial_capacity
+    interstitial_capacity = ((30.0_dp*(lung_mass/100.0_dp))/real(num_units))*1000.0_dp !based on lung mass which should be obtained from CT
+    interstitial_capacity_a = 0.005_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
+    interstitial_capacity_b = 0.995_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
     interstitial_volume_a = 0.0_dp
-    interstitial_volume_b = 0.49_dp*interstitial_capacity
-    alveolar_volume = 0.0_dp
+    interstitial_volume_b = 0.48_dp*interstitial_capacity !assumed to be around 48% saturated at rest
+    alveolar_volume = 0.0_dp !alveolar volume likely greater at rest, but is lost to respiration - further information needed to put in model
     liflowcount = 0
-    initial_lymphatic_surface_area = capillary_SA
+    initial_lymphatic_surface_area = capillary_SA !initial lymphatic SA assumed to be the same as capillary SA as no other indication. 
+    !both initial lymphatic SA and initial lymphatic hydraulic conductivity make up the filtration coefficient and currently it is the 
+    !hydraulic conductivity that is adjusted to compensate
 
     ! initial lymphatic values
     initial_lymphatic_volume = 0.0_dp
@@ -167,6 +171,9 @@ contains
     !do while(time < lymphatic_properties%test_time)
     do while (continue)
        time_sum = dt
+       if(transit_time.le.0.001)then
+          continue =.false.
+       endif
        do while(time_sum < transit_time)
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
           interstitial_saturation = interstitial_volume / interstitial_capacity  ! saturation as a proportion of 0-100%
@@ -177,6 +184,9 @@ contains
                (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_a / interstitial_capacity_a)**2.0_dp) + &
                ((intPmin-intPmax+(fluctuation*2.0_dp))*(-2.0_dp)) * (interstitial_volume_a / interstitial_capacity_a) + &
                (intPmin + fluctuation))
+          !arbitrarily defined mathematical relationship between interstitial volume and pressure: (same for a and b)
+          !interstitial pressure changes a lot at low volumes with a small volume change, but at high volumes
+          !a large volume change is needed to cause a small change in pressure
           interstitial_pressure_b = fluctuation * sin(time_variable * breathing_function) + &
                (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
                ((intPmin-intPmax+(fluctuation*2.0_dp))*(-2.0_dp)) * (interstitial_volume_b / interstitial_capacity_b) + &
@@ -250,7 +260,8 @@ contains
           
           !calculating flux from interstitium to initial lymphatics
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
-             lymphatic_conductivity = 1.48_dp * 4.41335e-8_dp!capillary_conductivity
+             lymphatic_conductivity = 1.48_dp * 4.41335e-8_dp!all calculated does as a function of capillary_conductivity
+          !no information on the size of pores or similar for lympatic conductivity so assumed to be similar to capillary.
           else
 
              lymphatic_conductivity = ((845.87_dp * (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
@@ -263,6 +274,8 @@ contains
           initial_lymphatic_pressure = fluctuation * sin((time_variable * breathing_function) + pi/2.0_dp) + &
                ((((lymphPmax-lymphPmin-(fluctuation*2.0_dp))* ((interstitial_volume_b / interstitial_capacity_b)**2.0_dp)) + &
                (lymphPmin + fluctuation)))
+          !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a 
+          !large volume change, but at high volumes only a small volume change is needed to cause a large change in pressure
           !write(*,'(''Plym: '',f8.4)')initial_lymphatic_pressure
           if(interstitial_volume.le.0.0_dp)then
              initial_lymphatic_flow = 0.0_dp
@@ -318,7 +331,7 @@ contains
           endif
           printcount = 0
           if(time.gt.200.0_dp*transit_time)then
-             if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le.0.000005_dp)then
+             if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le.0.000005_dp)then 
                 continue = .false.
              endif
           endif
