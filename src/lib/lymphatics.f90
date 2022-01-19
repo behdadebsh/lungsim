@@ -44,12 +44,9 @@ contains
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 0 ! 0 = male, 1 = female
     !sex only determines the weight and therefore size of the lung. Should be updated based on CT
-    integer,parameter :: au = 30676 ! number of acinar units - currently manually updated but should be imported directly. 
-    real(dp),parameter :: height = 175.0_dp, weight = 75.0_dp, body_mass = 74.0_dp !placeholders values
-    !bodymass used to calculate capillary volume
     
     ! Capillary parameters
-    real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp !ml/s/mmHg  obtained from Parker (6e-8 cm H2O)
+    real(dp),parameter :: capillary_conductivity = 4.41335e-8 !ml/s/Pa  obtained from Parker (6e-8 cm H2O)
 
     ! Osmotic pressure parameters
     real(dp),parameter :: capillary_molar_conc = 0.0010250_dp ! this number is currenlty g/L, likely needs to change for osmolar to work...
@@ -71,8 +68,7 @@ contains
          min_Pe,net_flux,fluctuation,mx_pe,mn_pe,intPmax,intPmin,lymphPmax,lymphPmin, &
          open_capillaries,osm_flux,osm_n_flux,overflow,sumflux,sumuptake,test_time,time,time_period,time_sum, &
          time_variable,total_flux,total_hydro_flux,total_osm_flux,capillary_pressure,transit_time,capillary_SA
-    real(dp) :: time_av_flow(2),time_av_flux(2),time_av_vol(2),sat1,sat2,sat3,sat4,sat5!, &
-         !nu_lymphflow,nu_av_flux
+    real(dp) :: sat1,sat2,sat3,sat4,sat5
 
     logical :: continue
          
@@ -87,14 +83,12 @@ contains
     ! get information for the unit fron unit_field 
     ! ne is the 'linker' element in the artery-capillary-vein model, so nunit is for the parent element
     nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
-    capillary_pressure = unit_field(nu_blood_press,nunit)/133.0_dp !converted to mmHg
+    capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp !converted to mmHg 
     transit_time = unit_field(nu_tt,nunit)
     capillary_SA = unit_field(nu_sa,nunit)
     max_Pe = unit_field(nu_Pe_max,nunit)
     min_Pe = unit_field(nu_Pe_min,nunit)
 
-    !write(*,*) 'lp -reflcoef',lymphatic_properties%reflection_coefficient
-    !write(*,*) 'ld',lymphatic_properties%lymphatic_density
 
     if(write_out)then
        write(*,'('' Unit'',i8,'': Pblood='',f7.2,'' mmHg; TT='',f7.2,'' s; SA='',f8.2,'' mm^2; Pe range='',f6.2,'' mmHg'')') &
@@ -103,9 +97,10 @@ contains
 
     ! Calculated values
     lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g;female lung weight of 639g and male of 840g - should be updated from CT
-    open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model
-    capillary_volume_raw = body_mass/0.3474_dp  !gives a capillary volume of 213 ml (Gehr 1978) based on a body mass of 74 kg 
+    open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model?
+    capillary_volume_raw = 213.00_dp  !Gehr 1978 based on having a body mass of 74 kg - should be unique to each person 
     capillary_volume = (capillary_volume_raw*open_capillaries)/real(num_units)
+    !Only used for the osmotic model at the moment (which isn't operational) can volume be obtained elsewhere?
 
     ! interstitial values
     ! interstitial_capacity == maximal volume before spillover into alveolar in mm^3 - based on 30ml.100g of fluid (Drake 2002)
@@ -151,17 +146,8 @@ contains
     
     breathing_function = (2.0_dp*pi)/(60.0_dp/breathing_rate)
 
-!    if(write_out) then
-!       write(*,'(8X,''Time|'',5X,''flux/s| intrstl|  a.intrstl| b.intrstl| intrstl|'',X, &
-!            &''init lymph|init lymph|     total|  alveolar|'')') 
-!       write(*,'(9X,''(s)|'',7X,''(uL)| vol(mL)|    vol(mL)|   vol(mL)|  sat(%)|'',3X, &
-!            &''flux(uL)|   vol(mL)|  flux(mL)|    vol(?)|'')')
-!    endf
-
     continue = .true.
-    time_av_flux = 0.0_dp
-    time_av_vol = 0.0_dp
-    time_av_flow = 0.0_dp
+
     sat1 = 1.0_dp
     sat2 = 2.0_dp
     sat3 = 3.0_dp
@@ -260,7 +246,7 @@ contains
           
           !calculating flux from interstitium to initial lymphatics
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
-             lymphatic_conductivity = 1.48_dp * 4.41335e-8_dp!all calculated does as a function of capillary_conductivity
+             lymphatic_conductivity = 1.48_dp * 4.41335e-8 !all calculated does as a function of capillary_conductivity
           !no information on the size of pores or similar for lympatic conductivity so assumed to be similar to capillary.
           else
 
@@ -268,7 +254,7 @@ contains
                   (-2416.7_dp * (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + (2388.5_dp * &
                   (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + (-922.24_dp * (interstitial_volume_b / &
                   interstitial_capacity_b)**2.0_dp) + (125.85_dp * (interstitial_volume_b / interstitial_capacity_b)) &
-                  - 0.0067_dp)* 4.41335e-8_dp !(capillary_conductivity)
+                  - 0.0067_dp)* 4.41335e-8 !(capillary_conductivity)
           endif
 
           initial_lymphatic_pressure = fluctuation * sin((time_variable * breathing_function) + pi/2.0_dp) + &
@@ -307,13 +293,6 @@ contains
 
        enddo
 
-       time_av_flux(2) = time_av_flux(1)
-       time_av_flow(2) = time_av_flow(1)
-       time_av_vol(2) = time_av_vol(1)
-       time_av_flux(1) = (time_av_flux(1)*time + flux_c)/(time + transit_time) ! time averaged flux/s
-       time_av_flow(1) = (time_av_flow(1)*time + initial_lymphatic_flow*transit_time)/(time + transit_time)
-       time_av_vol(1) = (time_av_vol(1)*time + interstitial_volume*transit_time)/(time + transit_time)
-
        time = time + transit_time
 
        printcount = printcount + 1
@@ -336,19 +315,11 @@ contains
              endif
           endif
        endif
-       
-!       if(time.gt.200.0_dp*transit_time)then
-!          if((abs(100.0_dp*(time_av_flux(1)-time_av_flux(2))/time_av_flux(2)).le.0.01_dp).and. &
-!               (abs(100.0_dp*(time_av_flow(1)-time_av_flow(2))/time_av_flow(2)).le.0.01_dp).and. &
-!               (abs(100.0_dp*(time_av_vol(1)-time_av_vol(2))/time_av_vol(2)).le.0.01_dp))then
-!             continue = .false.
-!          endif
-!       endif
+
        if(time.gt.10000.0_dp*transit_time) continue = .false.
 
     enddo !while
 
-    unit_field(nu_flux,nunit) = time_av_flux(1)
     unit_field(nu_intsat,nunit) = interstitial_saturation
     unit_field(nu_time,nunit) = time
     unit_field(nu_av_flux,nunit) = total_flux/time
