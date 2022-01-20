@@ -428,3 +428,19 @@ contains
 !!!#############################################################################
 
 end module lymphatics
+
+
+!FUTURE DIRECTIONS
+!input a constant to account for difference between current values and expected values
+     !Model appeared to be working within the range of the literature but is likely off by a factor of 1000 due to nl to ul conversion error. 
+     !Need to check that outputted units are correct - most things are in ml and mmHg
+!Lymphatic network tree
+     !currently all lymph is returned to the circulation immediately, in reality it moves up a tree of lymphatics against a pressure gradient
+     !would require excessive modelling perhaps
+!impairment of gas diffusion caused by high interstitial saturation
+     !unclear at what level this would occur
+!alveolar flooding changes
+     !alveolar flooding should be able to move between adjacent compartments
+     !alveolar fluid should be removed via respiration naturally and therefore should always occur naturally at some low level
+!individuality needs to be added in line with the other modules
+     !currently operates only on preset male/female values
