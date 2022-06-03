@@ -24,6 +24,7 @@ module growtree
   use diagnostics
   use geometry
   use indices
+  ! use imports
   use other_consts   !! pi
   use mesh_utilities   !! general functions for geometric/mesh calculations
   use math_utilities   !! general utility functions for sorting etc
@@ -824,7 +825,9 @@ contains
     real(dp),intent(in) :: shortest_length          ! length that short branches are reset to (shortest in model)
     real(dp),intent(in) :: rotation_limit           ! maximum angle of rotation of branching plane
     logical,intent(in) :: to_export                 ! option to export terminal element mapping to datapoints
-    character(len=*),intent(in) :: filename
+    ! logical,intent(in) :: use_mapping               ! option to use mapping of terminals to seed points
+    character(len=*),intent(in) :: filename         ! to_export filename
+    character(len=MAX_FILENAME_LEN) :: map_loc, cluster_file          ! mapping file location
 
     !Local variables
     integer,allocatable :: local_parent(:)          ! stores current generation of local parent elements
@@ -1639,8 +1642,248 @@ contains
 
   end function vector_for_angle_limit
 
+!
+!###############################################################
+!
+  subroutine apply_mapping(map_loc, cluster_file, map_seed_to_space)
 
-  !###############################################################
+    integer,intent(inout) :: map_seed_to_space(:)
+    character(len=MAX_FILENAME_LEN),intent(in) :: map_loc ! Data point to terminal elements map
+    character(len=MAX_FILENAME_LEN),intent(in) :: cluster_file ! Clusters with terminal nodes and elems
+    !local variables
+    integer :: ierror,data_number,nunit,ne,label,iounit,ios, term_elem,i,j,k,counter,temp
+    character(LEN=132) :: ctemp1
+    integer,allocatable :: data_points(:), data_label(:)
+    real(dp),allocatable :: x(:),y(:),z(:),cofm_labels(:,:),dist(:),matching_stem_dist(:),angle(:) ! first one label tag and second is x,y,z
+    real(dp) :: x_coor,y_coor,z_coor,sum_x,sum_y,sum_z,min, temp_dist,x_dir,y_dir,z_dir
+    integer,allocatable :: num_labels(:),matching_stem_clusters(:)
+    real(dp) :: U(3),V(3)
+    integer :: offset
+    character(len=100) :: EXDATAFILE
+    character(len=100) :: name
+    character(len=60) :: sub_name
+    integer,parameter :: num_coords = 3
+    integer nd,nj
+
+    sub_name = 'apply_mapping'
+    call enter_exit(sub_name,1)
+
+    allocate(data_points(num_data))
+    allocate(data_label(num_data))
+    allocate(x(num_data))
+    allocate(y(num_data))
+    allocate(z(num_data))
+    allocate(cofm_labels(count(parentlist.ne.0),3))
+    allocate(dist(count(parentlist.ne.0)))
+    allocate(angle(count(parentlist.ne.0)))
+    allocate(matching_stem_clusters(count(parentlist.ne.0)))
+    allocate(matching_stem_dist(count(parentlist.ne.0)))
+    allocate(num_labels(count(parentlist.ne.0))) ! allocate based on the number of stems, should be matching with
+    ! number of clusters in each lobe
+
+    num_labels = 0 ! initialise
+    counter = 1 ! initialise counter of different labels
+    sum_x = 0
+    sum_y = 0
+    sum_z = 0
+    dist = 0
+
+    open(30, file=cluster_file, iostat=ios, action='READ')
+    do i=1,num_data !define a do loop name
+      !.......read map file
+      ! write(*,*) num_data
+      read(30, *, iostat=ios) data_number, term_elem, x_coor, y_coor, z_coor, label
+        ! data_number = get_final_integer(ctemp1)
+        data_points(i) = data_number
+        x(i) = data_xyz(1,data_number)
+        y(i) = data_xyz(2,data_number)
+        z(i) = data_xyz(3,data_number)
+        data_label(i) = label
+        if(count(num_labels.eq.label).eq.0)then ! label not added to the list yet
+          num_labels(counter) = label
+          counter = counter + 1
+        endif
+    end do
+! write(*,*) num_labels
+! temp = find_location(num_labels,7)
+! write(*,*) temp
+! temp = find_location(num_labels,10)
+! write(*,*) temp
+! temp = find_location(num_labels,9)
+! write(*,*) temp
+! write(*,*) 'STOP'
+! pause
+!!! Find center of each cluster to see it is closest to which stem
+    do i=1,count(parentlist.ne.0) ! do for each cluster in the lobe
+      do j=1,num_data
+        if(data_label(j).eq.num_labels(i))then
+          sum_x = sum_x + x(j)
+          sum_y = sum_y + y(j)
+          sum_z = sum_z + z(j)
+        endif
+      end do !num_data
+      cofm_labels(i,1)=sum_x/(count(data_label.eq.num_labels(i)))
+      cofm_labels(i,2)=sum_y/(count(data_label.eq.num_labels(i)))
+      cofm_labels(i,3)=sum_z/(count(data_label.eq.num_labels(i)))
+      sum_x = 0 ! reset
+      sum_y = 0 ! reset
+      sum_z = 0 ! reset
+    enddo !count parentlist
+    ! call match_stem_to_cluster()
+    ! write(*,*) 'cluster cofm x:', cofm_labels(:,1)
+    ! write(*,*) 'cluster cofm y:', cofm_labels(:,2)
+    ! write(*,*) 'cluster cofm z:', cofm_labels(:,3)
+    matching_stem_clusters = 0 ! initialise
+    matching_stem_dist = 0 ! initialise
+    do i=1,count(parentlist.ne.0)
+      ne = parentlist(i) ! the stem parent element
+      ! write(*,*) 'ne:', ne
+      ! write(*,*) 'node:', elem_nodes(2,ne)
+      ! pause
+      x_coor = node_xyz(1,elem_nodes(2,ne)) ! the x coor for the stem
+      y_coor = node_xyz(2,elem_nodes(2,ne)) ! the y coor for the stem
+      z_coor = node_xyz(3,elem_nodes(2,ne)) ! the z coor for the stem
+
+      U(1) = node_xyz(1,elem_nodes(2,ne)) - node_xyz(1,elem_nodes(1,ne)) ! x component of elem vecor
+      U(2) = node_xyz(2,elem_nodes(2,ne)) - node_xyz(2,elem_nodes(1,ne)) ! y component of elem vecor
+      U(3) = node_xyz(3,elem_nodes(2,ne)) - node_xyz(3,elem_nodes(1,ne)) ! z component of elem vecor
+      ! write(*,*) 'node coords:', x_coor,y_coor,z_coor
+      ! pause
+      do j=1,count(parentlist.ne.0)
+        V(1) = cofm_labels(j,1) - x_coor
+        V(2) = cofm_labels(j,2) - y_coor
+        V(3) = cofm_labels(j,3) - z_coor
+        angle(j) = angle_btwn_vectors(U,V)
+        angle(j) = angle(j)*180/3.14
+      enddo
+
+! write(*,*) angle
+! pause
+
+      if(count(matching_stem_clusters.eq.minloc(angle,DIM=1)).eq.0)then
+        matching_stem_clusters(i) = minloc(angle,DIM=1)
+        matching_stem_dist(i) = angle(minloc(angle,DIM=1))
+      else
+        ! write(*,*) 'it exists'
+        if(matching_stem_dist(find_location(matching_stem_clusters,minloc(angle,DIM=1)))&
+        .gt.angle(minloc(angle,DIM=1)))then
+          temp_dist = matching_stem_dist(find_location(matching_stem_clusters,minloc(angle,DIM=1)))
+          matching_stem_dist(find_location(matching_stem_clusters,minloc(angle,DIM=1))) = angle(minloc(angle,DIM=1))
+          matching_stem_dist(i) = temp_dist
+          temp = matching_stem_clusters(find_location(matching_stem_clusters,minloc(angle,DIM=1)))
+          matching_stem_clusters(find_location(matching_stem_clusters,minloc(angle,DIM=1))) = minloc(angle,DIM=1)
+          matching_stem_clusters(i) = temp
+        else
+          matching_stem_clusters(i) = i
+          matching_stem_dist(i) = angle(minloc(angle,DIM=1))
+        endif
+      endif
+
+    end do
+name = 'datagrid_points'
+matching_stem_clusters(1) = 1
+matching_stem_clusters(2) = 3
+matching_stem_clusters(3) = 2
+matching_stem_clusters(4) = 4
+    write(*,*) matching_stem_clusters
+    write(*,*) matching_stem_dist
+    ! pause
+    ! exfile = trim(exdatafile)//'.exdata'
+
+
+    open(90, file = 'RML_data_field.exdata', status = 'replace')
+    !**   write the group name
+    write(90,'( '' Group name: '',A)') trim(name)
+    write(90,'(1X,''#Fields=2'')')
+    write(90,'(1X,''1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
+    write(90,'(1X,''  x.  Value index= 1, #Derivatives=0'')')
+    write(90,'(1X,''  y.  Value index= 2, #Derivatives=0'')')
+    write(90,'(1X,''  z.  Value index= 3, #Derivatives=0'')')
+    write(90,'(1X,''2) stem_number, field, rectangular cartesian, #Components=1'')')
+    write(90,'(1X,''  stem.  Value index= 4, #Derivatives=0'')')
+
+
+    ! Now it is time to assign map_seed_to_space array with for each data to a stem
+    ! write(*,*) num_data
+    do i=1,num_data
+
+      ! write(*,*) i
+      ! write(*,*) data_label(i)
+      ! write(*,*) num_labels
+      temp = find_location(num_labels,data_label(i))
+      ! write(*,*) temp
+      temp = find_location(matching_stem_clusters,temp)
+      ! write(*,*) matching_stem_clusters
+      ! write(*,*) temp
+      ! write(*,*) data_points(i)
+      map_seed_to_space(data_points(i))=parentlist(temp)
+      ! pause
+
+      ! if(to_export)then
+  !!! export vertices as nodes
+! write(*,*) data_xyz(:,2486)
+
+
+  ! do nd = 1,num_data
+     write(90,'(1X,''Node: '',I9)') data_points(i)
+     write(90,'(1X,3E13.5)')  data_xyz(:,data_points(i))!(data_xyz(nj,i),nj=1,num_coords)
+     write(90,'(1X,I9)') parentlist(temp)
+  ! enddo !NOLIST
+
+
+    end do
+close(90)
+! do i=1,num_data
+! if(map_seed_to_space(i).ne.60)then
+!   map_seed_to_space(i)=0
+! endif
+! end do
+! parentlist(1)=60
+! parentlist(2)=0
+! parentlist(3)=0
+! parentlist(4)=0
+! write(*,*) map_seed_to_space(1)
+! write(*,*) map_seed_to_space(2486)
+! write(*,*) map_seed_to_space(1059)
+   end subroutine
+
+!
+!################################################################
+!
+function find_location(array,value)
+  ! This function gets a 1D array of integers and finds the location of given value in it
+  ! and returns the index of the first found matching value
+
+  integer,intent(in) :: array(:)
+  integer,intent(in) :: value
+
+  integer :: i,find_location
+  logical :: FOUND
+
+  i = 0 ! initialise
+  FOUND=.False. ! initialise
+  ! write(*,*) FOUND
+  ! write(*,*) array, value
+  ! pause
+  do while(.not.FOUND)
+    i = i + 1
+    if(array(i).eq.value)then
+      ! write(*,*) 'here'
+      FOUND=.True.
+    endif
+  end do
+  find_location = i
+  ! write(*,*) 'i:', i, find_location, FOUND, value
+
+!   write(*,*) data_label(3)
+!   write(*,*) parentlist(1), parentlist(2), parentlist(3), parentlist(4)
+  ! pause
+!
+end function find_location
+
+!
+!########################################
+!
 
 end module growtree
 

@@ -39,6 +39,7 @@ module arrays
   integer,allocatable :: elems_at_node_2d(:,:)
   integer,allocatable :: units(:)
   integer,allocatable :: elem_CTEPH(:) ! elem_occluded because of CTEPH - 0 not occluded, 1 occluded
+  integer,allocatable :: data_points(:), data_label(:)  ! variables growing into cluster mapping
 
   real(dp),allocatable :: arclength(:,:)
   real(dp),allocatable :: elem_field(:,:) !properties of elements
@@ -51,6 +52,7 @@ module arrays
   real(dp),allocatable :: unit_field(:,:) !properties of elastic units
   real(dp),allocatable :: node_field(:,:)
   real(dp),allocatable :: scale_factors_2d(:,:)
+  real(dp),allocatable :: x(:),y(:),z(:) ! variables growing into cluster mapping
 
   logical,allocatable :: expansile(:)
 
@@ -122,7 +124,7 @@ module arrays
          num_lines_2d, lines_2d, line_versn_2d, lines_in_elem, nodes_in_line, elems_2d, &
          elem_cnct_2d, elem_nodes_2d, elem_versn_2d, elem_lines_2d, elems_at_node_2d, arclength, &
          scale_factors_2d, parentlist, fluid_properties, elasticity_vessels, admittance_param, &
-         elasticity_param, all_admit_param
+         elasticity_param, all_admit_param, data_points, x, y, z, data_label
 
 contains
   subroutine set_node_field_value(row, col, value)
