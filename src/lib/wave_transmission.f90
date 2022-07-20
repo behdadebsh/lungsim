@@ -83,6 +83,8 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
   integer :: AllocateStatus,fid=10,fid2=20,fid3=30,fid4=40,fid5=50,fid6=60,fid7=70,fid8=80,fid9=90
   integer :: fid10=100,fid11=110,fid12=120,fid13=130
   character(len=60) :: sub_name
+  logical :: vein_found=.False.
+  integer :: vein_elem=0
 
   sub_name = 'evalulate_wave_transmission'
   call enter_exit(sub_name,1)
@@ -431,6 +433,12 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
     open(fid11, file = 'Inlet_reflected_flow.txt',action='write')
     open(fid12, file = 'Inlet_forward_pressure.txt',action='write')
     open(fid13, file = 'Inlet_reflected_pressure.txt',action='write')
+    open(140, file = 'Outlet_pressure.txt',action='write')
+    open(150, file = 'Outlet_flow.txt', action='write')
+    open(160, file = 'Outlet_forward_pressure.txt',action='write')
+    open(170, file = 'Outlet_reflected_pressure.txt',action='write')
+    open(180, file = 'Outlet_forward_flow.txt',action='write')
+    open(190, file = 'Outlet_reflected_flow.txt',action='write')
     ne = 1 ! MPA inlet element
     forward_pressure=0.0_dp ! reseting the for MPA
     reflected_pressure=0.0_dp ! reseting the for MPA
@@ -531,6 +539,98 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
     write(fid12,fmt=*) forward_pressure !Inlet forward pressure
     write(fid13,fmt=*) reflected_pressure !Inlet reflected pressure
 
+    do ne = 1, num_elems
+      if((elem_field(ne_group,ne).eq.2.0_dp).and.(vein_found.eqv..False.))  then !only applying on veins
+        vein_found = .True.
+        vein_elem = ne
+      endif
+    end do
+
+!! Extracting the waveforms at the venous outlet !!!!!!!!!!!!!!!!!!!!
+
+    ne = vein_elem  !!!
+    ! write(*,*) 'ne =', ne
+    forward_pressure=0.0_dp ! resetting the array for outlet
+    reflected_pressure=0.0_dp ! resetting the array for outlet
+    forward_flow=0.0_dp ! resetting the array for outlet
+    reflected_flow=0.0_dp ! resetting the array for outlet
+    if (bc_type.eq.'pressure')then
+      do nt=1,n_time
+          do nf=1,no_freq
+              omega=2*pi*nf*harmonic_scale
+              forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
+
+              reflected_pressure(nt)=reflected_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+
+              forward_flow(nt)=forward_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+              reflected_flow(nt)=reflected_flow(nt)+abs(char_admit(nf,ne))*abs(p_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))+&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+          enddo
+          time=time+dt
+      enddo
+    elseif(bc_type.eq.'flow')then
+      do nt=1,n_time
+          do nf=1,no_freq
+              omega=2*pi*nf*harmonic_scale
+
+              forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+              cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
+              atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+              reflected_pressure(nt)=reflected_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8))-&
+                  atan2(dimag(char_admit(nf,ne)),real(char_admit(nf,ne), 8)))
+
+              forward_flow(nt)=forward_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8)))
+
+              reflected_flow(nt)=reflected_flow(nt)+abs(q_factor(nf,ne))*a(nf)*&
+                  abs(reflect(nf,ne))*exp((-2*elem_field(ne_length,ne))*(real(prop_const(nf,ne), 8)))*&
+                  cos(omega*time+b(nf)+&
+                  atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))+&
+                  (-2*elem_field(ne_length,ne))*(dimag(prop_const(nf,ne)))+&
+                  atan2(dimag(reflect(nf,ne)),real(reflect(nf,ne), 8)))
+
+          enddo
+          time=time+dt
+      enddo
+    else
+      print *, "ERROR: Boundary condition type not recognised. Choose flow or pressure type."
+      call exit(0)
+    endif
+    np=elem_nodes(2,ne) ! outlet node
+    ! write(*,*) 'static pressure:',node_field(nj_bv_press,np)
+    ! write(*,*) 'static flow:', elem_field(ne_Qdot,ne)
+    ! write(*,*) 'forward:', forward_pressure(10)
+    ! write(*,*) 'reflected:', reflected_pressure(10)
+    ! pause
+    write(140,fmt=*) forward_pressure+reflected_pressure + node_field(nj_bv_press,np) !Outlet total pressure
+    write(150,fmt=*) forward_flow - reflected_flow + elem_field(ne_Qdot,ne) !Outlet total flow waveform
+    write(160,fmt=*) forward_pressure !Outlet forward flow
+    write(170,fmt=*) reflected_pressure !Outlet reflected flow
+    write(180,fmt=*) forward_flow !Outlet forward pressure
+    write(190,fmt=*) reflected_flow !Outlet reflected pressure
 
     close(fid)
     close(fid2)
