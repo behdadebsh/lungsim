@@ -538,7 +538,7 @@ contains
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              VALUE_INDEX=VALUE_INDEX+1
 
-             write(10,'('' 6) lymf_flow, field, rectangular cartesian, #Components=1'')')
+             write(10,'('' 7) lymf_flow, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
@@ -547,7 +547,7 @@ contains
           do nj=1,3
              write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
           enddo !njj2
-          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_flux,NOLIST))
+          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_av_flux,NOLIST))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_intsat,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_tt,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_blood_press,nolist))

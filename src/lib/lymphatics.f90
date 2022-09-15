@@ -47,6 +47,7 @@ contains
     
     ! Capillary parameters
     real(dp),parameter :: capillary_conductivity = 4.41335e-8 !ml/s/Pa  obtained from Parker (6e-8 cm H2O)
+    !real(dp),parameter :: capillary_conductivity = 9.26e-8 !ml/s/Pa  obtained from Parker (6e-8 cm H2O)
 
     ! Osmotic pressure parameters
     real(dp),parameter :: capillary_molar_conc = 0.0010250_dp ! this number is currenlty g/L, likely needs to change for osmolar to work...
@@ -324,9 +325,9 @@ contains
     unit_field(nu_time,nunit) = time
     unit_field(nu_av_flux,nunit) = total_flux/time
     unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
-    write(*,'('' T='',e12.3,'': intsat='',e12.6,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.6,'' ul/s'')') &
-         unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
-         unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
+    !write(*,'('' T='',e12.3,'': intsat='',e12.6,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.6,'' ul/s'')') &
+    !     unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
+    !     unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
 
     call enter_exit(sub_name,2)
     
@@ -364,8 +365,9 @@ contains
           nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
           call alveolar_capillary_flux(ne,.false.)
           np = elem_nodes(2,ne)
-          write(10,'(i8,6(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_av_flux,nunit),unit_field(nu_intsat,nunit), &
-               unit_field(nu_lymphflow,nunit)
+          write(10,'(i8,11(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_av_flux,nunit),unit_field(nu_intsat,nunit), &
+               unit_field(nu_lymphflow,nunit),unit_field(nu_blood_press,nunit),unit_field(nu_tt,nunit), &
+               unit_field(nu_sa,nunit),unit_field(nu_Pe_max,nunit),unit_field(nu_Pe_min,nunit)
        endif
     enddo
     time_to_run = time_0
