@@ -42,7 +42,7 @@ contains
     logical,intent(in) :: write_out
 
     ! Baseline value parameters (eventually will be user-defined?)
-    integer,parameter :: sex = 0 ! 0 = male, 1 = female
+    integer,parameter :: sex = 1 ! 0 = male, 1 = female
     !sex only determines the weight and therefore size of the lung. Should be updated based on CT
     
     ! Capillary parameters
