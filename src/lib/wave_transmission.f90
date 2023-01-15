@@ -35,7 +35,7 @@ contains
 !##############################################################################
 !
 subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,no_freq,a,b,n_adparams,&
-admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
+admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type,lobe_imped)
 !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_EVALUATE_WAVE_TRANSMISSION" :: EVALUATE_WAVE_TRANSMISSION
 
   integer, intent(in) :: n_time
@@ -52,6 +52,7 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
   integer, intent(in) :: cap_model
   integer, intent(in) :: remodeling_grade
   character(len=60) :: bc_type
+  character(len=60) :: lobe_imped
 
   type(all_admit_param) :: admit_param
   type(fluid_properties) :: fluid
@@ -276,6 +277,79 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type)
         call tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
             min_art,max_art,tree_direction)
     endif
+
+    if(lobe_imped.eq.'ON') then ! export lobe imped
+      open(350, file = 'lobe_imped.txt',action='write')
+      write(350,fmt=*) 'input impedance to each lobe: *** Unit [dyne.s/cm5]***'
+      ! LUL artery and vein admittance
+      write(350,fmt=*) 'LUL Arterial:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,11))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+10)))/elem_field(ne_Qdot,11),10000.0/abs(eff_admit(:,11))
+      write(350,fmt=*) 'LUL Vein:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+10))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,11), 10000.0/abs(eff_admit(:,min_ven+10))
+
+      ! LLL artery and vein admittance
+      write(350,fmt=*) 'LLL Arterial:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,20))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+19)))/elem_field(ne_Qdot,20),10000.0/abs(eff_admit(:,20))
+      write(350,fmt=*) 'LLL Vein:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+19))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,20), 10000.0/abs(eff_admit(:,min_ven+19))
+
+      ! RUL artery and vein admittance
+      write(350,fmt=*) 'RUL Arterial:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,15))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+14)))/elem_field(ne_Qdot,15),10000.0/abs(eff_admit(:,15))
+      write(350,fmt=*) 'RUL Vein:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+14))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,15), 10000.0/abs(eff_admit(:,min_ven+14))
+
+      ! RML artery and vein admittance
+      write(350,fmt=*) 'RML Arterial:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,24))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+23)))/elem_field(ne_Qdot,24),10000.0/abs(eff_admit(:,24))
+      write(350,fmt=*) 'RML Vein:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+23))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,24), 10000.0/abs(eff_admit(:,min_ven+23))
+
+      ! RLL artery and vein admittance
+      write(350,fmt=*) 'RLL Arterial:'
+      write(350,fmt=*) 10000*(node_field(nj_bv_press,elem_nodes(1,23))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+22)))/elem_field(ne_Qdot,23),10000.0/abs(eff_admit(:,23))
+      write(350,fmt=*) 'RLL Vein:'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+22))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,23), 10000.0/abs(eff_admit(:,min_ven+22))
+
+      ! Main branches (apart from lobes)
+      write(350,fmt=*) 'Left MPA (Artery):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,5))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+4)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,5))
+      write(350,fmt=*) 'Left MPV (Vein):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+4))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,min_ven+4))
+      write(350,fmt=*) 'Left Basal segment (Artery):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,12))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+11)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,12))
+      write(350,fmt=*) 'Left Basal segment (Vein):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+11))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,min_ven+11))
+
+      write(350,fmt=*) 'Right Basal segment (Artery):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,16))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+15)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,16))
+      write(350,fmt=*) 'Right Basal segment (Vein):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+15))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,min_ven+15))
+      write(350,fmt=*) 'Right MPA (Artery):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,8))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+7)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,8))
+      write(350,fmt=*) 'Right MPV (Vein):'
+      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+7))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,min_ven+7))
+
+      close(350)
+    endif ! export lobe admittance
 
     !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
     !Also need to implement in reverse for veins
