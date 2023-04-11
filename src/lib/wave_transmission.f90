@@ -86,6 +86,14 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type,lob
   character(len=60) :: sub_name
   logical :: vein_found=.False.
   integer :: vein_elem=0
+  integer, parameter :: num_freq = 11, num_vessels = 17, num_units = 2
+  integer :: i, j
+  real :: freq(num_freq)
+  character(len=5) :: vessel_names(num_vessels) = ["LUL_A", "LUL_V", "LLL_A", "LLL_V", "RUL_A", "RUL_V", "RLL_A", "RLL_V",&
+  "RML_A", "RML_V", "MPA_A", "LPA_A", "RPA_A", "RBS_A", "RBS_A", "LBS_A", "LBS_V"]
+  real, dimension(num_vessels,num_freq) :: impedance, phase
+  ! character(len=10) :: units(num_units) = ["dyne.s/cm5", "radians"]
+  real(dp), dimension(num_freq) :: imped
 
   sub_name = 'evalulate_wave_transmission'
   call enter_exit(sub_name,1)
@@ -279,76 +287,408 @@ admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type,lob
     endif
 
     if(lobe_imped.eq.'ON') then ! export lobe imped
-      open(350, file = 'lobe_imped.txt',action='write')
-      write(350,fmt=*) 'input impedance to each lobe: *** Unit [dyne.s/cm5]***'
-      ! LUL artery and vein admittance
-      write(350,fmt=*) 'LUL Arterial:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,11))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+10)))/elem_field(ne_Qdot,11),10000.0/abs(eff_admit(:,11))
-      write(350,fmt=*) 'LUL Vein:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+10))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,11), 10000.0/abs(eff_admit(:,min_ven+10))
 
-      ! LLL artery and vein admittance
-      write(350,fmt=*) 'LLL Arterial:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,20))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+19)))/elem_field(ne_Qdot,20),10000.0/abs(eff_admit(:,20))
-      write(350,fmt=*) 'LLL Vein:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+19))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,20), 10000.0/abs(eff_admit(:,min_ven+19))
 
-      ! RUL artery and vein admittance
-      write(350,fmt=*) 'RUL Arterial:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,15))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+14)))/elem_field(ne_Qdot,15),10000.0/abs(eff_admit(:,15))
-      write(350,fmt=*) 'RUL Vein:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+14))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,15), 10000.0/abs(eff_admit(:,min_ven+14))
+      ! Set values for impedance and phase matrices
+      ! impedance = reshape([975.12437203886839, 701.58231088090110, 265.61160871318305, &
+      ! 125.18073936735560, 106.44827798133517, 188.63117813623359, &
+      ! 343.18298919219205, 437.36409999931237, 357.61971756348890, &
+      ! 263.72733307042643, 172.17698577390567, &
+      ! 975.12437203886839, 701.58231088090110, 265.61160871318305, &
+      ! 125.18073936735560, 106.44827798133517, 188.63117813623359, &
+      ! 343.18298919219205, 437.36409999931237, 357.61971756348890, &
+      ! 263.72733307042643, 172.17698577390567], [num_vessels,num_freq])
+      ! phase = reshape([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, &
+      ! 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [num_vessels,num_freq])
+      ! Open output file
+      open(unit=10, file='lobe_imped.json', status='replace')
+      ! Write header and frequency values
+      freq(1) = 0
+      do j = 2, no_freq+1
+        freq(j) = (j-1)*harmonic_scale
+      enddo
+      write(10, *) "{"
+      write(10, *) " ""frequency"": [", freq(1), ",", (freq(i),",",i=2,num_freq-1), freq(num_freq), "],"
+      ! Write vessel names
+      ! write(10, *) " ""vessel_names"": [""", vessel_names(1), """,", (vessel_names(i),",",i=2,num_vessels-1),&
+      !  vessel_names(num_vessels), "],"
+      write(10, *) '"vessel_names": ["LUL_A","LUL_V","LLL_A","LLL_V","RUL_A","RUL_V","RLL_A","RLL_V","RML_A","RML_V","MPA_A",&
+      "LPA_A","RPA_A","RBS_A","RBS_A","LBS_A","LBS_V"],'
+      ! Write impedance and phase matrices
+      write(10, *) " ""impedance"":{"
 
-      ! RML artery and vein admittance
-      write(350,fmt=*) 'RML Arterial:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,24))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+23)))/elem_field(ne_Qdot,24),10000.0/abs(eff_admit(:,24))
-      write(350,fmt=*) 'RML Vein:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+23))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,24), 10000.0/abs(eff_admit(:,min_ven+23))
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,11))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+10)))/elem_field(ne_Qdot,11)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,11))
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+10))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,11)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+10))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,20))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+19)))/elem_field(ne_Qdot,20)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,20))
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+19))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,20)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+19))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,15))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+14)))/elem_field(ne_Qdot,15)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,15))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+14))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,15)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+14))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,23))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+22)))/elem_field(ne_Qdot,23)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,23))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+22))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,23)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+22))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,24))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+23)))/elem_field(ne_Qdot,24)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,24))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+23))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,24)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+23))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,1))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,1)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,1))
+      enddo
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,5))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+4)))/elem_field(ne_Qdot,5)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,5))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,8))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+7)))/elem_field(ne_Qdot,8)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,16))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+15)))/elem_field(ne_Qdot,16)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,16))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+15))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,16)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+15))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,12))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven+11)))/elem_field(ne_Qdot,12)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,12))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+11))-node_field&
+      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,12)
+      do i = 1, no_freq
+        imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+11))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
 
-      ! RLL artery and vein admittance
-      write(350,fmt=*) 'RLL Arterial:'
-      write(350,fmt=*) 10000*(node_field(nj_bv_press,elem_nodes(1,23))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+22)))/elem_field(ne_Qdot,23),10000.0/abs(eff_admit(:,23))
-      write(350,fmt=*) 'RLL Vein:'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+22))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,23), 10000.0/abs(eff_admit(:,min_ven+22))
+      write(10, *) " ""unit"": ""dyne.s/cm5"""
+      write(10, *) " },"
+      write(10, *) " ""phase"":{"
 
-      ! Main branches (apart from lobes)
-      write(350,fmt=*) 'Left MPA (Artery):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,5))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+4)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,5))
-      write(350,fmt=*) 'Left MPV (Vein):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+4))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,min_ven+4))
-      write(350,fmt=*) 'Left Basal segment (Artery):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,12))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+11)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,12))
-      write(350,fmt=*) 'Left Basal segment (Vein):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+11))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,min_ven+11))
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,11)),real(eff_admit(i,11), 8))
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+10)),real(eff_admit(i,min_ven+10), 8))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,20)),real(eff_admit(i,20), 8))
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+19)),real(eff_admit(i,min_ven+19), 8))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,15)),real(eff_admit(i,15), 8))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+14)),real(eff_admit(i,min_ven+14), 8))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,23)),real(eff_admit(i,23), 8))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+22)),real(eff_admit(i,min_ven+22), 8))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,24)),real(eff_admit(i,24), 8))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+23)),real(eff_admit(i,min_ven+23), 8))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,1)),real(eff_admit(i,1), 8))
+      enddo
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,5)),real(eff_admit(i,5), 8))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,8)),real(eff_admit(i,8), 8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,16)),real(eff_admit(i,16), 8))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+15)),real(eff_admit(i,min_ven+15), 8))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,12)),real(eff_admit(i,12), 8))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+11)),real(eff_admit(i,min_ven+11), 8))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      ! write(10, *) " ""LUL_A"":", phase(:,1)
+      ! write(10, *) " ""LUL_V"":", phase(:,2)
+      write(10, *) " ""unit"": ""radians"""
+      write(10, *) " }"
+      write(10, *) "}"
+      close(10)
 
-      write(350,fmt=*) 'Right Basal segment (Artery):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,16))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+15)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,16))
-      write(350,fmt=*) 'Right Basal segment (Vein):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+15))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,min_ven+15))
-      write(350,fmt=*) 'Right MPA (Artery):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,8))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven+7)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,8))
-      write(350,fmt=*) 'Right MPV (Vein):'
-      write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+7))-node_field&
-      (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,min_ven+7))
 
-      close(350)
+      ! open(350, file = 'lobe_imped.txt',action='write')
+      ! write(350,fmt=*) 'input impedance to each lobe: *** Unit [dyne.s/cm5]***'
+      ! ! LUL artery and vein admittance
+      ! write(350,fmt=*) 'LUL Arterial:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,11))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+10)))/elem_field(ne_Qdot,11),10000.0/abs(eff_admit(:,11))
+      ! write(350,fmt=*) 'LUL Vein:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+10))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,11), 10000.0/abs(eff_admit(:,min_ven+10))
+      !
+      ! ! LLL artery and vein admittance
+      ! write(350,fmt=*) 'LLL Arterial:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,20))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+19)))/elem_field(ne_Qdot,20),10000.0/abs(eff_admit(:,20))
+      ! write(350,fmt=*) 'LLL Vein:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+19))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,20), 10000.0/abs(eff_admit(:,min_ven+19))
+      !
+      ! ! RUL artery and vein admittance
+      ! write(350,fmt=*) 'RUL Arterial:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,15))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+14)))/elem_field(ne_Qdot,15),10000.0/abs(eff_admit(:,15))
+      ! write(350,fmt=*) 'RUL Vein:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+14))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,15), 10000.0/abs(eff_admit(:,min_ven+14))
+      !
+      ! ! RML artery and vein admittance
+      ! write(350,fmt=*) 'RML Arterial:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,24))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+23)))/elem_field(ne_Qdot,24),10000.0/abs(eff_admit(:,24))
+      ! write(350,fmt=*) 'RML Vein:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+23))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,24), 10000.0/abs(eff_admit(:,min_ven+23))
+      !
+      ! ! RLL artery and vein admittance
+      ! write(350,fmt=*) 'RLL Arterial:'
+      ! write(350,fmt=*) 10000*(node_field(nj_bv_press,elem_nodes(1,23))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+22)))/elem_field(ne_Qdot,23),10000.0/abs(eff_admit(:,23))
+      ! write(350,fmt=*) 'RLL Vein:'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+22))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,23), 10000.0/abs(eff_admit(:,min_ven+22))
+      !
+      ! ! Main branches (apart from lobes)
+      ! write(350,fmt=*) 'Left MPA (Artery):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,5))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+4)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,5))
+      ! write(350,fmt=*) 'Left MPV (Vein):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+4))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,5), 10000.0/abs(eff_admit(:,min_ven+4))
+      ! write(350,fmt=*) 'Left Basal segment (Artery):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,12))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+11)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,12))
+      ! write(350,fmt=*) 'Left Basal segment (Vein):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+11))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,12), 10000.0/abs(eff_admit(:,min_ven+11))
+      !
+      ! write(350,fmt=*) 'Right Basal segment (Artery):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,16))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+15)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,16))
+      ! write(350,fmt=*) 'Right Basal segment (Vein):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+15))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,16), 10000.0/abs(eff_admit(:,min_ven+15))
+      ! write(350,fmt=*) 'Right MPA (Artery):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,8))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven+7)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,8))
+      ! write(350,fmt=*) 'Right MPV (Vein):'
+      ! write(350,fmt=*)10000*(node_field(nj_bv_press,elem_nodes(1,min_ven+7))-node_field&
+      ! (nj_bv_press,elem_nodes(2,min_ven)))/elem_field(ne_Qdot,8), 10000.0/abs(eff_admit(:,min_ven+7))
+      !
+      ! close(350)
     endif ! export lobe admittance
 
     !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
