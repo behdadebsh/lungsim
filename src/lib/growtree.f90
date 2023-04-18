@@ -129,7 +129,7 @@ contains
     use indices
     use math_utilities,only: sort_real_list
     use mesh_utilities,only: distance_between_points,unit_vector,vector_length
-    
+
     integer :: map_seed_to_elem(*),nen,np1
     real(dp) :: COFM(3),branch_fraction,length_limit,length_parent,&
          shortest_length,candidate_xyz(3)
@@ -258,7 +258,7 @@ contains
 
     use mesh_utilities,only: distance_between_points
     use other_consts
-    
+
     integer :: map_seed_to_elem(*),ne,ne_grnd_parent,ne_parent, &
          num_next_parents,np,np1,np2,np3,num_terminal
     ! np == end node; np1 == np_start; np2 == np_prnt_start; np3 == np_grnd_start
@@ -371,7 +371,7 @@ contains
     use mesh_utilities,only: angle_btwn_vectors,cross_product,distance_between_points, &
          unit_vector
     use other_consts
-    
+
     integer,intent(in) :: ne,np00,np0,np1,np2,np3,np4
     real(dp),intent(in) :: rotation_limit
 
@@ -615,7 +615,7 @@ contains
     use indices
     use math_utilities,only: sort_integer_list
     use mesh_utilities,only: distance_between_points,inlist
-    
+
     integer :: num_next_parents,local_parent(:),map_array(:),num_seeds_from_elem(*),&
          num_terminal
     real(dp),intent(in) :: DISTANCE_LIMIT
@@ -697,7 +697,7 @@ contains
           N_ELM_TEMP=N_ELM_TEMP-1
           local_parent(N)=0
           num_terminal=num_terminal+1
-          
+
        else if(num_seeds_from_elem(ne_min).eq.1)then
           do nd=1,num_data
              if(map_array(nd).eq.ne_min)then
@@ -707,11 +707,11 @@ contains
                 num_terminal=num_terminal+1
              endif
           enddo !nd
-          
+
        endif !num_seeds_from_elem
 !       write(*,'('' '',i6,'','')', advance = "no") num_seeds_from_elem(ne_min)
     enddo !N
-    
+
     do N=1,num_next_parents
        if(local_parent(N).eq.0)then
           I=0
@@ -724,7 +724,7 @@ contains
        endif !local_parent
     enddo !N
     num_next_parents = N_ELM_TEMP
-    
+
     call sort_integer_list(num_next_parents,local_parent)
 
     deallocate(my_closest)
@@ -736,15 +736,15 @@ contains
 
 
 !!!#############################################################################
-  
+
   subroutine grow_tree(surface_elems,parent_ne,angle_max,angle_min,&
        branch_fraction,length_limit,shortest_length,rotation_limit)
-    !interface to the grow_recursive_tree subroutine 
+    !interface to the grow_recursive_tree subroutine
 
     use geometry,only: element_connectivity_1d,evaluate_ordering, &
          group_elem_parent_term,reallocate_node_elem_arrays,triangles_from_surface
     use mesh_utilities,only: get_local_elem_2d
-    
+
     integer,intent(in)  :: surface_elems(:)         ! list of surface elements defining the host region
     integer,intent(in)  :: parent_ne                ! stem branch that supplies 'parents' to grow from
     real(dp),intent(in) :: angle_max                ! maximum branch angle with parent; in degrees
@@ -774,7 +774,7 @@ contains
 
 !!! get the list of current terminal elements that subtend parent_ne.
 !!! these will be the initial branches for growing
-    call group_elem_parent_term(parent_list,parent_ne) 
+    call group_elem_parent_term(parent_list,parent_ne)
 
 !!! estimate the number of elements in the generated model based on the
 !!! number of data (seed) points. i.e. N = 2*N_data - 1.
@@ -791,14 +791,14 @@ contains
 
 !!! update the tree connectivity
     call element_connectivity_1d
-    
+
 !!! calculate branch generations and orders
     call evaluate_ordering
 
 !!! deallocate temporary arrays
     if(allocated(elem_list)) deallocate(elem_list)
     deallocate(parent_list)
-    
+
   end subroutine grow_tree
 
   !###############################################################
@@ -813,7 +813,7 @@ contains
     use indices
     use mesh_utilities,only: calc_branch_direction,distance_between_points, &
          get_local_elem_2d,inlist,point_internal_to_surface
-    
+
     integer,intent(in)  :: num_vertices,num_elems_new
     integer,intent(in)  :: parent_list(:)           ! list of end branch elements to grow from
     integer,intent(in)  :: parent_ne                ! the stem branch element (e.g. lobar) that subtends the list
@@ -861,6 +861,9 @@ contains
 !!! number of parent branches) to the number of parent branches.
     local_parent(1:size(parent_list)) = parent_list(1:size(parent_list))
     num_parents = count(parent_list.ne.0) !initial number of 'terminal' parent branches
+    ! write(*,*) 'parent_list:', parent_list
+    ! write(*,*) 'num_parents:', num_parents
+    ! pause
 
     NUM_SEEDS_FROM_ELEM = 0
     num_next_parents = num_parents
@@ -887,6 +890,7 @@ contains
 !!! growing is done into 'spaces', where each 'space' is the initial grouping of seed
 !!! points with the closest terminal branch. This grouping can be manipulated to take into account
 !!! the size of the initial terminal branches. e.g. smaller diameter --> smaller set of seeds
+! write(*,*) 'num_parents:', num_parents
 
     do noelem_parent = 1,num_parents
        ne_stem = parent_list(noelem_parent) ! the 'stem' parent element for the 'space'
@@ -1087,9 +1091,9 @@ contains
     deallocate(num_seeds_from_elem)
 
 !    call smooth_1d_tree(ne_start,length_limit)
-    
+
     call enter_exit(sub_name,2)
-    
+
   end subroutine grow_recursive_tree
 
 
@@ -1106,7 +1110,7 @@ contains
     use indices
     use mesh_utilities,only: angle_btwn_vectors,cross_product,distance_between_points, &
          mesh_a_x_eq_b,unit_vector
-    
+
     integer,intent(in) :: ne,ne_parent,np,np_prnt_start,np_start
     real(dp) :: angle_max,angle_min
 
@@ -1187,7 +1191,7 @@ contains
   subroutine reduce_branch_angle(np1,np2,np,candidate_xyz,factor)
 
     use mesh_utilities,only: angle_btwn_vectors,unit_vector,vector_length
-    
+
     integer,intent(in) :: np1,np2,np
     real(dp),intent(in) :: factor
     real(dp) :: candidate_xyz(3)
@@ -1225,7 +1229,7 @@ contains
   subroutine shorten_branch_and_children(ne)
 
     use indices
-    
+
     integer,intent(in) :: ne
 
     !Local variables
@@ -1268,7 +1272,7 @@ contains
   subroutine smooth_1d_tree(num_elem_start,length_limit)
 
     use indices
-    
+
     integer,intent(in) :: num_elem_start
     real(dp),intent(in) :: length_limit
 
@@ -1326,7 +1330,7 @@ contains
   subroutine split_seed_points(map_seed_to_elem,ne1,ne,np1,np2,np3,COFM,enough_points)
 
     use mesh_utilities,only: check_colinear_points,make_plane_from_3points,scalar_product_3
-    
+
     integer :: map_seed_to_elem(*),ne,ne1,np1,np2,np3
     real(dp) :: COFM(3)
     logical :: enough_points(2)
@@ -1363,7 +1367,7 @@ contains
              if(dat1.eq.0) nd1_1st = nd
              DAT1=DAT1+1
              map_seed_to_elem(nd)=ne+1
-          else 
+          else
              if(DAT2.eq.0) ND2_1ST=nd
              DAT2=DAT2+1
              map_seed_to_elem(nd)=ne+2
@@ -1494,7 +1498,7 @@ contains
           if(diagnostics_on)then
              write(*,'(i6,'' initial seeds for element'',i7)') num_points,ne1
           endif
-          
+
           if(num_points.eq.0)then
              write(*,'('' Warning: number of points for element'',i6,'' is zero'')') ne1
              write(*,'('' Press enter to continue; however the code is likely to fail'')')
@@ -1529,7 +1533,7 @@ contains
   function closest_seed_to_node(map_seed_to_elem,np)
 
     use mesh_utilities,only: distance_between_points
-    
+
     integer,intent(in) :: map_seed_to_elem(*),np
 
     !Local variables
@@ -1559,7 +1563,7 @@ contains
   function closest_seed_to_node_in_group(map_seed_to_elem,ne,np)
 
     use mesh_utilities,only: distance_between_points
-    
+
     integer,intent(in) :: map_seed_to_elem(*),ne,np
 
     !Local variables
@@ -1588,7 +1592,7 @@ contains
   function rotation_angle(np1,np2,np3,np4,np5)
 
     use mesh_utilities,only: angle_btwn_vectors,make_plane_from_3points
-    
+
     integer,intent(in) :: np1,np2,np3,np4,np5
 
     !Local variables
@@ -1614,7 +1618,7 @@ contains
   function vector_for_angle_limit(U,V,angle_with_u,angle_with_v)
 
     use mesh_utilities,only: cross_product,mesh_a_x_eq_b,unit_vector
-    
+
     real(dp),intent(in) :: U(*),V(*),angle_with_u,angle_with_v
 
     !Local variables
