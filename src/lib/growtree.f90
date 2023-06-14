@@ -123,14 +123,14 @@ contains
   ! defined point to some fraction along a line towards the centre of mass of a
   ! collection of seed points.
   !
-  subroutine branch_to_cofm(map_seed_to_elem,nen,np1,COFM,branch_fraction,length_limit,&
+  subroutine branch_to_cofm(map_seed_to_elem,map_seed_to_space,nen,np1,COFM,branch_fraction,length_limit,&
     length_parent,shortest_length,candidate_xyz,make_branch)
 
     use indices
     use math_utilities,only: sort_real_list
     use mesh_utilities,only: distance_between_points,unit_vector,vector_length
 
-    integer :: map_seed_to_elem(*),nen,np1
+    integer :: map_seed_to_elem(*),map_seed_to_space(*),nen,np1
     real(dp) :: COFM(3),branch_fraction,length_limit,length_parent,&
          shortest_length,candidate_xyz(3)
     logical :: make_branch
@@ -198,6 +198,7 @@ contains
        do N = 1,NUM_CLOSEST
           nd = NCLOSEST(N)
           map_seed_to_elem(nd) = 0
+          map_seed_to_space(nd) = nen
        enddo
     endif !NOT.make_branch
 
@@ -252,18 +253,19 @@ contains
   ! to a maximum (user-defined) value, and makes sure branch remains internal
   ! to the host volume
   !
-  subroutine check_branch_rotation_plane(map_seed_to_elem,ne,&
+  subroutine check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,&
        ne_grnd_parent,ne_parent,local_parent_temp,num_next_parents,&
-       np,np1,np2,np3,num_terminal,rotation_limit)
+       np,np1,np2,np3,num_terminal,rotation_limit,to_export)
 
     use mesh_utilities,only: distance_between_points
     use other_consts
 
-    integer :: map_seed_to_elem(*),ne,ne_grnd_parent,ne_parent, &
+    integer :: map_seed_to_elem(*),map_seed_to_space(*),ne,ne_grnd_parent,ne_parent, &
          num_next_parents,np,np1,np2,np3,num_terminal
     ! np == end node; np1 == np_start; np2 == np_prnt_start; np3 == np_grnd_start
     integer :: local_parent_temp(*)
     real(dp),intent(in) :: rotation_limit
+    logical :: to_export
 
     !Local variables
     integer :: COUNT,nd_min,ne_other,nes,np4,offset
@@ -319,6 +321,10 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       map_seed_to_space(nd_min) = ne-1
+       if(to_export)then
+         write(40,*) nd_min,ne-1
+       endif
 
     endif
 
@@ -351,6 +357,10 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       map_seed_to_space(nd_min) = ne-1
+       if(to_export)then
+         write(40,*) nd_min,ne-1
+       endif
 
     endif
 
@@ -610,7 +620,7 @@ contains
   ! to the closest ending of branches in the current generation.
   !
   subroutine group_seeds_with_branch(map_array,num_next_parents,num_seeds_from_elem, &
-       num_terminal,local_parent,DISTANCE_LIMIT)
+       num_terminal,local_parent,DISTANCE_LIMIT,to_export)
 
     use indices
     use math_utilities,only: sort_integer_list
@@ -619,6 +629,7 @@ contains
     integer :: num_next_parents,local_parent(:),map_array(:),num_seeds_from_elem(*),&
          num_terminal
     real(dp),intent(in) :: DISTANCE_LIMIT
+    logical :: to_export
 
     !Local variables
     integer :: i,n,m,nd,nd_min,ne,n_elm_temp,ne_min,noelem,np,np_temp
@@ -697,6 +708,9 @@ contains
           N_ELM_TEMP=N_ELM_TEMP-1
           local_parent(N)=0
           num_terminal=num_terminal+1
+          if(to_export)then
+            write(40,*) nd_min,ne_min
+          endif
 
        else if(num_seeds_from_elem(ne_min).eq.1)then
           do nd=1,num_data
@@ -705,6 +719,9 @@ contains
                 local_parent(N)=0
                 N_ELM_TEMP=N_ELM_TEMP-1
                 num_terminal=num_terminal+1
+                if(to_export) then
+                  write(40,*) nd, ne_min
+                endif
              endif
           enddo !nd
 
@@ -738,7 +755,7 @@ contains
 !!!#############################################################################
 
   subroutine grow_tree(surface_elems,parent_ne,angle_max,angle_min,&
-       branch_fraction,length_limit,shortest_length,rotation_limit)
+       branch_fraction,length_limit,shortest_length,rotation_limit,to_export,filename)
     !interface to the grow_recursive_tree subroutine
 
     use geometry,only: element_connectivity_1d,evaluate_ordering, &
@@ -753,9 +770,25 @@ contains
     real(dp),intent(in) :: length_limit             ! minimum length of a generated branch (shorter == terminal)
     real(dp),intent(in) :: shortest_length          ! length that short branches are reset to (shortest in model)
     real(dp),intent(in) :: rotation_limit           ! maximum angle of rotation of branching plane
+    logical,intent(in) :: to_export                 ! option to export terminal element mapping to datapoints
+    character(len=*),intent(in) :: filename
 
     integer :: i,num_elems_new,num_nodes_new
     integer,allocatable :: elem_list(:), parent_list(:)
+    character(len=100) :: writefile
+    character(len=60) :: sub_name
+
+    sub_name = 'grow_tree'
+    call enter_exit(sub_name,1)
+
+
+    if(to_export)then
+      !!!export vertices as nodes
+      writefile = trim(filename)//'.txt'
+      open(40,file=writefile, status='replace')
+      write(40,'('' Data point number Terminal element number'')')
+    endif
+
 
 !!! allocate temporary arrays
     allocate(parent_list(num_elems))
@@ -787,7 +820,8 @@ contains
 !!! generate a branching tree inside the triangulated mesh
     call grow_recursive_tree(num_elems_new,num_vertices,elem_list,parent_list, &
          parent_ne,triangle,angle_max,angle_min, &
-         branch_fraction,length_limit,shortest_length,rotation_limit,vertex_xyz)
+         branch_fraction,length_limit,shortest_length,rotation_limit,vertex_xyz,&
+         to_export)
 
 !!! update the tree connectivity
     call element_connectivity_1d
@@ -795,9 +829,14 @@ contains
 !!! calculate branch generations and orders
     call evaluate_ordering
 
+    if(to_export)then
+      close(40)
+    endif
+
 !!! deallocate temporary arrays
     if(allocated(elem_list)) deallocate(elem_list)
     deallocate(parent_list)
+    call enter_exit(sub_name,2)
 
   end subroutine grow_tree
 
@@ -808,7 +847,7 @@ contains
   !
   subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_list, &
        parent_ne,triangle,angle_max,angle_min, &
-       branch_fraction,length_limit,shortest_length,rotation_limit,vertex_xyz)
+       branch_fraction,length_limit,shortest_length,rotation_limit,vertex_xyz,to_export)
 
     use indices
     use mesh_utilities,only: calc_branch_direction,distance_between_points, &
@@ -826,6 +865,7 @@ contains
     real(dp),intent(in) :: shortest_length          ! length that short branches are reset to (shortest in model)
     real(dp),intent(in) :: rotation_limit           ! maximum angle of rotation of branching plane
     real(dp),intent(in) :: vertex_xyz(:,:)
+    logical,intent(in) :: to_export ! option to export terminal element mapping to datapoints
 
     !Local variables
     integer,allocatable :: local_parent(:)          ! stores current generation of local parent elements
@@ -941,7 +981,7 @@ contains
                    call calculate_seed_cofm(map_seed_to_elem,ne,COFM)
                    ! Generate a branch directed towards the centre of mass. Returns location
                    ! of end node in candidate_xyz (adjusted below based on length and shape criteria)
-                   call branch_to_cofm(map_seed_to_elem,ne,np_start,&
+                   call branch_to_cofm(map_seed_to_elem,map_seed_to_space,ne,np_start,&
                         COFM,branch_fraction,length_limit,length_parent,shortest_length,&
                         candidate_xyz,make_branch)
                    node_xyz(1:3,np) = candidate_xyz(1:3) ! the new node location is as returned by 'branch_to_cofm'
@@ -998,6 +1038,10 @@ contains
                          nd_min = closest_seed_to_node_in_group(map_seed_to_elem,ne,np) ! closest seed point
                          map_seed_to_elem(nd_min) = 0 ! remove seed point from list
                          map_seed_to_space(nd_min) = ne ! recording element number
+
+                         if(to_export) then
+                           write(40,*) nd_min,ne
+                         endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np)
                    endif !.not.internal
@@ -1039,6 +1083,9 @@ contains
                          nd_min = closest_seed_to_node_in_group(map_seed_to_elem,ne-1,np-1) ! closest seed point
                          map_seed_to_elem(nd_min) = 0 ! remove seed point from list
                          map_seed_to_space(nd_min) = ne ! recording element number
+                         if(to_export) then
+                           write(40,*) nd_min,ne
+                         endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np-1)
                    endif ! .not.internal
@@ -1049,9 +1096,9 @@ contains
                    ! Check the angle of rotation between child and parent branching planes.
                    ! If absolute angle is larger than a user-specified limit, adjust to be
                    ! the limit value. This is used for making sure that the CFD geometry turns out ok.
-                   call check_branch_rotation_plane(map_seed_to_elem,ne,ne_grnd_parent,ne_parent, &
+                   call check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,ne_grnd_parent,ne_parent, &
                         local_parent_temp,num_next_parents, &
-                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit)
+                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit,to_export)
                    internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
                 endif
 
@@ -1071,7 +1118,7 @@ contains
           local_parent(1:num_next_parents) = local_parent_temp(1:num_next_parents)
           ! Regroup the seed points with the closest current parent
           call group_seeds_with_branch(map_seed_to_elem,num_next_parents,num_seeds_from_elem,&
-               num_terminal,local_parent,DISTANCE_LIMIT)
+               num_terminal,local_parent,DISTANCE_LIMIT,to_export)
 
        enddo ! while still parent branches
 
