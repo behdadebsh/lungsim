@@ -46,6 +46,7 @@ contains
     real(dp), allocatable :: RHS(:)
     integer :: num_vars,NonZeros,MatrixSize
     integer :: AllocateStatus
+    logical :: FOUND=.FALSE.
 
     integer, intent(in) :: remodeling_grade ! Remodeling if applicable, 1 stands for healthy and 2-10 are remodeling grades
     real(dp), allocatable :: prq_solution(:,:),solver_solution(:)
@@ -77,7 +78,9 @@ contains
     !pressure (at inlet and outlets)
     !flow (flow at inlet pressure at outlet).
 
-
+! FOUND = is_downstream(64,8)
+! write(*,*) 'Downstream?', FOUND
+! pause
 mechanics_type='linear'
 
 if (vessel_type.eq.'rigid') then
@@ -1344,6 +1347,36 @@ subroutine map_solution_to_mesh(prq_solution,depvar_at_elem,depvar_at_node,mesh_
 
     call enter_exit(sub_name,2)
 end subroutine map_solution_to_mesh
+
+!##############################################################################!##############################################################################
+!
+!*is_downstream* checks to see if a certain element is downstream of another element
+!!!!!!!
+! This function is useful for doing regional remodeling where you do not want to
+! remodel vessels downstream of an occlusion (needed for post-PEA modelling)
+!!!!!!!
+recursive function is_downstream(ne,occ_ne) result(FOUND)
+
+    integer, intent(in) :: ne,occ_ne
+    !local variables
+    logical :: FOUND
+    integer :: ne_temp,np
+    character(len=60) :: sub_name
+
+    FOUND = .False.
+    np=elem_nodes(1,ne)
+
+    if (ne == occ_ne) then
+        FOUND = .True.
+    else if (ne == 1) then
+        FOUND = .false.
+    else
+        ne_temp = elems_at_node(np,1)
+        FOUND = is_downstream(ne_temp, occ_ne)
+    end if
+
+    call enter_exit(sub_name,2)
+end function is_downstream
 
 !##############################################################################
 !
