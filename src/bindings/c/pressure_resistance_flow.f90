@@ -4,8 +4,28 @@ private
 
 contains
 
-!!!###################################################################################
+!
+!###################################################################################
+!
+! the main growing subroutine. Generates a volume-filling tree into a closed surface.
+subroutine occlusion_list_c(surface_elems_len, surface_elems) bind(C, name="occlusion_list_c")
 
+  !use arrays,only: dp
+  !use iso_c_binding, only: c_ptr
+  !use utils_c, only: strncpy
+  !use other_consts, only: MAX_FILENAME_LEN
+  use pressure_resistance_flow,only: occlusion_list
+  implicit none
+
+  integer,intent(in) :: surface_elems_len
+  integer,intent(in) :: surface_elems(surface_elems_len)
+
+  call occlusion_list(surface_elems)
+
+end subroutine occlusion_list_c
+!
+!###################################################################################
+!
 subroutine evaluate_prq_c(mesh_type,mesh_type_len,vessel_type,vessel_type_len,grav_dirn,grav_factor,bc_type,bc_type_len,inlet_bc, &
                outlet_bc,remodeling_grade) bind(C, name="evaluate_prq_c")
 
