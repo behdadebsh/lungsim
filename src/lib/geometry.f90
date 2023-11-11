@@ -2762,9 +2762,14 @@ contains
 
       sub_name = 'occlude_vessel'
       call enter_exit(sub_name,1)
+      write(*,*) "before:", elem_field(ne_radius_in, VESSEL_NUMBER)
+      ! write(*,*) "ne_radius_in:", elem_field(ne_radius_in,21)
 
       elem_field(ne_radius, VESSEL_NUMBER) = RATIO * elem_field(ne_radius, VESSEL_NUMBER)
-
+      elem_field(ne_radius_in, VESSEL_NUMBER) = RATIO * elem_field(ne_radius_in, VESSEL_NUMBER)
+      elem_field(ne_radius_out, VESSEL_NUMBER) = RATIO * elem_field(ne_radius_out, VESSEL_NUMBER)
+      write(*,*) "after:", elem_field(ne_radius_in, VESSEL_NUMBER)
+      ! pause
       call enter_exit(sub_name,2)
 
     end subroutine occlude_vessel
