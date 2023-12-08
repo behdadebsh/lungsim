@@ -978,35 +978,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
       elseif(vessel_type.eq.'elastic_alpha')then
            if(Ptm.LT.elasticity_parameters(2))then
              if(ne.eq.43)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.45)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.51)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.53)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.54)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.61)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.63)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.64)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.66)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-             elseif(ne.eq.67)then
-               if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-               if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.45)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.51)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.53)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.54)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.61)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.63)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.64)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.66)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             ! elseif(ne.eq.67)then
+             !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+             !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
              else
                if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
                if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1))+1.d0)
@@ -1017,35 +1017,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
             if(nn.eq.2) elem_field(ne_radius_out,ne)=R0
           else !ptm>ptmmax
             if(ne.eq.43)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.45)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.51)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.53)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.54)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.61)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.63)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.64)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.66)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-            elseif(ne.eq.67)then
-              if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-              if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.45)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.51)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.53)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.54)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.61)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.63)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.64)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.66)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            ! elseif(ne.eq.67)then
+            !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+            !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
             else
               if(nn.eq.1)then
                elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)*elasticity_parameters(1))+1.d0)
@@ -1224,35 +1224,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                 endif
               elseif(R0.gt.0.5_dp) then !Not within the range of our target radii, hence, no remodeling for this element
                 if(ne.eq.43)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.45)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.51)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.53)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.54)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.61)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.63)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.64)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.66)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.67)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.45)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.51)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.53)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.54)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.61)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.63)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.64)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.66)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.67)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
                 else
                   elem_field(ne_radius_in,ne) = R0*((Ptm*elasticity_parameters(1))+1.d0)
                 endif
@@ -1271,35 +1271,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                 endif
               elseif(R0.gt.0.5_dp) then !Not within the range of our target radii, hence, no remodeling
                 if(ne.eq.43)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.45)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.51)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.53)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.54)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.61)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.63)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.64)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.66)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.67)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.45)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.51)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.53)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.54)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.61)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.63)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.64)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.66)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.67)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
                 else
                   elem_field(ne_radius_out,ne) = R0*((Ptm*elasticity_parameters(1))+1.d0)
                 endif
@@ -1344,35 +1344,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                 endif
               elseif(R0.gt.0.5_dp) then ! Not within the target range, hence, no remodeling
                 if(ne.eq.43)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.45)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.51)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.53)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.54)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.61)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.63)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.64)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.66)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.67)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.45)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.51)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.53)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.54)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.61)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.63)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.64)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.66)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.67)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
                 else
                   elem_field(ne_radius_in,ne)=R0*((elasticity_parameters(2)*(elasticity_parameters(1)))+1.d0)
                 endif
@@ -1394,35 +1394,35 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                 endif
               elseif(R0.gt.0.5_dp) then ! Not within the target range, hence, no remodeling
                 if(ne.eq.43)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.45)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.51)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.53)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.54)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.61)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.63)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.64)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.66)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                elseif(ne.eq.67)then
-                  if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.45)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.51)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.53)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.54)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.61)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.63)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.64)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.66)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                ! elseif(ne.eq.67)then
+                !   if(nn.eq.1) elem_field(ne_radius_in,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                !   if(nn.eq.2) elem_field(ne_radius_out,ne)=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
                 else
                   elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)*(elasticity_parameters(1)))+1.d0)
                 endif
