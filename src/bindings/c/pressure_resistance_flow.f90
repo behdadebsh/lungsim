@@ -4,6 +4,26 @@ private
 
 contains
 
+  !
+  !###################################################################################
+  !
+  ! makes the vessels given rigid.
+  subroutine compliance_list_c(surface_elems_len, surface_elems) bind(C, name="compliance_list_c")
+
+    !use arrays,only: dp
+    !use iso_c_binding, only: c_ptr
+    !use utils_c, only: strncpy
+    !use other_consts, only: MAX_FILENAME_LEN
+    use pressure_resistance_flow,only: compliance_list
+    implicit none
+
+    integer,intent(in) :: surface_elems_len
+    integer,intent(in) :: surface_elems(surface_elems_len)
+
+    call compliance_list(surface_elems)
+
+  end subroutine compliance_list_c
+
 !!!###################################################################################
 
 subroutine evaluate_prq_c(mesh_type,mesh_type_len,vessel_type,vessel_type_len,grav_dirn,grav_factor,bc_type,bc_type_len,inlet_bc, &
