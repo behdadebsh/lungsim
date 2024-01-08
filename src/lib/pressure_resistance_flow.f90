@@ -1249,14 +1249,16 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                     else !Pruning
                       elem_field(ne_radius_in,ne) = R0
                     endif
-                    if (allocated(compl_list)) then ! compl allocated
-                      do no_compl_ne=1,count(compl_list.ne.0)
-                        !write(*,*) compl_list(no_compl_ne)
-                        !pause
-                        if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                        if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                      end do
-                    endif ! compl allocated
+                    ! if (allocated(compl_list)) then ! compl allocated
+                    !   do no_compl_ne=1,count(compl_list.ne.0)
+                    !     !write(*,*) compl_list(no_compl_ne)
+                    !     !pause
+                    !     if(ne.eq.compl_list(no_compl_ne))then
+                    !       if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                    !       if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                    !     endif
+                    !   end do
+                    ! endif ! compl allocated
                   endif ! nn.eq.1
                   if(nn.eq.2) then ! nn.eq.2
                     if((R0.gt.narrow_rad_one).and.(R0.lt.0.5_dp)) then ! Hypertorphy+narrow factor effect
@@ -1272,13 +1274,22 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                     else !Pruning
                       elem_field(ne_radius_out,ne) = R0
                     endif
+                    ! if (allocated(compl_list)) then ! compl allocated
+                    !   do no_compl_ne=1,count(compl_list.ne.0)
+                    !     ! write(*,*) compl_list(no_compl_ne)
+                    !     ! pause
+                    !     if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                    !     if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                    !   end do
+                    ! endif ! compl allocated
                   endif ! nn.eq.2
                   if (allocated(compl_list)) then ! compl allocated
                     do no_compl_ne=1,count(compl_list.ne.0)
-                      ! write(*,*) compl_list(no_compl_ne)
-                      ! pause
-                      if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                      if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      !pause
+                      if(ne.eq.compl_list(no_compl_ne))then
+                        if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                        if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      endif
                     end do
                   endif ! compl allocated
                 elseif(Ptm.lt.0.0_dp)then !Ptm
@@ -1321,15 +1332,15 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                       else
                         elem_field(ne_radius_in,ne)=R0
                       endif
+                      ! if (allocated(compl_list)) then ! compl allocated
+                      !   do no_compl_ne=1,count(compl_list.ne.0)
+                      !     !write(*,*) compl_list(no_compl_ne)
+                      !     !pause
+                      !     if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      !     if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      !   end do
+                      ! endif ! compl allocated
                     endif ! nn.eq.1
-                    if (allocated(compl_list)) then ! compl allocated
-                      do no_compl_ne=1,count(compl_list.ne.0)
-                        !write(*,*) compl_list(no_compl_ne)
-                        !pause
-                        if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                        if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                      end do
-                    endif ! compl allocated
                     if(nn.eq.2) then ! nn.eq.2
                       if((R0.gt.narrow_rad_one).and.(R0.lt.0.5_dp)) then ! Hypertrophy+narrowing effect
                         if(R0.lt.0.05_dp) then ! only Narrow_factor
@@ -1345,13 +1356,22 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
                       else
                         elem_field(ne_radius_out,ne)=R0
                       endif ! radius criteria
+                      ! if (allocated(compl_list)) then ! compl allocated
+                      !   do no_compl_ne=1,count(compl_list.ne.0)
+                      !     !write(*,*) compl_list(no_compl_ne)
+                      !     !pause
+                      !     if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      !     if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                      !   end do
+                      ! endif ! compl allocated
                     endif ! nn.eq.2
                     if (allocated(compl_list)) then ! compl allocated
                       do no_compl_ne=1,count(compl_list.ne.0)
-                        !write(*,*) compl_list(no_compl_ne)
                         !pause
-                        if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                        if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                        if(ne.eq.compl_list(no_compl_ne))then
+                          if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                          if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0!*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                        endif
                       end do
                     endif ! compl allocated
                 endif !ptm
@@ -1370,10 +1390,11 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
               endif ! FOUND
               if (allocated(compl_list)) then ! compl allocated
                 do no_compl_ne=1,count(compl_list.ne.0)
-                  ! write(*,*) compl_list(no_compl_ne)
                   ! pause
-                  if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
-                  if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                  if(ne.eq.compl_list(no_compl_ne))then
+                    if(nn.eq.1) elem_field(ne_radius_in,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                    if(nn.eq.2) elem_field(ne_radius_out,compl_list(no_compl_ne))=R0*((Ptm*elasticity_parameters(1)*0.0)+1.d0)
+                  endif
                 end do
               endif ! compl allocated
             else !other than arteries
