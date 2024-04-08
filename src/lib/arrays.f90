@@ -9,9 +9,9 @@ module arrays
   !*Full Description:*
   !
   !This module defines arrays
-  
+
   use precision
-  
+
   implicit none
 
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
@@ -53,7 +53,7 @@ module arrays
   real(dp), allocatable :: RHS(:)
   real(dp), allocatable :: prq_solution(:,:),solver_solution(:)
   logical, allocatable :: FIX(:)
-  
+
   real(dp),allocatable :: arclength(:)
   real(dp),allocatable :: elem_field(:,:) !properties of elements
   real(dp),allocatable :: elem_direction(:,:)
@@ -69,7 +69,7 @@ module arrays
   real(dp),allocatable :: scale_factors_2d(:,:)
 
   character(len=20),dimension(20) :: data_group_names,elem_group_names
-  
+
   logical,allocatable :: expansile(:)
 
   type capillary_bf_parameters
@@ -126,7 +126,7 @@ module arrays
      real(dp) :: air_viscosity = 1.8e-5_dp        ! Pa.s
      real(dp) :: air_density = 1.146e-6_dp        ! g.mm^-3
   end type fluid_properties
-  
+
 ! temporary, for debugging:
   real(dp) :: unit_before
 

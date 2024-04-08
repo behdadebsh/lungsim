@@ -808,7 +808,7 @@ contains
     N_ELM_TEMP=num_parents
     do N=1,num_parents
        ne_min=local_parent(N)
-       if(num_seeds_from_elem(ne_min).eq.0)then 
+       if(num_seeds_from_elem(ne_min).eq.0)then
           write(*,*) 'WARNING: zero points for ne=',ne_min
        else if(num_seeds_from_elem(ne_min).eq.1)then
           write(*,*) 'WARNING: only one point for ne=',ne_min
