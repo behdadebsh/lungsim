@@ -567,7 +567,7 @@ contains
        call evaluate_ordering
        elem_ordrs(no_type,:) = 1 ! 0 for respiratory, 1 for conducting
     endif
-    
+
     call enter_exit(sub_name,2)
 
   end subroutine define_1d_elements
@@ -3044,16 +3044,16 @@ contains
     ! sequential from the stem branches down
 
     ! Local variables
-    integer :: count_elems,i,j,ne,nep,ne_old,ngen,num_branches,num_term_branches
+    integer :: count_elems,i,j,ne,nep,ne_old,ngen,num_branches,num_term_branches,INLET_COUNTS
     integer,allocatable :: list_branches(:),list_term_branches(:),map_to_new(:), &
          map_to_old(:),temp_elems(:),temp_elem_nodes(:,:),temp_elem_symmetry(:), &
          temp_elem_units_below(:)
     real(dp),allocatable :: temp_elem_direction(:,:),temp_elem_field(:,:)
     logical,allocatable :: temp_expansile(:)
     character(len=60) :: sub_name
-    
+
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'internal_mesh_reorder'
     call enter_exit(sub_name,1)
 
@@ -3061,12 +3061,26 @@ contains
     allocate(list_term_branches(num_elems))
     allocate(map_to_new(num_elems))
     allocate(map_to_old(num_elems))
-   
+
     ! work through each successive generation, incrementing elements one by one
     count_elems = 0
+    INLET_COUNTS = 0
     num_term_branches = 1
     ngen = 0
-    list_term_branches(1) = 1 ! this assumes that the first element is the stem! 
+    map_to_old = 0 ! initialise array
+    map_to_new = 0 ! initialise array
+    list_term_branches = 0 ! initialise array
+    do i = 1,num_elems  ! Finds the stem element (or the inlet of the mesh)
+      if(elem_cnct(-1,0,i).eq.0) then
+           list_term_branches(1) = i
+           INLET_COUNTS = INLET_COUNTS + 1
+      endif
+      if(INLET_COUNTS.gt.1)then ! Check whether there are more than one inlet in the mesh. If there is,
+                                ! the re-oredring won't take care of that. Not implemented.
+        write(*,*) 'WARNING: MORE THAN ONE INLET DETECTED IN THE MESH!!! CHECK YOUR MESH AGAIN.'
+        call exit(0)
+      endif
+    end do
     do while(num_term_branches.ne.0)
        num_branches = num_term_branches ! temporary, to loop over
        num_term_branches = 0 ! reset to zero and count for this generation
@@ -3102,7 +3116,7 @@ contains
     allocate(temp_elem_field(num_ne,num_elems))
     allocate(temp_elem_direction(3,num_elems))
     if(model_type.eq.'gas_mix') allocate(temp_expansile(num_elems))
-    
+
     do ne = 1,num_elems ! for the ordered elements
        ne_old = map_to_old(ne) ! the unordered element number
        temp_elems(ne) = elems(ne_old) ! mapping to global
@@ -3137,13 +3151,13 @@ contains
 
     call element_connectivity_1d
     call evaluate_ordering
-    
+
     elem_ordrs(no_type,:) = 1 ! all conducting
     
     call enter_exit(sub_name,2)
 
   end subroutine internal_mesh_reorder
-  
+
 !!!#############################################################################
 
   subroutine evaluate_ordering()
@@ -3237,6 +3251,7 @@ contains
        if(num_attach.EQ.0)THEN
           DISCONNECT=.TRUE.
           write(*,'('' WARNING: node'',i6,'' is disconnected'')') np
+          write(*,*) elems_at_node(np,1), elems_at_node(np,2), elem_cnct(1,0,elems_at_node(np,2))
           problem = .true.
        elseif(num_attach.EQ.1)THEN
           ne=elems_at_node(np,1)
