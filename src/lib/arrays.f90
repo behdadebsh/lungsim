@@ -152,7 +152,7 @@ module arrays
        elem_units_below, maxgen,capillary_bf_parameters, zero_tol,loose_tol,gasex_field, &
        num_lines_2d, lines_2d, line_versn_2d, lines_in_elem, nodes_in_line, elems_2d, &
        elem_cnct_2d, elem_nodes_2d, elem_versn_2d, elem_lines_2d, elems_at_node_2d, arclength, &
-       scale_factors_2d, parentlist, fluid_properties, lymphatic_properties, elasticity_vessels, admittance_param, &
+       scale_factors_2d, fluid_properties, lymphatic_properties, elasticity_vessels, admittance_param, &
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, update_parameter, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
