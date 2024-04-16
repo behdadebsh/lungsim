@@ -87,7 +87,6 @@ contains
 ! has been saved in an exelem format as a single flow field (elements listed with
 ! ventilation as field values).
  subroutine import_ventilation(FLOWFILE)
- !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_IMPORT_VENTILATION" :: IMPORT_VENTILATION
 
    character(len=MAX_FILENAME_LEN),intent(in) :: FLOWFILE
    !local variables
@@ -123,7 +122,6 @@ contains
 ! has been saved in an exelem format as a single flow field (elements listed with
 ! ventilation as field values).
  subroutine import_perfusion(FLOWFILE)
- !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_IMPORT_PERFUSION" :: IMPORT_PERFUSION
 
    character(len=MAX_FILENAME_LEN),intent(in) :: FLOWFILE
    !local variables
@@ -156,7 +154,6 @@ contains
 !
 !>*import_exelemfield:* This subroutine reads in the content of an exelem field file (1 field)
  subroutine import_exelemfield(FLOWFILE,field_no)
- !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_IMPORT_EXELEMFIELD" :: IMPORT_EXELEMFIELD
 
    character(len=MAX_FILENAME_LEN),intent(in) :: FLOWFILE
    integer, intent(in) :: field_no

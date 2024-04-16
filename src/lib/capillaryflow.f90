@@ -17,7 +17,7 @@ module capillaryflow
   use other_consts
   use precision
   use solve
-  
+
   implicit none
 
 
@@ -1446,7 +1446,7 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
   deallocate (Q_sheet, STAT = AllocateStatus)
   deallocate (mu_app, STAT = AllocateStatus)
 
-  write(*,*) 'Capillary impedance completed for element: ',ne
+  !write(*,*) 'Capillary impedance completed for element: ',ne
   call enter_exit(sub_name,2)
 
 end subroutine cap_flow_admit
@@ -1519,6 +1519,11 @@ character(len=60) :: sub_name
 sub_name = 'calc_cap_admit_varh'
 call enter_exit(sub_name,1)
 
+prop_const = 0.0
+Y11 = 0.0
+Y12 = 0.0
+Y21 = 0.0
+Y22 = 0.0
 #ifdef HAVE_SUPERLU
 !Convert dimensional parameters to non-dimensional ones
 omega = (cap_param%mu_c*cap_param%K_cap*cap_param%F_cap*omega_d*alpha_c*(cap_param%L_c)**2)/(cap_param%H0**3) ! Non-Dimensional Frequency

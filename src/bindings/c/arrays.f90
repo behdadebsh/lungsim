@@ -22,11 +22,7 @@ contains
     integer, intent(in) :: row, col
     real(dp), intent(in) :: value
 
-#if defined _WIN32 && defined __INTEL_COMPILER
-    call so_set_node_field_value(row, col, value)
-#else
     call set_node_field_value(row, col, value)
-#endif
 
   end subroutine set_node_field_value_c
 
@@ -49,6 +45,5 @@ contains
     call update_parameter(parameter_name_f, parameter_value)
 #endif
   end subroutine update_parameter_c
-
   
 end module arrays_c
