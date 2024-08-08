@@ -85,7 +85,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   character(len=60) :: sub_name
   logical :: vein_found=.False.
   integer :: vein_elem=0
-  integer, parameter :: num_freq = 11, num_vessels = 17, num_units = 2
+  integer, parameter :: num_freq = 101, num_vessels = 17, num_units = 2
   integer :: i, j
   real :: freq(num_freq)
   character(len=5) :: vessel_names(num_vessels) = ["LUL_A", "LUL_V", "LLL_A", "LLL_V", "RUL_A", "RUL_V", "RLL_A", "RLL_V",&
@@ -285,13 +285,17 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
             min_art,max_art,tree_direction)
     endif
 
+    !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
+    !Also need to implement in reverse for veins
+    call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,min_art,max_art,bc_type)
     if(lobe_imped.eq.'ON') then ! export lobe imped
       ! Open output file
       open(unit=10, file='lobe_imped.json', status='replace')
       ! Write header and frequency values
+      write(*,*) no_freq, num_freq
       freq(1) = 0
       do j = 2, no_freq+1
-        freq(j) = (j-1)*harmonic_scale
+        freq(j) = (j-1)*harmonic_scale/10
       enddo
       write(10, *) "{"
       write(10, *) " ""frequency"": [", freq(1), ",", (freq(i),",",i=2,num_freq-1), freq(num_freq), "],"
@@ -317,6 +321,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       do i = 1, no_freq
         imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+10))
       enddo
+      write(*,*) 'LUL_V:', imped(1), imped(2), imped(3)
+      pause
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !Calculating LLL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -463,7 +469,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,11)),real(eff_admit(i,11), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,11)),real(eff_admit(i,11), 8)) ! -1 is to make it impedance phase
       enddo
       write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -471,7 +477,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+10)),real(eff_admit(i,min_ven+10), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+10)),real(eff_admit(i,min_ven+10), 8))
       enddo
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -479,7 +485,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,20)),real(eff_admit(i,20), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,20)),real(eff_admit(i,20), 8)) ! -1 is to make it impedance phase
       enddo
       write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -487,7 +493,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+19)),real(eff_admit(i,min_ven+19), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+19)),real(eff_admit(i,min_ven+19), 8))
       enddo
       write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -495,7 +501,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,15)),real(eff_admit(i,15), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,15)),real(eff_admit(i,15), 8))
       enddo
       write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -503,7 +509,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+14)),real(eff_admit(i,min_ven+14), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+14)),real(eff_admit(i,min_ven+14), 8))
       enddo
       write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -511,7 +517,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,23)),real(eff_admit(i,23), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,23)),real(eff_admit(i,23), 8))
       enddo
       write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -519,7 +525,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+22)),real(eff_admit(i,min_ven+22), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+22)),real(eff_admit(i,min_ven+22), 8))
       enddo
       write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -527,7 +533,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,24)),real(eff_admit(i,24), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,24)),real(eff_admit(i,24), 8))
       enddo
       write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -535,7 +541,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+23)),real(eff_admit(i,min_ven+23), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+23)),real(eff_admit(i,min_ven+23), 8))
       enddo
       write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -543,7 +549,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,1)),real(eff_admit(i,1), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,1)),real(eff_admit(i,1), 8))
       enddo
       write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -551,7 +557,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,5)),real(eff_admit(i,5), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,5)),real(eff_admit(i,5), 8))
       enddo
       write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -559,7 +565,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,8)),real(eff_admit(i,8), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,8)),real(eff_admit(i,8), 8))
       enddo
       write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -567,7 +573,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,16)),real(eff_admit(i,16), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,16)),real(eff_admit(i,16), 8))
       enddo
       write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -575,7 +581,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+15)),real(eff_admit(i,min_ven+15), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+15)),real(eff_admit(i,min_ven+15), 8))
       enddo
       write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -583,7 +589,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,12)),real(eff_admit(i,12), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,12)),real(eff_admit(i,12), 8))
       enddo
       write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -591,10 +597,573 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = atan2(dimag(eff_admit(i,min_ven+11)),real(eff_admit(i,min_ven+11), 8))
+        imped(i+1) = -1*atan2(dimag(eff_admit(i,min_ven+11)),real(eff_admit(i,min_ven+11), 8))
       enddo
       write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       write(10, *) " ""unit"": ""radians"""
+      write(10, *) " },"
+      write(10, *) " ""Flow phase"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,11)),real(q_factor(i,11), 8)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+10)),real(q_factor(i,min_ven+10), 8))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,20)),real(q_factor(i,20), 8)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+19)),real(q_factor(i,min_ven+19), 8))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,15)),real(q_factor(i,15), 8))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+14)),real(q_factor(i,min_ven+14), 8))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,23)),real(q_factor(i,23), 8))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+22)),real(q_factor(i,min_ven+22), 8))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,24)),real(q_factor(i,24), 8))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+23)),real(q_factor(i,min_ven+23), 8))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,1)),real(q_factor(i,1), 8))
+      enddo
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,5)),real(q_factor(i,5), 8))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,8)),real(q_factor(i,8), 8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,16)),real(q_factor(i,16), 8))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+15)),real(q_factor(i,min_ven+15), 8))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,12)),real(q_factor(i,12), 8))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+11)),real(q_factor(i,min_ven+11), 8))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      write(10, *) " ""unit"": ""radians"""
+      write(10, *) " },"
+      write(10, *) " ""Pressure phase"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,11)),real(p_factor(i,11), 8)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+10)),real(p_factor(i,min_ven+10), 8))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,20)),real(p_factor(i,20), 8)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+19)),real(p_factor(i,min_ven+19), 8))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,15)),real(p_factor(i,15), 8))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+14)),real(p_factor(i,min_ven+14), 8))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,23)),real(p_factor(i,23), 8))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+22)),real(p_factor(i,min_ven+22), 8))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,24)),real(p_factor(i,24), 8))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+23)),real(p_factor(i,min_ven+23), 8))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,1)),real(p_factor(i,1), 8))
+      enddo
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,5)),real(p_factor(i,5), 8))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,8)),real(p_factor(i,8), 8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,16)),real(p_factor(i,16), 8))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+15)),real(p_factor(i,min_ven+15), 8))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,12)),real(p_factor(i,12), 8))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+11)),real(p_factor(i,min_ven+11), 8))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      write(10, *) " ""unit"": ""radians"""
+      write(10, *) " },"
+      write(10, *) " ""Flow amplitude"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,11)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+10))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,20))
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+19))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,15))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+14))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,23))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+22))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,24))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+23))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i, 1))
+      enddo
+
+      write(*,*) 'q_factor:', imped
+      pause
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,5))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,16))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+15))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,12))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(q_factor(i,min_ven+11))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      write(10, *) " ""unit"": ""mm3/s"""
+      write(10, *) " },"
+      write(10, *) " ""Pressure amplitude"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,11)) ! -1 is to make it impedance phase
+      enddo
+      write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+10))
+      enddo
+      write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,20))
+      enddo
+      write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+19))
+      enddo
+      write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,15))
+      enddo
+      write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+14))
+      enddo
+      write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,23))
+      enddo
+      write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+22))
+      enddo
+      write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,24))
+      enddo
+      write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+23))
+      enddo
+      write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,1))
+      enddo
+      write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,5))
+      enddo
+      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,8))
+      enddo
+      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,16))
+      enddo
+      write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+15))
+      enddo
+      write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,12))
+      enddo
+      write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      imped(1) = 0
+      do i = 1, no_freq
+        imped(i+1) = abs(p_factor(i,min_ven+11))
+      enddo
+      write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
+      write(10, *) " ""unit"": ""Pa"""
       write(10, *) " },"
       write(10, *) " ""radius"":{"
 
@@ -669,75 +1238,221 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
 
       write(10, *) " ""unit"": ""mm"""
       write(10, *) " },"
+      write(10, *) " ""unstrained radius"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A unstrained radius  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LUL_A"": [", elem_field(ne_radius_out0,11), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LUL_V"": [", elem_field(ne_radius_out0,min_ven+10), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LLL_A"": [", elem_field(ne_radius_out0,20), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LLL_V"": [", elem_field(ne_radius_out0,min_ven+19), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RUL_A"": [", elem_field(ne_radius_out0,15), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RUL_V"": [", elem_field(ne_radius_out0,min_ven+14), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RLL_A"": [", elem_field(ne_radius_out0,23), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RLL_V"": [", elem_field(ne_radius_out0,min_ven+22), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RML_A"": [", elem_field(ne_radius_out0,24), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RML_V"": [", elem_field(ne_radius_out0,min_ven+23), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""MPA_A"": [", elem_field(ne_radius_out0,1), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LPA_A"": [", elem_field(ne_radius_out0,5), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RPA_A"": [", elem_field(ne_radius_out0,8), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RBS_A"": [", elem_field(ne_radius_out0,16), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RBS_V"": [", elem_field(ne_radius_out0,min_ven+15), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LBS_A"": [", elem_field(ne_radius_out0,12), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V unstrained radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LBS_V"": [", elem_field(ne_radius_out0,min_ven+11), "],"
+
+      write(10, *) " ""unit"": ""mm"""
+      write(10, *) " },"
+      write(10, *) " ""mean flow"":{"
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A mean flow  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LUL_A"": [", elem_field(ne_Qdot,11), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V mean flow  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LUL_V"": [", elem_field(ne_Qdot,min_ven+10), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LLL_A"": [", elem_field(ne_Qdot,20), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LLL_V"": [", elem_field(ne_Qdot,min_ven+19), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RUL_A"": [", elem_field(ne_Qdot,15), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RUL_V"": [", elem_field(ne_Qdot,min_ven+14), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RLL_A"": [", elem_field(ne_Qdot,23), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RLL_V"": [", elem_field(ne_Qdot,min_ven+22), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RML_A"": [", elem_field(ne_Qdot,24), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RML_V"": [", elem_field(ne_Qdot,min_ven+23), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""MPA_A"": [", elem_field(ne_Qdot,1), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LPA_A"": [", elem_field(ne_Qdot,5), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RPA_A"": [", elem_field(ne_Qdot,8), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RBS_A"": [", elem_field(ne_Qdot,16), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""RBS_V"": [", elem_field(ne_Qdot,min_ven+15), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LBS_A"": [", elem_field(ne_Qdot,12), "],"
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V mean flow !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      write(10, *) " ""LBS_V"": [", elem_field(ne_Qdot,min_ven+11), "],"
+
+      write(10, *) " ""unit"": ""mm^3/s"""
+      write(10, *) " },"
       write(10, *) " ""Length"":{"
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      ! Calculating LUL_A radius  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Calculating LUL_A Length  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LUL_A"": [", elem_field(ne_length,11), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LUL_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LUL_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LUL_V"": [", elem_field(ne_length,min_ven+10), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LLL_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LLL_A"": [", elem_field(ne_length,20), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LLL_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LLL_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LLL_V"": [", elem_field(ne_length,min_ven+19), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RUL_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RUL_A"": [", elem_field(ne_length,15), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RUL_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RUL_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RUL_V"": [", elem_field(ne_length,min_ven+14), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RLL_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RLL_A"": [", elem_field(ne_length,23), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RLL_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RLL_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RLL_V"": [", elem_field(ne_length,min_ven+22), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RML_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RML_A"": [", elem_field(ne_length,24), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RML_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RML_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RML_V"": [", elem_field(ne_length,min_ven+23), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating MPA radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating MPA Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""MPA_A"": [", elem_field(ne_length,1)+elem_field(ne_length,2)+elem_field(ne_length,3)&
       +elem_field(ne_length,4), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LPA radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LPA Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LPA_A"": [", elem_field(ne_length,5)+elem_field(ne_length,6)+elem_field(ne_length,7), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RPA radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RPA Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RPA_A"": [", elem_field(ne_length,8)+elem_field(ne_length,9)+elem_field(ne_length,10), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RBS_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RBS_A"": [", elem_field(ne_length,16), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating RBS_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating RBS_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""RBS_V"": [", elem_field(ne_length,min_ven+15), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LBS_A radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_A Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LBS_A"": [", elem_field(ne_length,12)+elem_field(ne_length,13)+elem_field(ne_length,14), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !Calculating LBS_V radius !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Calculating LBS_V Length !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       write(10, *) " ""LBS_V"": [", elem_field(ne_length,min_ven+11)+elem_field(ne_length,min_ven+12)&
       +elem_field(ne_length,min_ven+13), "],"
@@ -748,13 +1463,10 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       close(10)
     endif ! export lobe admittance
 
-    !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
-    !Also need to implement in reverse for veins
-    call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,min_art,max_art,bc_type)
     open(fid5, file = 'inputadmittance.txt',action='write')
     write(fid5,fmt=*) 'input admittance:'
     do nf=1,no_freq
-        omega=nf*harmonic_scale
+        omega=nf*harmonic_scale/10
         write(fid5,fmt=*) omega,abs(eff_admit(nf,1)),&
             atan2(dimag(eff_admit(nf,1)),real(eff_admit(nf,1), 8))
     enddo
@@ -786,7 +1498,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         if (bc_type.eq.'pressure') then
           do nt=1,n_time
               do nf=1,no_freq
-                  omega=2*pi*nf*harmonic_scale
+                  omega=2*pi*nf*harmonic_scale/10
                   forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                       atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
                   forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
@@ -824,7 +1536,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         elseif (bc_type.eq.'flow') then
           do nt=1,n_time
               do nf=1,no_freq
-                  omega=2*pi*nf*harmonic_scale
+                  omega=2*pi*nf*harmonic_scale/10
 
                   forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
                   cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -916,7 +1628,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     if (bc_type.eq.'pressure')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale
+              omega=2*pi*nf*harmonic_scale/10
               forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                   atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
 
@@ -946,7 +1658,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     elseif(bc_type.eq.'flow')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale
+              omega=2*pi*nf*harmonic_scale/10
 
               forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
               cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -1028,7 +1740,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     if (bc_type.eq.'pressure')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale
+              omega=2*pi*nf*harmonic_scale/10
               forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                   atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
 
@@ -1058,7 +1770,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     elseif(bc_type.eq.'flow')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale
+              omega=2*pi*nf*harmonic_scale/10
 
               forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
               cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -1164,7 +1876,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       R1=admit_param%two_parameter%admit_P1
       C=admit_param%two_parameter%admit_P2
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale
+        omega=nf*2*PI*harmonic_scale/10
         if(mesh_type.eq.'simple_tree')then
           do nunit=1,num_units
             ne=units(nunit)
@@ -1185,7 +1897,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       R2=admit_param%three_parameter%admit_P2
       C=admit_param%three_parameter%admit_P3
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale
+        omega=nf*2*PI*harmonic_scale/10
         if(mesh_type.eq.'simple_tree')then
           do nunit=1,num_units
             ne=units(nunit)
@@ -1211,7 +1923,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       length=admit_param%four_parameter%admit_P3
       radius=admit_param%four_parameter%admit_P4
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale
+        omega=nf*2*PI*harmonic_scale/10
         do nunit=1,num_units
           ne=units(nunit)
          !temporarily store in eff_admit, to be added to the char admit
@@ -1327,7 +2039,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         G=0.0_dp
       elseif(admit_param%admittance_type.eq.'duan_zamir')then
         do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
-         omega=nf*2*PI*harmonic_scale!q/s
+         omega=nf*2*PI*harmonic_scale/10!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity)
          call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
          f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
@@ -1343,7 +2055,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(admit_param%admittance_type.eq.'duan_zamir')then
       else
         do nf=1,no_freq
-          omega=nf*2*PI*harmonic_scale
+          omega=nf*2*PI*harmonic_scale/10
           char_admit(nf,ne)=sqrt(G+cmplx(0.0_dp,1.0_dp,8)*omega*C)/sqrt(R+cmplx(0.0_dp,1.0_dp,8)*omega*L)!mm3/Pa.s
           prop_const(nf,ne)=sqrt((G+cmplx(0.0_dp,1.0_dp,8)*omega*C)*(R+cmplx(0.0_dp,1.0_dp,8)*omega*L))!1/mm
         enddo!nf
@@ -1463,7 +2175,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         G=0.0_dp
       elseif(admit_param%admittance_type.eq.'duan_zamir')then
        do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
-         omega=nf*2*PI*harmonic_scale!q/s
+         omega=nf*2*PI*harmonic_scale/10!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity) !radii is already affected by a factor
          call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
          f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
@@ -1493,7 +2205,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(admit_param%admittance_type.eq.'duan_zamir')then
       else
         do nf=1,no_freq
-          omega=nf*2*PI*harmonic_scale
+          omega=nf*2*PI*harmonic_scale/10
           char_admit(nf,ne)=sqrt(G+cmplx(0.0_dp,1.0_dp,8)*omega*C)/sqrt(R+cmplx(0.0_dp,1.0_dp,8)*omega*L)!mm3/Pa.s
           prop_const(nf,ne)=sqrt((G+cmplx(0.0_dp,1.0_dp,8)*omega*C)*(R+cmplx(0.0_dp,1.0_dp,8)*omega*L))!1/mm
         enddo!nf
@@ -1530,7 +2242,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
 
     if(tree_direction.eq.'diverging')then
         do nf=1,no_freq
-            omega=nf*2*PI*harmonic_scale
+            omega=nf*2*PI*harmonic_scale/10
             do ne=max_elem,min_elem,-1!step backward through elements
                 daughter_admit=cmplx(0.0_dp,0.0_dp,8)!
 
@@ -1558,7 +2270,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
         enddo!nf
     elseif(tree_direction.eq.'converging')then
         do nf=1,no_freq
-            omega=nf*2*PI*harmonic_scale
+            omega=nf*2*PI*harmonic_scale/10
             do ne=min_elem,max_elem!step forward through elements
                 daughter_admit=cmplx(0.0_dp,0.0_dp,8)!
                 sister_admit=cmplx(0.0_dp,0.0_dp,8)!
@@ -1659,7 +2371,7 @@ end subroutine capillary_admittance
 !
 !################################################
 !
-!*pressure_factor:* Calculates change in pressure through tree
+!*pressure_factor:* Calculates change in pressure and flow through tree
 subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,ne_min,ne_max,bc_type)
 
   integer, intent(in) :: no_freq
@@ -1686,7 +2398,7 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
   q_factor=1.0_dp
   if (bc_type.eq.'pressure') then
     do nf=1,no_freq
-      omega=nf*2*PI*harmonic_scale
+      omega=nf*2*PI*harmonic_scale/10
       do ne=ne_min,ne_max
         !look for upstream element
         if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
@@ -1704,19 +2416,23 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
     enddo!nf
   elseif (bc_type.eq.'flow') then
     do nf=1,no_freq
-      omega=nf*2*PI*harmonic_scale
+      omega=nf*2*PI*harmonic_scale/10
       do ne=ne_min,ne_max
         !look for upstream element
         if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
         ne_up=ne_min
           q_factor(nf,ne)=(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
+          p_factor(nf,ne)=q_factor(nf,ne)/char_admit(nf,ne)!(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
             !exp(-1.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne))!/&
             !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
         else
           ne_up=elem_cnct(-1,1,ne)
-          q_factor(nf,ne)=q_factor(nf,ne_up)*char_admit(nf,ne)*(1+reflect(nf,ne_up))* &
-            exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
-            (char_admit(nf,ne_up)*(1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne))))
+          p_factor(nf,ne)=p_factor(nf,ne_up)*(char_admit(nf,ne_up)*(1-reflect(nf,ne_up))* &
+            exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up)))/&
+            (2*char_admit(nf,ne)*(1-reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne))))
+          q_factor(nf,ne)=p_factor(nf,ne_up)*char_admit(nf,ne)!(1+reflect(nf,ne_up))* &
+            !exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
+            !(1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne)))
         endif!neup
       enddo!ne
     enddo!nf
