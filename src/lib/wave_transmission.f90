@@ -292,7 +292,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       ! Open output file
       open(unit=10, file='lobe_imped.json', status='replace')
       ! Write header and frequency values
-      write(*,*) no_freq, num_freq
       freq(1) = 0
       do j = 2, no_freq+1
         freq(j) = (j-1)*harmonic_scale/10
@@ -321,7 +320,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       do i = 1, no_freq
         imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+10))
       enddo
-      write(*,*) 'LUL_V:', imped(1), imped(2), imped(3)
       pause
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -972,7 +970,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         imped(i+1) = abs(q_factor(i, 1))
       enddo
 
-      write(*,*) 'q_factor:', imped
       pause
       write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,num_freq-1), imped(num_freq), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
