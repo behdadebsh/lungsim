@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Acquiring &#8212; Ventilation 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="icon" href="_static/airways_transparent.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Building" href="building.html" />
+    <link rel="prev" title="Welcome to the documentation for Aether!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="acquiring">
+<h1>Acquiring<a class="headerlink" href="#acquiring" title="Permalink to this heading">¶</a></h1>
+<p>The first step to working with the pulmonary simulation library is to acquire it.
+The easiest way to obtain the codebase is to use git and clone the source code.
+It is also possible to acquire the codebase as a zip archive if git is not available.</p>
+<section id="git">
+<h2>Git<a class="headerlink" href="#git" title="Permalink to this heading">¶</a></h2>
+<p>Git is the distributed source control management tool in wide use by millions of software developers and engineers.
+If git is not available on your platform the following sub-sections provide guidance an how to acquire it.</p>
+<section id="windows">
+<h3>Windows<a class="headerlink" href="#windows" title="Permalink to this heading">¶</a></h3>
+<p>On Windows download <a class="reference external" href="https://git-scm.com/download/win">Git for windows</a> and install in the usual manner.</p>
+</section>
+<section id="os-x">
+<h3>OS X<a class="headerlink" href="#os-x" title="Permalink to this heading">¶</a></h3>
+<p>OS X comes preloaded with git and is available directly from the command prompt.</p>
+</section>
+<section id="gnu-linux">
+<h3>GNU/Linux<a class="headerlink" href="#gnu-linux" title="Permalink to this heading">¶</a></h3>
+<p>The package manager for the distro will (most likely) have the required package to install.
+Before installing check to see if git is already available:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="o">--</span><span class="n">version</span>
+</pre></div>
+</div>
+<p>If git is not available you can install the package on an Ubuntu distribution with the following command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">git</span>
+</pre></div>
+</div>
+<p>Other distributions will have a similar command.</p>
+</section>
+<section id="get-the-source-code-with-git">
+<h3>Get the Source Code with Git<a class="headerlink" href="#get-the-source-code-with-git" title="Permalink to this heading">¶</a></h3>
+<p>With git installed we can acquire the codebase with the command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">LungNoodle</span><span class="o">/</span><span class="n">lungsim</span><span class="o">.</span><span class="n">git</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="zip">
+<h2>Zip<a class="headerlink" href="#zip" title="Permalink to this heading">¶</a></h2>
+<p>To download a zip archive of the current <em>develop</em> branch use a web browser to visit this page <a class="reference external" href="https://github.com/LungNoodle/lungsim/archive/develop.zip">https://github.com/LungNoodle/lungsim/archive/develop.zip</a>.
+Then simply unzip the archive:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">unzip</span> <span class="n">lungsim</span><span class="o">-</span><span class="n">develop</span><span class="o">.</span><span class="n">zip</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/airways_transparent.jpg" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Acquiring</a><ul>
+<li><a class="reference internal" href="#git">Git</a><ul>
+<li><a class="reference internal" href="#windows">Windows</a></li>
+<li><a class="reference internal" href="#os-x">OS X</a></li>
+<li><a class="reference internal" href="#gnu-linux">GNU/Linux</a></li>
+<li><a class="reference internal" href="#get-the-source-code-with-git">Get the Source Code with Git</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#zip">Zip</a></li>
+</ul>
+</li>
+</ul>
+
+  </div><div>
+<h3>Get the source code</h3>
+<iframe src="https://ghbtns.com/github-btn.html?user=LungNoodle&repo=lungsim&type=fork&count=true&size=large" frameborder="0" scrolling="0" width="170px" height="30px"></iframe>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Lung Group ABI.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/LungNoodle/lungsim" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

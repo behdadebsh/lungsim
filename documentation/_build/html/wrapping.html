@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Wrapping a module &#8212; Ventilation 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="icon" href="_static/airways_transparent.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Arrays module (arrays.f90)" href="Modules/arrays.html" />
+    <link rel="prev" title="Fortran style guidelines" href="fortranstyles.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="wrapping-a-module">
+<h1>Wrapping a module<a class="headerlink" href="#wrapping-a-module" title="Permalink to this heading">¶</a></h1>
+<p>When we want to make modules or functions/subroutines available from Python we cannot use the Fortran code directly, we need to wrap it in some way.  Because it is not a straightforward task to wrap the Aether library, which is written in Fortran, directly into Python we use a tool called Simplified Wrapping and Interface Generator (SWIG).  SWIG performs a lot of the work transforming Python data structures; integers, floats, strings, etc.. into C or C++ for us.  However since Aether is written in Fortran we still have a bit of work to do, namely making the Fortran code available from C.  It is then our task to wrap the Aether library into a C interface and set up SWIG to complete the process.</p>
+<p>This documentation describes how we create C bindings to the Fortran code and then how to get SWIG to wrap the code into Python.</p>
+<section id="c-bindings">
+<h2>C bindings<a class="headerlink" href="#c-bindings" title="Permalink to this heading">¶</a></h2>
+<p>There are three files associated with a single module in the Aether library that are required for making the C bindings.  These files are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A C header file</p></li>
+<li><p>A C implementation file</p></li>
+<li><p>A Fortran implementation file</p></li>
+</ul>
+</div></blockquote>
+<p>The C header file is used by SWIG to generate the wrapped functions.  The C implementation file starts the procedure of converting the C variables into Fortran and the Fortran implementation file completes the conversion of the C variables and calls the functions in the Aether library.</p>
+<p>If we are adding a new module follow the instructions in <a class="reference internal" href="adding_modules.html"><span class="doc">How to add a module</span></a> and then return here to implement the wrapping.</p>
+<section id="c-header-file">
+<h3>C header file<a class="headerlink" href="#c-header-file" title="Permalink to this heading">¶</a></h3>
+<p>The C header file contains the definitions of all the functions that are public from the current module.  The less functions made public the better, once a function is public and other developers or users have started using it changes to the function will break their code.  Keep this in mind when determining whether a function should be available in Python or not.</p>
+<p>When a new C header file is created there is a little bit of housekeeping to perform.  We must add a little C to avoid compilation issues.  The code we require is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#ifndef AETHER_MODULE_NAME_H</span>
+<span class="c1">#define AETHER_MODULE_NAME_H</span>
+
+<span class="c1">#include &quot;symbol_export.h&quot;</span>
+
+<span class="o">/*</span> <span class="n">Declaration</span> <span class="n">of</span> <span class="n">public</span> <span class="n">functions</span> <span class="n">goes</span> <span class="n">here</span><span class="o">.</span> <span class="o">*/</span>
+
+<span class="c1">#endif /* AETHER_MODULE_NAME_H */</span>
+</pre></div>
+</div>
+<p>where in the above snippet <em>MODULE_NAME</em> is replaced with the actual name of the module written in capital letters.</p>
+<p>The #ifndef, #define, and #endif directives make sure we don’t try and declare our functions multiple times.  The #include “symbol_export.h” declares a macro that we will use to control the visibility of the public functions.</p>
+<p>Once the C header file has got it’s house in order we can start to declare the public functions we are going to use from Python.  Below are a few examples, first a selection of subroutines with different arguments from the Aether library and then their equivalent declaration in C.</p>
+<p>Fortran subroutines/functions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">subroutine</span> <span class="n">set_diagnostics_on</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<span class="n">function</span> <span class="n">get_ne_radius</span><span class="p">()</span> <span class="n">result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<span class="n">subroutine</span> <span class="n">add_mesh</span><span class="p">(</span><span class="n">AIRWAY_MESHFILE</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>equivalent C function declarations:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SHO_PUBLIC</span> <span class="n">void</span> <span class="n">set_diagnostics_on</span><span class="p">(</span><span class="nb">int</span> <span class="n">state</span><span class="p">);</span>
+<span class="n">SHO_PUBLIC</span> <span class="nb">int</span> <span class="n">get_ne_radius</span><span class="p">();</span>
+<span class="n">SHO_PUBLIC</span> <span class="n">void</span> <span class="n">add_mesh</span><span class="p">(</span><span class="n">const</span> <span class="n">char</span> <span class="o">*</span><span class="n">AIRWAY_MESHFILE</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>where the <em>SHO_PUBLIC</em> macro makes the functions visible to other programs.</p>
+<p>We can see here that the arguments and the return types are comparable across languages the naming of the functions in the two different languages are exacty the same.  This is by design, we want to keep the usage of the code as similar as possible across the different languages.  This similarity will flow through to Python  when SWIG creates the bindings.</p>
+<p>The table below shows a few comparison of Fortran and C datatypes:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Fortran</p></th>
+<th class="head"><p>C</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>integer</p></td>
+<td><p>long int or int</p></td>
+</tr>
+<tr class="row-odd"><td><p>logical</p></td>
+<td><p>long int or int</p></td>
+</tr>
+<tr class="row-even"><td><p>real</p></td>
+<td><p>float</p></td>
+</tr>
+<tr class="row-odd"><td><p>real*8</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-even"><td><p>character</p></td>
+<td><p>char *</p></td>
+</tr>
+</tbody>
+</table>
+<p>Keep this table in mind when working out which data type best matches your arguments when creating C bindings for you own functions.</p>
+</section>
+</section>
+<section id="c-implementation-file">
+<h2>C implementation file<a class="headerlink" href="#c-implementation-file" title="Permalink to this heading">¶</a></h2>
+<p>The C implemention file is where we start to handover to the Fortran language.
+The first task in creating a C implementation file is to include the associated header file for our example module <em>module_name</em> we would include the header file at the very top of the file like so:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include module_name.h</span>
+</pre></div>
+</div>
+<p>After the corresponding header file is included we can include any system headers that we may need, for instance if we are working with characters or strings we would include the <em>string.h</em> header file <strong>after</strong> <em>module_name.h</em>.</p>
+<p>The second task is to declare the C form of the Fortran binding function.
+We give this function the same name as the original function but with ‘_c’ appended to it.  For the examples above this would look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">void</span> <span class="n">set_diagnostics_on_c</span><span class="p">(</span><span class="nb">int</span> <span class="o">*</span><span class="n">state</span><span class="p">);</span>
+<span class="nb">int</span> <span class="n">get_ne_radius_c</span><span class="p">();</span>
+<span class="n">void</span> <span class="n">add_mesh_c</span><span class="p">(</span><span class="n">const</span> <span class="n">char</span> <span class="o">*</span><span class="n">AIRWAY_MESHFILE</span><span class="p">,</span> <span class="nb">int</span> <span class="o">*</span><span class="n">filename_len</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>There are two things here that we have to take care of; The first is that all arguments in Fortran are passed by reference and not by value.
+Thus C must pass Fortran arguments as a pointer, The second is that strings or character arrays are dealt with quite differently in C and Fortran.
+We will explain more as we go further.</p>
+<p>The third task we must perform is the implementation of the C function that calls the corresponding Fortran function that we have just declared (but not yet implemented).
+Let’s look at the implementation of our example functions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">void</span> <span class="n">set_diagnostics_on</span><span class="p">(</span><span class="nb">int</span> <span class="n">state</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">set_diagnostics_on_c</span><span class="p">(</span><span class="o">&amp;</span><span class="n">state</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nb">int</span> <span class="n">get_ne_radius</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="k">return</span> <span class="n">get_ne_radius_c</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="n">void</span> <span class="n">add_mesh</span><span class="p">(</span><span class="n">const</span> <span class="n">char</span> <span class="o">*</span><span class="n">AIRWAY_MESHFILE</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="nb">int</span> <span class="n">filename_len</span> <span class="o">=</span> <span class="n">strlen</span><span class="p">(</span><span class="n">AIRWAY_MESHFILE</span><span class="p">);</span>
+  <span class="n">add_mesh_c</span><span class="p">(</span><span class="n">AIRWAY_MESHFILE</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">filename_len</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In <em>set_diagnostics_on</em> we simply pass the argument <em>state</em> by reference to the corresponding Fortran function.
+The returned integer from <em>get_ne_radius_c</em> is already ready for us to use in C.
+The only real work we have to do here is calculate the length of the string we are passing to the Fortran function as Fortran character arrays have no notion of a termination character to signal the end of a string.
+There are other differences but we can make use of some utility functions to hide most of the differences from us.</p>
+<p>The standard we are using for adding the length of string argument is to add it directly after the string argument in the function argument list.
+It then follows that if we have more than one string argument or mixed string and value arguments then the string argument is always followed by it’s length argument.</p>
+<section id="fortran-implementation-file">
+<h3>Fortran implementation file<a class="headerlink" href="#fortran-implementation-file" title="Permalink to this heading">¶</a></h3>
+<p>The Fortran implmentation file is where the majority of the work is done.
+We have to tell compilers what to bind the Fortran function name to so the C compiler can locate the function when linking.
+We also have to implment the conversion from C char pointers to Fortran character arrays.</p>
+<p>The first task we have to do is setup the module, for our example module <em>module_name</em> we would write the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>module module_name_c
+
+implicit none
+private
+
+contains
+
+! module subroutines declared here
+
+end module module_name_c
+</pre></div>
+</div>
+<p>The second task is to implement the subroutine that will call into the corresponding subroutine in the Aether library that we are binding.
+For our example functions we have:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!
+!###################################################################################
+!
+  subroutine set_diagnostics_on_c(state) bind(C, name=&quot;set_diagnostics_on_c&quot;)
+    use diagnostics, only: set_diagnostics_on
+    implicit none
+
+    logical, intent(in) :: state
+
+    call set_diagnostics_on(state)
+
+  end subroutine set_diagnostics_on_c
+
+!
+!###################################################################################
+!
+  function get_ne_radius_c() result(res) bind(C, name=&quot;get_ne_radius_c&quot;)
+
+    use indices, only: get_ne_radius
+    implicit none
+    integer :: res
+
+    res = get_ne_radius()
+
+  end function get_ne_radius_c
+
+!
+!###################################################################################
+!
+  subroutine add_mesh_c(AIRWAY_MESHFILE, filename_len) bind(C, name=&quot;add_mesh_c&quot;)
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use other_consts, only: MAX_FILENAME_LEN
+    use geometry, only: add_mesh
+    implicit none
+
+    integer,intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: AIRWAY_MESHFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+
+    call strncpy(filename_f, AIRWAY_MESHFILE, filename_len)
+
+    call add_mesh(filename_f)
+
+  end subroutine add_mesh_c
+</pre></div>
+</div>
+<p>We can see that on the function/subroutine declaration we have added the <em>bind(C)</em> attribute.
+This attribute tells the compiler that this symbol must be operable with C.
+With this attribute we also set the name of the symbol that we want to be able to find from C.
+This name matches the name of the function we declared at the top of the C implementation file.</p>
+<p>The last thing we need to consider is the way that C string is dealt with in <em>add_mesh_c</em>.
+We have to be careful when converting from C to Fortran but we can make use of the <em>strncpy</em> utility to make life easier.
+When we are converting strings from C to Fortran, like in this situation, we will replicate what is shown here and accept that it works.
+The details of the conversion are not going to be explained here.</p>
+</section>
+</section>
+<section id="swig-interface">
+<h2>SWIG interface<a class="headerlink" href="#swig-interface" title="Permalink to this heading">¶</a></h2>
+<p>When creating a new module we need to create an interface file so that SWIG creates a corresponding module in the target language.
+The interface file is typically very simple but we can add some directives in this file to help map from C to the target language and vice versa.
+In the simplest case we just describe the interface using the C header file.
+For our example module <em>module_name</em> the interface file looks like the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">module</span><span class="p">(</span><span class="n">package</span><span class="o">=</span><span class="s2">&quot;aether&quot;</span><span class="p">)</span> <span class="n">module_name</span>
+<span class="o">%</span><span class="n">include</span> <span class="n">symbol_export</span><span class="o">.</span><span class="n">h</span>
+<span class="o">%</span><span class="n">include</span> <span class="n">module_name</span><span class="o">.</span><span class="n">h</span>
+
+<span class="o">%</span><span class="p">{</span>
+<span class="c1">#include &quot;module_name.h&quot;</span>
+<span class="o">%</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Here we declare the package that we want this module to belong to (<em>aether</em> in this case) and the name of the module.
+Then we define the files that SWIG needs to create the bindings from and lastly a C part that defines the header files that are required for compilation.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/airways_transparent.jpg" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Wrapping a module</a><ul>
+<li><a class="reference internal" href="#c-bindings">C bindings</a><ul>
+<li><a class="reference internal" href="#c-header-file">C header file</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#c-implementation-file">C implementation file</a><ul>
+<li><a class="reference internal" href="#fortran-implementation-file">Fortran implementation file</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#swig-interface">SWIG interface</a></li>
+</ul>
+</li>
+</ul>
+
+  </div><div>
+<h3>Get the source code</h3>
+<iframe src="https://ghbtns.com/github-btn.html?user=LungNoodle&repo=lungsim&type=fork&count=true&size=large" frameborder="0" scrolling="0" width="170px" height="30px"></iframe>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Lung Group ABI.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/LungNoodle/lungsim" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

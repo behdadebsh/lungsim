@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Testing &#8212; Ventilation 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="icon" href="_static/airways_transparent.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Running" href="running.html" />
+    <link rel="prev" title="Building" href="building.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="testing">
+<h1>Testing<a class="headerlink" href="#testing" title="Permalink to this heading">¶</a></h1>
+<p>Testing is an integral part of developing software and validating the code.
+It is also builds trust in users of the software that the software will work as expected.
+When adding new code to the library itself a test must also be added.  Ideally the tests test every single line of code so that we have 100% code coverage.
+When we have good coverage of tests over the library we inherently get regression testing.
+We don’t want to have new code changes breaking code that is already considered to be working.</p>
+<p>For the testing of the Fortran code the pFUnit testing framework has been chosen.
+The pFUnit testing framework uses Python to manage some of the test generation, without Python we cannot build the tests.</p>
+<section id="how-to-add-a-test">
+<h2>How to add a test<a class="headerlink" href="#how-to-add-a-test" title="Permalink to this heading">¶</a></h2>
+<p>All tests live under the <em>tests</em> tree and mirror what is in the source tree.
+In the following example we are going to add a new testing module for the <em>diagnostics</em> module in the <em>lib</em> directory from the <em>src</em> tree.</p>
+<section id="write-test">
+<h3>Write test<a class="headerlink" href="#write-test" title="Permalink to this heading">¶</a></h3>
+<p>To start we are first going to make sure we have the correct structure that matches the <em>src</em> tree.
+Starting from the root directory of the lungsim repository we need to make sure that the directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tests</span><span class="o">/</span><span class="n">lib</span>
+</pre></div>
+</div>
+<p>exists and if not create it, from the command line on UNIX based oses this can be done with the <em>mkdir</em> command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mkdir</span> <span class="n">tests</span><span class="o">/</span><span class="n">lib</span>
+</pre></div>
+</div>
+<p>Once the directory structure is correct we then create the testing module.
+Because we want to test the diagnostics module from the library we will create a test file named <em>test_diagnostics.pf</em> in the <em>tests/lib</em> directory.
+The <em>pf</em> extension indicates that this file is a hybrid Python fortran file, this file is a preprocessor input file which is Fortran free format file with preprocessor directives added.
+To create the test a Python script will generate a valid Fortran file from directives written into this file.
+With your favourite text editor create a file named <em>test_diagnostics.pf</em>.
+We could choose <em>vi</em> for this task as shown below but any text editor will work:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vi</span> <span class="n">tests</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">test_diagnostics</span><span class="o">.</span><span class="n">pf</span>
+</pre></div>
+</div>
+<p>Into this file we will write our first test for the module.
+This test will check that the diagnositcs flag has been set when using the <em>set_diagnostics_on</em> subroutine:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@test</span>
+<span class="n">subroutine</span> <span class="n">testSetDiagnostics</span><span class="p">()</span>
+   <span class="n">use</span> <span class="n">pfunit_mod</span>
+   <span class="n">use</span> <span class="n">diagnostics</span><span class="p">,</span> <span class="n">only</span><span class="p">:</span> <span class="n">get_diagnostics_on</span><span class="p">,</span> <span class="n">set_diagnostics_on</span>
+   <span class="n">implicit</span> <span class="n">none</span>
+
+   <span class="n">logical</span> <span class="p">::</span> <span class="n">state</span>
+
+   <span class="n">call</span> <span class="n">get_diagnostics_on</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+   <span class="nd">@assertFalse</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+   <span class="n">call</span> <span class="n">set_diagnostics_on</span><span class="p">(</span><span class="o">.</span><span class="n">true</span><span class="o">.</span><span class="p">)</span>
+   <span class="n">call</span> <span class="n">get_diagnostics_on</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+   <span class="nd">@assertTrue</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+<span class="n">end</span> <span class="n">subroutine</span> <span class="n">testSetDiagnostics</span>
+</pre></div>
+</div>
+<p>With our test written we now need to add this into the CMake build generation system.</p>
+</section>
+<section id="add-test-to-cmake">
+<h3>Add test to CMake<a class="headerlink" href="#add-test-to-cmake" title="Permalink to this heading">¶</a></h3>
+<p>The first task to do when adding a test to the CMake files is to check that a CMake file exists.
+When adding a test to a new directory, as we are doing here, there won’t be a CMake file for us to use.
+To fix this we first need to tell CMake that a new subdirectory is available.
+We do this by adding a <em>sub_directory</em> command into an existing <em>CMakeLists.txt</em> file in a parent directory of the directory we have just added a test to.
+In our example we would edit the file (any text editor will do, don’t feel you need to use <em>vi</em>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vi</span> <span class="n">tests</span><span class="o">/</span><span class="n">CMakeLists</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>and add the line at the bottom of the file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">add_subdirectory</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then we need to create a new <em>CMakeLists.txt</em> (the capitalisation of this file is important) file in the <em>tests/lib</em> directory (any text editor will do, don’t feel you need to use <em>vi</em>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vi</span> <span class="n">tests</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">CMakeLists</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>and add the following to create an executable test that will work with CTest (we will also be able to execute this test directly):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># Add all the files that make a single test, we could have multiple files testing
+# the same module.  Don&#39;t add test files into the same test that test different modules.
+# These are all .pf files.
+set(DIAGNOSTICS_TEST_SRCS
+    test_diagnostics.pf)
+
+# Make use of the pFUnit helper function to create a test.
+# Arguments    : - test_package_name: Name of the test package
+#                - test_sources     : List of pf-files to be compiled
+#                - extra_sources    : List of extra Fortran source code used for testing (if none, input empty string &quot;&quot;)
+#                - extra_sources_c  : List of extra C/C++ source code used for testing (if none, input empty string &quot;&quot;)
+add_pfunit_test(diagnostics_test ${DIAGNOSTICS_TEST_SRCS} &quot;&quot; &quot;&quot;)
+# Link the test to the aether library target.
+target_link_libraries (diagnostics_test aether)
+target_include_directories(diagnostics_test PRIVATE $&lt;TARGET_PROPERTY:aether,Fortran_MODULE_DIRECTORY&gt;)
+</pre></div>
+</div>
+<p>With our test added to the test framework we can now build and run our test.</p>
+</section>
+<section id="build-and-run-test">
+<h3>Build and run test<a class="headerlink" href="#build-and-run-test" title="Permalink to this heading">¶</a></h3>
+<p>The test we have just completed will be built when we build the configuration from the build directory by default.
+That is if we execute the <em>BUILD_ALL</em> build target for IDEs like Visual Studio or on <em>Makefile</em> generation builds we would simple issue the command <em>make</em> in the build directory.
+We can also build our test directly be building the target <em>diagnostics_test</em>, for <em>Makefile</em> generation builds we would issue the command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">diagnostics_test</span>
+</pre></div>
+</div>
+<p>To run the test we can execute the ctest command from the command line in the build directory with the following arguments:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ctest</span> <span class="o">-</span><span class="n">R</span> <span class="n">diagnostics_test</span>
+</pre></div>
+</div>
+<p>we will also execute all tests if we execute the command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ctest</span>
+</pre></div>
+</div>
+<p>A handy flag to add to both of these commands is the <em>–verbose</em> flag.
+This gives us the details output from each test and not just the summary statement.</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/airways_transparent.jpg" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Testing</a><ul>
+<li><a class="reference internal" href="#how-to-add-a-test">How to add a test</a><ul>
+<li><a class="reference internal" href="#write-test">Write test</a></li>
+<li><a class="reference internal" href="#add-test-to-cmake">Add test to CMake</a></li>
+<li><a class="reference internal" href="#build-and-run-test">Build and run test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div><div>
+<h3>Get the source code</h3>
+<iframe src="https://ghbtns.com/github-btn.html?user=LungNoodle&repo=lungsim&type=fork&count=true&size=large" frameborder="0" scrolling="0" width="170px" height="30px"></iframe>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Lung Group ABI.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/LungNoodle/lungsim" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

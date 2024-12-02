@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Building &#8212; Ventilation 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="icon" href="_static/airways_transparent.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Testing" href="testing.html" />
+    <link rel="prev" title="Acquiring" href="acquiring.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="building">
+<h1>Building<a class="headerlink" href="#building" title="Permalink to this heading">¶</a></h1>
+<p>There are two ways to build the pulmonary simulation library:</p>
+<ol class="arabic simple">
+<li><p>Using CMake (recommended)</p></li>
+<li><p>Using a makefile which calls the libraries and control files that you need</p></li>
+</ol>
+<p>The CMake builds the library outside of the source directory and allows for configuration via the command line or GUI.
+CMake will configure the build files required for the current environment, on GNU/Linux and OS X this could be a Makefile or Xcode project and on Windows a Visual Studio solution file.
+The supplied makefile shows an example of building your library.
+The library will build in the source directory with the flags set in the makefile itself.</p>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this heading">¶</a></h2>
+<p>In order to build the Aether library there are some tools that are required:</p>
+<ul class="simple">
+<li><p>Compiler toolchain</p></li>
+<li><p>CMake</p></li>
+<li><p>SWIG (optional)</p></li>
+<li><p>Python (optional)</p></li>
+<li><p>Sphinx (optional)</p>
+<ul>
+<li><p>sphinx-fortran</p></li>
+</ul>
+</li>
+</ul>
+<p>If you wish to build the Python bindings for the library then Python and SWIG become necessary requirements.
+Sphinx is used to generate nicely formatted output for the documentation, you can still edit and read the documentation without Sphinx.
+The ‘docs’ target in the build will generate the html version of the documentation using Sphinx, without Sphinx this target will not be available.</p>
+<section id="virtual-environment">
+<h3>Virtual environment<a class="headerlink" href="#virtual-environment" title="Permalink to this heading">¶</a></h3>
+<p>We recommend that you create a virtual environment to use for building the library.
+The following sections will assume that you have created a virtual environment and activated it.</p>
+<p>To create a virtual environment for building the library execute the following commands, these commands assume a bash shell on GNU/Linux or macOS:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">venv</span> <span class="n">venv</span><span class="o">-</span><span class="n">aether</span>
+<span class="n">source</span> <span class="n">venv</span><span class="o">-</span><span class="n">aether</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">activate</span>
+</pre></div>
+</div>
+<p>For Windows <em>cmd</em> execute the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">venv</span> <span class="n">venv</span><span class="o">-</span><span class="n">aether</span>
+<span class="n">venv</span><span class="o">-</span><span class="n">aether</span>\<span class="n">Scripts</span>\<span class="n">activate</span>
+</pre></div>
+</div>
+<p>The Python bindings require <em>numpy</em> to build, we install <em>numpy</em> with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">numpy</span>
+</pre></div>
+</div>
+<p>For installing the packages required for building the documentation with Sphinx:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">lungsim</span><span class="o">/</span><span class="n">documentation</span><span class="o">/</span><span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+</section>
+<section id="windows">
+<h3>Windows<a class="headerlink" href="#windows" title="Permalink to this heading">¶</a></h3>
+<p>On Windows, Visual Studio is the recommended toolchain with the Intel fortran compiler.
+CMake is readily available and a binary is supplied on the CMake <a class="reference external" href="https://cmake.org/download">download page</a>.
+SWIG 4.0 is available from the SWIG <a class="reference external" href="http://www.swig.org/download.html">download page</a>.
+The latest release at this time is version 4.0.2.
+For Sphinx you will first need to have Python installed, which is required when creating the Python bindings anyway.
+Python 3.9 works well with Visual Studio 2017 when building Python extension libraries (which is what the bindings are when used from Python).
+Python 3.9 is availble from the Python <a class="reference external" href="PythonDownload">download page</a>.</p>
+</section>
+<section id="macos">
+<h3>macOS<a class="headerlink" href="#macos" title="Permalink to this heading">¶</a></h3>
+<p>Use brew to install gcc, which includes gfortran:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">brew</span> <span class="n">install</span> <span class="n">gcc</span>
+</pre></div>
+</div>
+<p>If you don’t have brew, install it by following the instructions from <a class="reference external" href="http://brew.sh/">brew.sh</a>.
+CMake is readily available and a binary is supplied on the CMake <a class="reference external" href="https://cmake.org/download">download page</a>.
+SWIG can be installed through brew:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">brew</span> <span class="n">install</span> <span class="n">swig</span>
+</pre></div>
+</div>
+</section>
+<section id="gnu-linux">
+<h3>GNU/Linux<a class="headerlink" href="#gnu-linux" title="Permalink to this heading">¶</a></h3>
+<p>The package manager for the distro will (most likely) have the required packages to install.
+Before installing check to see if any of the requirements are already available:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">gfortran</span> <span class="o">--</span><span class="n">version</span>
+<span class="n">cmake</span> <span class="o">--</span><span class="n">version</span>
+<span class="n">python</span> <span class="o">--</span><span class="n">version</span>
+<span class="n">swig</span> <span class="o">-</span><span class="n">version</span>
+</pre></div>
+</div>
+<p>In the case of the python package we require the <em>development</em> package for python this must be installed for the python bindings to become available.
+For the Ubuntu distribution you can get the missing packages with the following commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">gfortran</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">cmake</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">pythonX</span><span class="o">.</span><span class="n">Y</span><span class="o">-</span><span class="n">dev</span> <span class="c1"># Where X and Y are the major and minor version numbers of the Python you want to install, any version above 3.7 will work</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">swig</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="cmake">
+<h2>CMake<a class="headerlink" href="#cmake" title="Permalink to this heading">¶</a></h2>
+<p>CMake is designed for out-of-source builds this enables us to have different builds with different configurations available from the same source.
+Typically we create sibling directories of the source directory to build the application within, this is not necessary though the build directory can be anywhere.
+To simply build the library we would run the following commands in the terminal (starting from the parent directory of <em>lungsim</em>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">-</span><span class="n">S</span> <span class="n">lungsim</span> <span class="o">-</span><span class="n">B</span> <span class="n">build</span><span class="o">-</span><span class="n">lungsim</span>
+<span class="n">cd</span> <span class="n">build</span><span class="o">-</span><span class="n">lungsim</span>
+<span class="n">make</span>
+</pre></div>
+</div>
+<p>This will build a <strong>Release</strong> version of the library by default.
+To build a debug version we would run the following commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">-</span><span class="n">S</span> <span class="n">lungsim</span> <span class="o">-</span><span class="n">B</span> <span class="n">build</span><span class="o">-</span><span class="n">lungsim</span> <span class="o">-</span><span class="n">D</span> <span class="n">BUILD_TYPE</span><span class="o">=</span><span class="n">Debug</span>
+<span class="n">cd</span> <span class="n">lungsim</span><span class="o">-</span><span class="n">build</span><span class="o">-</span><span class="n">debug</span>
+<span class="n">make</span>
+</pre></div>
+</div>
+<p>Here we use the <strong>-D</strong> to set a configuration option, in this case <em>BUILD_TYPE</em>, to the value <strong>Debug</strong>.
+For the library we can configure three different build types; <strong>Release</strong>, <strong>Debug</strong>, and <strong>Pedantic</strong>.
+The <strong>Release</strong> build type creates an optimized application, the <strong>Debug</strong> build type creates an application with debugging symbols present and the <strong>Pedantic</strong> build type turns on more warnings and tests to help create reliable software.
+The <strong>Pedantic</strong> option is only available with the GNU Fortran compiler at this time.</p>
+<p>The build can also be configured with a CMake GUI application, for instance you could use the ncurses based CMake configuration application called <em>ccmake</em> to configure a build.
+When configuring the build with CMake on Windows and OS X there are easily installable binaries provided for these platforms that will install a GUI.
+When using the GUI you must specify the source and build directory and the type of generator to generate the build files for.  With these requirements set options for setting the build like build type become available.</p>
+<section id="targets">
+<h3>Targets<a class="headerlink" href="#targets" title="Permalink to this heading">¶</a></h3>
+<p>Below is a list of the more important targets that can be built.
+Each target can be built either from the command line on make based scripts or through a project for IDE build scripts.</p>
+<section id="aether">
+<h4>aether<a class="headerlink" href="#aether" title="Permalink to this heading">¶</a></h4>
+<p>The <em>aether</em> target builds the aether fortran libary.</p>
+</section>
+<section id="cbindings">
+<h4>cbindings<a class="headerlink" href="#cbindings" title="Permalink to this heading">¶</a></h4>
+<p>The <em>cbindings</em> target builds the aether C library.
+This target is synonymous with aether_c.</p>
+</section>
+<section id="pybindings">
+<h4>pybindings<a class="headerlink" href="#pybindings" title="Permalink to this heading">¶</a></h4>
+<p>The <em>pybindings</em> target builds the aether Python package and associated modules.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <em>pybindings</em> target is only available if both Python and SWIG are available.</p>
+</div>
+</section>
+<section id="docs">
+<h4>docs<a class="headerlink" href="#docs" title="Permalink to this heading">¶</a></h4>
+<p>The <em>docs</em> target builds the documentation from the restructured text into html which can be viewed with a webbrowser from the build directory (for example some_path/lungsim-build/html/index.html).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This target is only available if Sphinx is available.</p>
+</div>
+</section>
+<section id="clean">
+<h4>clean<a class="headerlink" href="#clean" title="Permalink to this heading">¶</a></h4>
+<p>The <em>clean</em> target removes all generated files.</p>
+</section>
+</section>
+</section>
+<section id="supplied-makefile">
+<h2>Supplied makefile<a class="headerlink" href="#supplied-makefile" title="Permalink to this heading">¶</a></h2>
+<p>From the terminal change into the ‘lungsim’ directory, then run the <strong>make</strong> command.  Edit the compiler flags by editing the makefile in this directory.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Not recently checked to see if this is still working.</p>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/airways_transparent.jpg" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Building</a><ul>
+<li><a class="reference internal" href="#requirements">Requirements</a><ul>
+<li><a class="reference internal" href="#virtual-environment">Virtual environment</a></li>
+<li><a class="reference internal" href="#windows">Windows</a></li>
+<li><a class="reference internal" href="#macos">macOS</a></li>
+<li><a class="reference internal" href="#gnu-linux">GNU/Linux</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cmake">CMake</a><ul>
+<li><a class="reference internal" href="#targets">Targets</a><ul>
+<li><a class="reference internal" href="#aether">aether</a></li>
+<li><a class="reference internal" href="#cbindings">cbindings</a></li>
+<li><a class="reference internal" href="#pybindings">pybindings</a></li>
+<li><a class="reference internal" href="#docs">docs</a></li>
+<li><a class="reference internal" href="#clean">clean</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#supplied-makefile">Supplied makefile</a></li>
+</ul>
+</li>
+</ul>
+
+  </div><div>
+<h3>Get the source code</h3>
+<iframe src="https://ghbtns.com/github-btn.html?user=LungNoodle&repo=lungsim&type=fork&count=true&size=large" frameborder="0" scrolling="0" width="170px" height="30px"></iframe>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Lung Group ABI.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/LungNoodle/lungsim" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>
