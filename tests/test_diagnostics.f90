@@ -39,4 +39,3 @@ subroutine test_set_and_get(error)
 end subroutine test_set_and_get
 
 end module test_diagnostics
-

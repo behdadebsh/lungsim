@@ -55,7 +55,7 @@ target_link_libraries(
 )
 
 foreach(t IN LISTS TESTS)
-  set(_TEST_NAME "${PROJECT_NAME}/${t}")
+  set(_TEST_NAME "${PROJECT_NAME}/${t}_test")
   add_test("${_TEST_NAME}" "${PROJECT_NAME}-tester" "${t}")
   if(MSVC)
     set(_TEST_PROPERTIES "PATH=$<TARGET_FILE_DIR:aether>\;${FORTRAN_RUNTIME_PATH}")
