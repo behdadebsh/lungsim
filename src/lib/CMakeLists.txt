@@ -43,6 +43,9 @@ add_library(aether STATIC ${LIB_SRCS})
 set_target_properties(aether PROPERTIES
   Fortran_MODULE_DIRECTORY "${AETHER_MODULE_DIRECTORY}"
   POSITION_INDEPENDENT_CODE TRUE)
+
+target_include_directories(aether PUBLIC "${AETHER_MODULE_DIRECTORY}")
+
 if (MSVC)
   target_compile_options(aether PRIVATE /heap-arrays0)
 endif ()
