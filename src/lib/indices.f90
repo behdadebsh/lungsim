@@ -32,7 +32,8 @@ module indices
   ! indices for unit_field
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
-       nu_vd=0,nu_perf=0,nu_blood_press=0
+       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_Pe_max=0, &
+       nu_Pe_min=0
   !indices for gas exchange field
   ! indices for gasex_field
   integer,parameter :: num_gx = 12
@@ -64,7 +65,7 @@ module indices
   
   public num_nu,nu_vol,nu_comp, nu_conc2,nu_Vdot0,nu_Vdot1, &
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
-       nu_conc1,nu_vent,nu_vd,&
+       nu_conc1,nu_vent,nu_vd,nu_Pe_max,nu_Pe_min,&
        nu_perf,nu_blood_press
   
   public num_gx, ng_p_alv_o2,ng_p_alv_co2,ng_p_ven_o2,ng_p_ven_co2, &
@@ -228,7 +229,7 @@ contains
     ne_vd_bel = 9
     ne_vol_bel = 10
     ! indices for unit_field
-    num_nu=10
+    num_nu=12
     nu_vol=1
     nu_comp=2
     nu_Vdot0=3
@@ -239,6 +240,8 @@ contains
     nu_vt=8
     nu_air_press=9
     nu_vent=10
+    nu_Pe_max = 11
+    nu_Pe_min = 12
     call enter_exit(sub_name,2)
   end subroutine ventilation_indices
 
@@ -267,7 +270,7 @@ contains
     ne_a_A = 6 !ratio of duct to total cross-section (airway)
     ne_vd_bel = 7
     ne_vol_bel = 8
-    ! indices for unit_field
+    ! indices for  ield
     num_nu = 0
     
     call enter_exit(sub_name,2)
