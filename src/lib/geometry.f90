@@ -3137,7 +3137,7 @@ contains
     do nunit=1,num_units
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
        !set the alveolus unit initial volume
-       alv_unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)/26000000
+!       alv_unit_field_current(nu_vol,nunit) = unit_field(nu_vol,nunit)/26000000
     enddo
 
 
