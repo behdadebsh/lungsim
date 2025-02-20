@@ -70,6 +70,9 @@ module arrays
   !real(dp),allocatable :: alv_unit_field(:,:)
 
 
+  !surfactant model related parameters
+  real(dp), dimension(:,:), allocatable :: alv_unit_field_current
+
   character(len=20),dimension(20) :: data_group_names,elem_group_names
   
   logical,allocatable :: expansile(:)
@@ -147,7 +150,7 @@ module arrays
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX !, alv_unit_field
+       SparseVal, RHS, prq_solution, solver_solution, FIX, alv_unit_field_current
 
 contains
   subroutine set_node_field_value(row, col, value)
