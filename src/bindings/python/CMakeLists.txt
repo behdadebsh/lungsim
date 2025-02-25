@@ -29,6 +29,7 @@ set(INTERFACE_SRCS
   ../interface/growtree.i
   ../interface/indices.i
   ../interface/imports.i
+  ../interface/lymphatics.i
   ../interface/pressure_resistance_flow.i
   ../interface/species_transport.i
   ../interface/surface_fitting.i
