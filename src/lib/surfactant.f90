@@ -27,7 +27,7 @@ module surfactant
   real(dp), parameter :: gamma_star = (3e-7_dp)!g/cm^2 0.90520493_ * 0.061636_dp 1.327915519_   * 1.274464457_dp
   real(dp), parameter :: m2 = 140_dp   !140.0_dp !slope
   real(dp), parameter :: surface_tension_hat = (22.0_dp)!22.02_dp !dyn/cm  *0.005278_dp 0.12509917_dp *0.12509911_dp)*1.15
-  real(dp), parameter :: surface_tension_min= 20.0_dp  !1.0_dpdyn/cm *0.85_dp
+  real(dp), parameter :: surface_tension_min= 1.0_dp  !1.0_dpdyn/cm *0.85_dp
   real(dp), parameter :: gamma_max =  gamma_star*(1+(surface_tension_hat-surface_tension_min)/m2)! 0.345e-6_dp !g/cm^2
   real(dp), parameter :: bulk_c = 10e-3_dp  ! bulk concentration  g/ml 0.1_dp
   real(dp), parameter :: k_a = (1667.0_dp) ! adsorption coefficient  ml/(g*sec) rate_diff_*0.117956756_dp  *0.113705033_dp  *0.12509911_dp 1667.6667
