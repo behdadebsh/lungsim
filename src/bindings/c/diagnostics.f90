@@ -1,4 +1,4 @@
-module diagnostics_c
+ module diagnostics_c
 
   implicit none
 

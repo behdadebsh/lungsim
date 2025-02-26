@@ -16,6 +16,9 @@ module exports
   use indices
   use other_consts
 
+  use ventilation
+
+
   implicit none
 
   private
@@ -861,13 +864,15 @@ contains
 !
 
   subroutine export_terminal_solution(EXNODEFILE, name)
+      !use ventilation,only: surf_concentration
 
 !!! Parameters
     character(len=MAX_FILENAME_LEN),intent(in) :: EXNODEFILE
     character(len=MAX_STRING_LEN),intent(in) :: name
 
 !!! Local Variables
-    integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
+    !real(dp), dimension(:,:), allocatable :: surf_concentration
+    integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX!,nalv
     character(len=300) :: writefile
     logical :: FIRST_NODE
 
@@ -886,6 +891,94 @@ contains
        FIRST_NODE=.TRUE.
        np_last=1
        !*** Exporting Terminal Solution
+!       do nolist=1,num_units
+!          if(nolist.GT.1) np_last = np
+!          ne=units(nolist)
+!          np=elem_nodes(2,ne)
+!          !*** Write the field information
+!          VALUE_INDEX=1
+!          if(FIRST_NODE)THEN
+!             write(10,'( '' #Fields=10'' )')
+!             write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
+!             do nj=1,3
+!                if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
+!                if(nj.eq.2) write(10,'(2X,''y.  '')',advance="no")
+!                if(nj.eq.3) write(10,'(2X,''z.  '')',advance="no")
+!                write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!                VALUE_INDEX=VALUE_INDEX+1
+!             enddo
+!             !Ventilation (tidal volume/insp time)
+!             write(10,'('' 2) flow, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Volume
+!             write(10,'('' 3) volume, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !!Pressure
+!             !write(10,'('' 4) pressure, field, rectangular cartesian, #Components=1'')')
+!             !write(10,'(2X,''1.  '')',advance="no")
+!             !write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             !Compliance
+!             write(10,'('' 4) compliance, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Pleural pressure
+!             write(10,'('' 5) Recoil pressure, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Tidal volume
+!             write(10,'('' 6) tidal_volume, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Surfactant Concentration
+!             write(10,'('' 7) surfactant_concentration, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Surface Tension
+!             write(10,'('' 8) surface_tension, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Collapse Pressure
+!             write(10,'('' 9) collapse_pressure, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!             !Acinus area
+!             write(10,'('' 10) Acinus_area, field, rectangular cartesian, #Components=1'')')
+!             write(10,'(2X,''1.  '')',advance="no")
+!             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+!             VALUE_INDEX=VALUE_INDEX+1
+!          endif !FIRST_NODE
+!          !***      write the node
+!          write(10,'(1X,''Node: '',I12)') np
+!          do nj=1,3
+!             write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
+!          enddo !njj2
+!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vent,NOLIST)) !Ventilation
+!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vol,nolist))   !Volume (end expiration)
+!!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_press,nolist)) !Pressure
+!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_comp,nolist))  !Compliance (end exp)
+!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_pe,nolist))    !Recoil pressure
+!          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vt,nolist))    !Tidal volume
+!          write(10,'(2X,4(1X,F13.11))') (surf_concentration(nu_vol,nolist))    !surfactant concentration
+!          write(10,'(2X,4(1X,F12.6))') (surface_tension(nu_vol,nolist))    !surface tension
+!          write(10,'(2X,4(1X,F12.6))') (Pc(nu_vol,nolist))    !Collapse Pressure
+!          write(10,'(2X,4(1X,F12.6))') (alv_area_current(nu_vol,nolist)) ! Acinus area
+!!          Write(10,'(2X,4(1X,F12.6))') WOBe
+!!          Write(10,'(2X,4(1X,F12.6))') WOBr
+!
+!          FIRST_NODE=.FALSE.
+!          np_last=np
+!       enddo !nolist (np)
+               !*** Exporting Terminal Solution
        do nolist=1,num_units
           if(nolist.GT.1) np_last = np
           ne=units(nolist)
@@ -924,6 +1017,7 @@ contains
              VALUE_INDEX=VALUE_INDEX+1
              !Tidal volume
              write(10,'('' 6) tidal_volume, field, rectangular cartesian, #Components=1'')')
+
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              VALUE_INDEX=VALUE_INDEX+1
@@ -936,6 +1030,8 @@ contains
              write(10,'('' 8) min_Pe, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             VALUE_INDEX=VALUE_INDEX+1
+
           endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
@@ -949,7 +1045,7 @@ contains
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vt,nolist))    !Tidal volume
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_Pe_max,nolist))    !maximum elastic recoil
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_Pe_min,nolist))    !minimum elastic recoil
-          
+
           FIRST_NODE=.FALSE.
           np_last=np
        enddo !nolist (np)

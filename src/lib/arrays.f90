@@ -17,7 +17,7 @@ module arrays
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
        num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen
 
-  integer,allocatable :: nodes(:) !allocated in define_node_geometry
+  integer,allocatable :: nodes(:) !allocatd in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
   integer,allocatable :: node_versn_2d(:) !allocated in define_node_geometry_2d
   integer :: ndata_groups(20,2)
@@ -67,6 +67,11 @@ module arrays
   real(dp),allocatable :: vertex_xyz(:,:)
   real(dp),allocatable :: node_field(:,:)
   real(dp),allocatable :: scale_factors_2d(:,:)
+  !real(dp),allocatable :: alv_unit_field(:,:)
+
+
+  !surfactant model related parameters
+  real(dp), dimension(:,:), allocatable :: alv_unit_field_current
 
   character(len=20),dimension(20) :: data_group_names,elem_group_names
   
@@ -156,7 +161,7 @@ module arrays
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, update_parameter, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX
+       SparseVal, RHS, prq_solution, solver_solution, FIX, alv_unit_field_current
 
 contains
   subroutine set_node_field_value(row, col, value)

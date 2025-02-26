@@ -12,25 +12,55 @@ module ventilation
   
   use arrays
   use diagnostics
-  use exports
+!  use exports
   use geometry
   use indices
   use other_consts
   use precision
-  
+  use surfactant
+
   implicit none
+
   !Module parameters
+  real(dp), dimension(:,:), allocatable :: unit_field_pre
+  real(dp), dimension(:,:), allocatable :: unit_field_current
+!  real(dp), dimension(:,:), allocatable :: alv_field_pre
+!  real(dp), dimension(:,:), allocatable :: alv_field_current
+!  real(dp), dimension(:,:), allocatable :: alv_unit_field
+  real(dp), dimension(:,:), allocatable :: alv_unit_field_pre
+!  real(dp), dimension(:,:), allocatable :: alv_unit_field_current
+!  real(dp), dimension(:,:), allocatable :: alv_radii
+  real(dp), dimension(:,:), allocatable :: alv_radii_pre
+  real(dp), dimension(:,:), allocatable :: alv_radii_current
+!  real(dp), dimension(:,:), allocatable :: alv_area
+  real(dp), dimension(:,:), allocatable :: alv_area_pre
+  real(dp), dimension(:,:), allocatable :: alv_area_current
+  real(dp), dimension(:,:), allocatable :: alv_dA
+  real(dp), dimension(:,:), allocatable :: surf_concentration
+  real(dp), dimension(:,:), allocatable :: surface_tension
+  real(dp), dimension(:,:), allocatable :: Pc
+  real(dp), dimension(:,:), allocatable :: Pc_com
+  real(dp), dimension(:,:), allocatable :: smoothed_Pc_com
+!  real(dp), dimension(:,:), allocatable :: acinus_field
+  real(dp), dimension(:,:), allocatable :: surf_concentration_pre
+  real(dp), dimension(:,:), allocatable :: surface_tension_pre
+!  real(dp), dimension(:,:), allocatable :: ppl_current
+!  real(dp), dimension(:,:), allocatable :: Pc_current
 
   !Module types
 
   !Module variables
-
+  public surf_concentration
+  public surface_tension
+  public Pc
+  public alv_area_current
   !Interfaces
   private
   public evaluate_vent
   public evaluate_uniform_flow
   public two_unit_test
   public sum_elem_field_from_periphery
+  public update_alveolar_info
 
   real(dp),parameter,private :: gravity = 9.81e3_dp         ! mm/s2
 !!! for air
@@ -75,7 +105,14 @@ contains
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
          sum_dpmus,sum_dpmus_ei,time,totalc,Tpass,ttime,volume_tree,WOBe,WOBr, &
-         WOBe_insp,WOBr_insp,WOB_insp
+         WOBe_insp,WOBr_insp,WOB_insp,WOB!, alv_unit_field
+    !real(dp),allocatable :: alv_unit_field(:,:)
+    !real(dp), dimension(:,:), allocatable :: alv_area
+    !real(dp), dimension(:,:), allocatable :: alv_area_over_breath
+    !real(dp), dimension(:,:), allocatable :: alv_dA
+    !real(dp), dimension(:,:), allocatable :: alv_dA_time
+    integer :: n_time_steps, time_step, n_time,time_step_curr
+
     character :: expiration_type*(10) ! active (sine wave), passive, pressure
     logical :: CONTINUE,converged
 
@@ -86,6 +123,34 @@ contains
     sub_name = 'evaluate_vent'
     call enter_exit(sub_name,1)
 
+!    n_time_steps=int(time/dt)
+!    time_step_curr = 0
+
+    !allocate(alv_area_over_breath(num_time,num_units))
+
+    allocate( unit_field_pre(nu_vol,num_units)) !n_time_steps
+    allocate( unit_field_current(nu_vol,num_units))
+!    allocate( alv_unit_field(nu_vol,num_units))
+    allocate( alv_unit_field_pre(nu_vol,num_units))
+    allocate( alv_unit_field_current(nu_vol,num_units))
+!    allocate( alv_radii(nu_vol,num_units))
+    allocate( alv_radii_pre(nu_vol,num_units))
+    allocate( alv_radii_current(nu_vol,num_units))
+!    allocate( alv_area(nu_vol,num_units))
+    allocate( alv_area_pre(nu_vol,num_units))
+    allocate( alv_area_current(nu_vol,num_units))
+    allocate( alv_dA(nu_vol,num_units))
+    allocate( surf_concentration(nu_vol,num_units))
+    allocate( surface_tension(nu_vol,num_units))
+    allocate( Pc(nu_vol,num_units))
+    allocate( Pc_com(nu_vol,num_units))
+    allocate( smoothed_Pc_com(nu_vol,num_units))
+    allocate( surf_concentration_pre(nu_vol,num_units))
+    allocate( surface_tension_pre(nu_vol,num_units))
+!    allocate(ppl_current (nu_pe,num_units))
+!    allocate( acinus_field(nu_comp,nunit))
+
+
 !!! Initialise variables:
     pmus_factor_in = 1.0_dp
     pmus_factor_ex = 1.0_dp
@@ -94,6 +159,14 @@ contains
     sum_tidal = 0.0_dp ! initialise the inspired and expired volumes
     sum_expid = 0.0_dp
     last_vol = 0.0_dp
+
+    surf_concentration = 0.3e-6_dp/2.0_dp ! gamma*/2
+    alv_dA = 0.0_dp
+    surface_tension = 0.0_dp
+    Pc_com = 100.0_dp
+!    acinus_field=0.0_dp
+    Pc=0.0_dp
+
     unit_field(nu_Pe_max,:) = -1.0e6_dp
     unit_field(nu_Pe_min,:) = 1.0e6_dp
 
@@ -112,14 +185,22 @@ contains
     Texpn = T_interval / (1.0_dp+i_to_e_ratio)
     Tinsp = T_interval - Texpn
 
+
+
 !!! store initial branch lengths, radii, resistance etc. in array 'elem_field'
     call update_elem_field(1.0_dp)
     call update_resistance
     call volume_of_mesh(init_vol,volume_tree)
-    
+
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
     undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
+
+
+
+!    print*,'elem', elem_units_below(1)
+
+
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
@@ -132,27 +213,30 @@ contains
          init_vol/1.0e+6_dp !in L
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
-
+    !print*,'numunits',num_units
 !!! calculate the compliance of each tissue unit
-    call tissue_compliance(chest_wall_compliance,undef)
+    call tissue_compliance(undef)
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
+    !print*,'totalc',totalc
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
-
+    !print*,'pptrans',pptrans
     chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
     Pcw = (chestwall_restvol - init_vol)/chest_wall_compliance
     write(*,'('' Chest wall RV = '',F8.3,'' L'')') chestwall_restvol/1.0e+6_dp
         
     call write_flow_step_results(chest_wall_compliance,init_vol, &
-         current_vol,ppl_current,pptrans,Pcw,p_mus,0.0_dp,0.0_dp)
+         current_vol,ppl_current,pptrans,Pcw,p_mus,0.0_dp,0.0_dp, WOBe,WOBr,WOB)
     
     continue = .true.
     do while (continue)
        n = n + 1 ! increment the breath number
        ttime = 0.0_dp ! each breath starts with ttime=0
-       endtime = T_interval * n - 0.5_dp * dt ! the end time of this breath
+       endtime = (T_interval * n - 0.5_dp * dt)! the end time of this breath
+!       endtime=endtime+Tinsp
        p_mus = 0.0_dp 
        ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+!       surf_concentration = 0.3e-6_dp/2.0_dp ! gamma*/2
 
        if(n.gt.1)then !write out 'end of breath' information
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
@@ -169,37 +253,89 @@ contains
           sum_tidal = 0.0_dp !reset the tidal volume
           sum_expid = 0.0_dp !reset the expired volume
           unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
+!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
           sum_dpmus = 0.0_dp
           sum_dpmus_ei = 0.0_dp
        endif
-
+       !print*,'unit_field', size(unit_field(nu_vt,1:num_units),1)
 !!! solve for a single breath (for time up to endtime)
+
+!       surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2 initial value of surfactant concentration
        do while (time.lt.endtime) 
           ttime = ttime + dt ! increment the breath time
           time = time + dt ! increment the whole simulation time
+          time_step_curr = time_step_curr + 1
+
 !!!.......calculate the flow and pressure distribution for one time-step
+!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
           call evaluate_vent_step(num_itns,chest_wall_compliance, &
                chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
                Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-               dpmus,converged,iter_step)
+               dpmus,converged,iter_step,WOB)!,alv_unit_field
+
+
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
-           
+
           call write_flow_step_results(chest_wall_compliance,init_vol, &
-               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
+
 
        enddo !while time<endtime
-       
+!       print*,'step',time_step_curr
+!
+!
+!       print*,'size',size(alv_dA)
+
+       !print*,'time',int(time/dt)
 !!!....check whether simulation continues
        continue = ventilation_continue(n,num_brths,sum_tidal,volume_target)
 
     enddo !...WHILE(CONTINUE)
 
+
+!!! solve for additional half breath (for time +Tinsp)
+    n=n+1! number of breath
+    ttime=0.0_dp !each breath starts with ttime =0
+    endtime = endtime +  Tinsp   !+ 0.1_dp
+    p_mus = 0.0_dp
+    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+
+    sum_tidal = 0.0_dp !reset the tidal volume
+    sum_expid = 0.0_dp !reset the expired volume
+    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
+    sum_dpmus = 0.0_dp
+    sum_dpmus_ei = 0.0_dp
+
+    do while (time.lt.endtime)
+    ttime = ttime + dt
+    time = time + dt
+
+          call evaluate_vent_step(num_itns,chest_wall_compliance, &
+               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
+               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
+               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
+               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
+               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
+               dpmus,converged,iter_step,WOB)!,alv_unit_field
+
+
+!!!.......update the estimate of pleural pressure
+          call update_pleural_pressure(ppl_current) ! new pleural pressure
+
+          call write_flow_step_results(chest_wall_compliance,init_vol, &
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
+
+    enddo
+
+!print*,'n',n
+!print*,'end',endtime
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
+
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
@@ -208,12 +344,17 @@ contains
        ne = units(nunit) !local element number
        elem_field(ne_Vdot,ne) = unit_field(nu_vt,nunit)
     enddo
+
+
     unit_field(nu_vent,:) = unit_field(nu_vt,:)/(Tinsp+Texpn)
     call sum_elem_field_from_periphery(ne_Vdot)
     elem_field(ne_Vdot,1:num_elems) = &
          elem_field(ne_Vdot,1:num_elems)/elem_field(ne_Vdot,1)
 
 !    call export_terminal_solution(TERMINAL_EXNODEFILE,'terminals')
+!    deallocate(alv_area_over_breath)
+
+
 
     call enter_exit(sub_name,2)
 
@@ -226,7 +367,7 @@ contains
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
        sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
-       WOB_insp,expiration_type,dpmus,converged,iter_step)
+       WOB_insp,expiration_type,dpmus,converged,iter_step,WOB)!,alv_unit_field
 
     integer,intent(in) :: num_itns
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
@@ -234,10 +375,17 @@ contains
          press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
     real(dp) :: last_vol,current_vol,Pcw,ppl_current,prev_flow,p_mus, &
          sum_dpmus,sum_dpmus_ei,sum_expid,sum_tidal,WOBe,WOB_insp,WOBe_insp, &
-         WOBr,WOBr_insp
+         WOBr,WOBr_insp,WOB!, alv_area_current, alv_dA !, alv_unit_field
+    !real(dp),allocatable :: alv_unit_field(:,:)
+!    real(dp), dimension(:,:), allocatable :: alv_area_pre
+!!    real(dp), dimension(:,:), allocatable :: alv_dA_time
+!    real(dp), dimension(:,:), allocatable :: alv_area_current
+!    real(dp), dimension(:,:), allocatable :: alv_dA
+!    real(dp), dimension(:,:), allocatable :: surf_concentration
+
     character,intent(in) :: expiration_type*(*)
     ! Local variables
-    integer :: iter_step
+    integer :: iter_step,time_step,nunit!,ntime,num_time
     real(dp) :: dpmus,err_est,totalC,Tpass,volume_tree
     logical :: converged
     character(len=60) :: sub_name
@@ -258,7 +406,7 @@ contains
     call set_driving_pressures(dpmus,dt,pmus_factor_ex,pmus_factor_in, &
          pmus_step,p_mus,Texpn,Tinsp,ttime,expiration_type)
     prev_flow = elem_field(ne_Vdot,1)
-    
+
 !!! Solve for a new flow and pressure field
 !!! We will estimate the flow into each terminal lumped
 !!! parameter unit (assumed to be an acinus), so we can calculate flow
@@ -287,16 +435,43 @@ contains
        call update_node_pressures(press_in_total) ! updates the pressures at nodes
        call update_unit_dpdt(dt) ! update dP/dt at the terminal units
     enddo !converged
-    
-    call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols
+
+
+
+    call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols, PASS IN time_step_curr HERE
+
+
+
+    !compute surfactant after first breath
+!    If (time .ge. 4.0_dp) then
+    call update_alveolar_info(dt, alv_dA)
+
+    call update_surfactant_concentration(dt, alv_area_current, alv_dA, surf_concentration)
+
+    call update_surface_tension(surf_concentration, surface_tension)
+
+    call update_Pc_compliance(unit_field,alv_radii_current,surface_tension, Pc, Pc_com, smoothed_Pc_com)
+
+!    else
+!        surf_concentration=surf_concentration
+!        surface_tension=surface_tension
+!        Pc=Pc
+!        Pc_com=Pc_com
+!    end if
+
+!    print*,'aci_vol_current1',unit_field(nu_vol,1)
+
+
+
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
+    call tissue_compliance(undef) ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
+
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
-         pptrans)!calculate work of breathing
+         pptrans,WOB)!calculate work of breathing
     last_vol=current_vol
     Pcw = (chestwall_restvol - current_vol)/chest_wall_compliance
     
@@ -313,14 +488,14 @@ contains
           WOBr = 0.0_dp
        endif
     endif
-
+!print*,'wobe',ptrans_frc
   end subroutine evaluate_vent_step
 
 !!!#############################################################################
 
   subroutine evaluate_uniform_flow
     !*evaluate_uniform_flow:* Sets up and solves uniform ventilation model
-  
+
     ! Local variables
     integer :: ne,nunit
     real(dp) :: init_vol,volume_tree
@@ -468,8 +643,11 @@ contains
     ! current Pel (=Ptp) and Palv, i.e. Ppl(unit) = -Pel(unit)+Palv(unit)
 
     real(dp),intent(out) :: ppl_current
+!    real(dp):: Pi
     ! Local variables
     integer :: ne,np2,nunit
+
+
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -481,10 +659,23 @@ contains
     do nunit = 1,num_units
        ne = units(nunit)
        np2 = elem_nodes(2,ne)
-       ppl_current = ppl_current - unit_field(nu_pe,nunit) + &
+
+       !calculate Ppl(unit) = -Pel(unit)+Palv(unit)
+       ppl_current  = ppl_current   - unit_field(nu_pe,nunit) + &
             node_field(nj_aw_press,np2)
+
+       !calculate the interstitium pressure
+!       Pi = node_field(nj_aw_press,np2) - Pc(nu_vol,nunit)
+       !calculate Ppl(unit) = -Pel(unit)-Pc(unit)+Palv(unit)
+!       ppl_current = ppl_current - unit_field(nu_pe,nunit) - Pc(nu_vol,nunit) + &
+!            node_field(nj_aw_press,np2)
+!       ppl_current = ppl_current - Pc(nu_vol,nunit) + &
+!            node_field(nj_aw_press,np2)
     enddo !noelem
+!    print*,'ppl pressure',ppl_current
     ppl_current = ppl_current/num_units
+!    print*,'ppl pressure',ppl_current
+!    print*,'alveolar pressure',node_field(nj_aw_press,1)
 
     call enter_exit(sub_name,2)
 
@@ -517,10 +708,18 @@ contains
        np2 = elem_nodes(2,ne) !end node number
        !P(np2) = P(np1) - Resistance(ne)*Flow(ne)
        node_field(nj_aw_press,np2) = node_field(nj_aw_press,np1) &
-            - (elem_field(ne_resist,ne)*elem_field(ne_Vdot,ne))* &
-            dble(elem_ordrs(no_type,ne))
+            - (elem_field(ne_resist,ne)*  elem_field(ne_Vdot,ne))* &
+           dble(elem_ordrs(no_type,ne))
+
+       !noresistance
+!       node_field(nj_aw_press,np2) = node_field(nj_aw_press,np1)
+       !saline condition simulate
+!            - ((0.8_dp)* elem_field(ne_resist,ne)*elem_field(ne_Vdot,ne))* &
+!           dble(elem_ordrs(no_type,ne))
     enddo !noelem
 
+!    print*,'number',np2
+    !print*,'re',node_field(nj_aw_press,elem_nodes(1,num_elems))
     call enter_exit(sub_name,2)
 
   end subroutine update_node_pressures
@@ -528,13 +727,14 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef)
+  subroutine tissue_compliance(undef)
 
-    real(dp), intent(in) :: chest_wall_compliance,undef
+    real(dp), intent(in) :: undef
     ! Local variables
     integer :: ne,nunit
-    real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
-    real(dp) :: exp_term,lambda,ratio
+    integer :: nalv
+    real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 1800.0_dp!2200.0_dp !2500.0_dp
+    real(dp) :: exp_term,lambda,ratio, time
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -551,22 +751,35 @@ contains
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
        exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
+
+       !tissue compliance
        unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
             *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
             *(lambda**2+1.0_dp)/lambda**4)
-       unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-       ! add the chest wall (proportionately) in parallel
-       unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-            +1.0_dp/(chest_wall_compliance/dble(num_units)))
+
+       unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit)
+
+       !add the Pc compliance in parallel(chest wall shouldn't include in)
+       unit_field(nu_comp,nunit) =1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
+                   +1.0_dp/Pc_com(nu_vol,nunit))
+
+
        !estimate an elastic recoil pressure for the unit
        unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
+
+
+       !estimate an elastic recoil pressure for the unit + Collapse pressure
+       unit_field(nu_pe,nunit)=unit_field(nu_pe,nunit) +  Pc(nu_vol,nunit) !0.3_dp*
+
+
+
        ! set minimum and maximum Pe values
        unit_field(nu_Pe_max,nunit) = max(unit_field(nu_Pe_max,nunit), &
             unit_field(nu_pe,nunit))
        unit_field(nu_Pe_min,nunit) = min(unit_field(nu_Pe_min,nunit), &
             unit_field(nu_pe,nunit))
-       
+
     enddo !nunit
 
     call enter_exit(sub_name,2)
@@ -607,36 +820,109 @@ contains
 
 !!!#############################################################################
 
-  subroutine update_unit_volume(dt)
+  subroutine update_unit_volume(dt) ! TAKE IN THE time_step_curr VARIABLE
 
     real(dp),intent(in) :: dt
+
     ! Local variables
-    integer :: ne,np,nunit
+    integer :: ne,np,nunit,time_step_curr!,nalv
+
     character(len=60) :: sub_name
+
+
 
     ! --------------------------------------------------------------------------
 
     sub_name = 'update_unit_volume'
     call enter_exit(sub_name,1)
 
+
     do nunit = 1,num_units
        ne = units(nunit)
        np = elem_nodes(2,ne)
+
+       ! collect the volume of the lumped tissue unit for previous time step
+       unit_field_pre(nu_vol,nunit)=unit_field(nu_vol,nunit)
+
        ! update the volume of the lumped tissue unit
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* &
-            elem_field(ne_Vdot,ne) !in mm^3
+            elem_field(ne_Vdot,ne)!in mm^3
+
+       ! collect the volume of the lumped tissue unit for current time step
+       unit_field_current(nu_vol,nunit)=unit_field(nu_vol,nunit)
+
+       !print*,'after',unit_field(nu_vol,nunit)
        if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
           unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
        endif
+
+
     enddo !nunit
+
+
+
+!    print*,'unit_pre',unit_field_pre(nu_vol,1)
+!    print*,'unit_current',unit_field_current(nu_vol,1)
+
 
     call enter_exit(sub_name,2)
 
   end subroutine update_unit_volume
 
 !!!#############################################################################
+!!!#############################################################################
 
+  subroutine update_alveolar_info(dt, alv_dA)
+
+
+!    real(dp), dimension(:,:), intent(out) :: alv_area_current
+    real(dp), dimension(:,:), intent(out) :: alv_dA
+
+    real(dp),intent(in) :: dt
+    real(dp) :: time
+
+    integer :: nalv,nunit
+
+    character(len=60) :: sub_name
+
+  !--------------------------------------------------------------------------
+
+    sub_name = 'update_alveolar_info'
+    call enter_exit(sub_name,1)
+
+
+
+
+    do nunit = 1,num_units
+        !pre_step alveolus volume cm3
+        !assume alveolus shape is hemisphere
+        alv_unit_field_pre(nu_vol,nunit)=unit_field_pre(nu_vol,nunit)/26000000 !mm3 to cm3
+
+        alv_radii_pre(nu_vol,nunit) = ((3.0_dp * alv_unit_field_pre(nu_vol,nunit)) / (2.0_dp * PI)) &
+                **(1.0_dp/3.0_dp)
+
+        alv_area_pre(nu_vol,nunit)=2.0_dp * PI * (alv_radii_pre(nu_vol,nunit)**2.0_dp)
+
+        !current alveolus volume cm3
+        alv_unit_field_current(nu_vol,nunit)=unit_field_current(nu_vol,nunit)/26000000 !mm3 to cm3
+
+        alv_radii_current(nu_vol,nunit) = ((3.0_dp * alv_unit_field_current(nu_vol,nunit)) / (2.0_dp * PI)) &
+                **(1.0_dp/3.0_dp)
+
+        alv_area_current(nu_vol,nunit)=2.0_dp * PI * (alv_radii_current(nu_vol,nunit)**2.0_dp)
+
+        !Area difference
+        alv_dA(nu_vol,nunit)=(alv_area_current(nu_vol,nunit)-alv_area_pre(nu_vol,nunit))/dt
+
+    enddo
+
+    call enter_exit(sub_name,2)
+
+  end subroutine update_alveolar_info
+
+!!!#############################################################################
+!!!#############################################################################
   subroutine update_elem_field(alpha)
 
     real(dp),intent(in) :: alpha   ! the factor by which the radius changes
@@ -720,7 +1006,7 @@ contains
        elem_field(ne_t_resist,ne) = elem_field(ne_resist,ne) + &
             elem_field(ne_t_resist,ne)
     enddo !noelem
-    
+
     do ne = num_elems,1,-1
        sum = 0.0_dp
        if(elem_cnct(1,0,ne).gt.0)then !not terminal
@@ -795,7 +1081,7 @@ contains
             +unit_field(nu_Vdot1,nunit))/2.0_dp
        unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne)
     enddo !nunit
-
+!    print*,'Q',Q
     ! the estimate of error for the iterative solution
     if(abs(flow_sum*dble(num_units)).gt.zero_tol) then
        err_est = err_est/(flow_sum*dble(num_units))
@@ -809,9 +1095,9 @@ contains
 
 !!!#############################################################################
 
-  subroutine calculate_work(breath_vol,dt_vol,WOBe,WOBr,pptrans)
+  subroutine calculate_work(breath_vol,dt_vol,WOBe,WOBr,pptrans,WOB)
 
-    real(dp) :: breath_vol,dt_vol,WOBe,WOBr,pptrans
+    real(dp) :: breath_vol,dt_vol,WOBe,WOBr,pptrans,WOB
     ! Local variables
     integer :: ne,np1,nunit
     real(dp) :: p_resis,p_trans
@@ -824,7 +1110,9 @@ contains
 
     p_resis = 0.0_dp
     !estimate elastic and resistive WOB for each dt (sum dP.V)
+
     p_trans = SUM(unit_field(nu_pe,1:num_units))/num_units
+
     do nunit = 1,num_units
        ne = units(nunit)
        np1 = elem_nodes(2,ne)
@@ -832,8 +1120,12 @@ contains
     enddo
     p_resis=p_resis/num_units
     ! vol in mm3 *1e-9=m3, pressure in Pa, hence *1d-9 = P.m3 (Joules)
+!    Print*,'PP', p_trans
+!    Print*,'PP2', pptrans
+!     Print*,'v',breath_vol
     WOBe = WOBe+(p_trans-pptrans)*breath_vol*1.0e-9_dp
     WOBr = WOBr+p_resis*dt_vol*1.0e-9_dp
+    WOB = WOBe+WOBr
 
     pptrans = p_trans
 
@@ -1048,6 +1340,7 @@ contains
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
 
+
     nodes=0
     node_xyz = 0.0_dp !initialise all values to 0
     node_field = 0.0_dp
@@ -1103,6 +1396,7 @@ contains
     call append_units
 
     unit_field(nu_vol,1) = 1.5d6 !arbitrary volume for element 2
+
     unit_field(nu_vol,2) = 1.5d6 !arbitrary volume for element 3
 
     elem_units_below(1)=2
@@ -1140,10 +1434,10 @@ contains
          100*(current_vol-init_vol)/init_vol
     write(*,'('' Difference from target Vt = '',F8.2,'' %'')') &
          100*(volume_target-sum_tidal)/volume_target
-    write(*,'('' Total Work of Breathing ='',F7.3,''J/min'')')WOB_insp
-    write(*,'('' elastic WOB ='',F7.3,''J/min'')')WOBe_insp
-    write(*,'('' resistive WOB='',F7.3,''J/min'')')WOBr_insp
-          
+    write(*,'('' Total Work of Breathing ='',F7.3,'' J/min'')')WOB_insp
+    write(*,'('' elastic WOB ='',F7.3,'' J/min'')')WOBe_insp
+    write(*,'('' resistive WOB='',F7.3,'' J/min'')')WOBr_insp
+
     call enter_exit(sub_name,2)
 
   end subroutine write_end_of_breath
@@ -1151,12 +1445,20 @@ contains
 !!!#############################################################################
 
   subroutine write_flow_step_results(chest_wall_compliance,init_vol, &
-       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
+       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)!,alv_unit_field,  &
+       !alv_radii,alv_area,alv_dA)
 
     real(dp),intent(in) :: chest_wall_compliance,init_vol,current_vol, &
-         ppl_current,pptrans,Pcw,p_mus,time,ttime
+         ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB
     ! Local variables
-    real(dp) :: totalC,Precoil
+    real(dp) :: totalC,Precoil,Paw,totalV!, alv_unit_field
+    !real(dp), dimension(:,:), allocatable :: alv_unit_field
+    !real(dp), dimension(:,:), allocatable :: alv_radii
+    !real(dp), dimension(:,:), allocatable :: alv_area
+!    real(dp), dimension(:,:), allocatable :: alv_dA
+    !real(dp), dimension(:,:), allocatable :: unit_field_pre
+    !real(dp), dimension(:,:), allocatable :: unit_field_current
+
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -1164,45 +1466,113 @@ contains
     sub_name = 'write_flow_step_results'
     call enter_exit(sub_name,1)
 
+    !allocate( alv_unit_field(nu_vol,num_units))
+    !allocate( alv_radii(nu_vol,num_units))
+    !allocate( alv_area(nu_vol,num_units))
+    !allocate( alv_dA(nu_vol,num_units))
+    !allocate( unit_field_pre(nu_vol,num_units))
+    !allocate(unit_field_current(nu_vol,num_units))
+
     !the total model compliance
     totalC = 1.0_dp/(1.0_dp/sum(unit_field(nu_comp,1:num_units))+ &
          1.0_dp/chest_wall_compliance)
     Precoil = sum(unit_field(nu_pe,1:num_units))/num_units
-    
+!    Precoil = sum(unit_field(nu_pe,1:num_units)*unit_field(nu_vol,1:num_units))/sum(unit_field(nu_vol,1:num_units))
+    totalV = sum(unit_field(nu_vol,1:num_units))/num_units
+    Paw = sum(unit_field(nu_air_press,1:num_units))/num_units!sum(node_field(nj_aw_press,1:num_elems))/num_elems
+!    Paw = Precoil + ppl_current
     if(abs(time).lt.zero_tol)then
 !!! write out the header information for run-time output
-       write(*,'(2X,''Time'',3X,''Inflow'',4X,''V_t'',5X,''Raw'',5X,&
-            &''Comp'',4X,''Ppl'',5X,''Ptp'',5X,''VolL'',4X,''Pmus'',&
-            &4X,''Pcw'',2X,''Pmus-Pcw'')')
+       write(*,'(2X,''Time'',3X,''Inflow'',4X,''V_t'',6X,''Raw'',6X,&
+            &''Comp'',5X,''Ppl'',6X,''Ptp'',6X,''VolL'',5X,''Pmus'',&
+            &5X,''Pcw'',4X,''Pmus-Pcw'',5X,''Aci_vol'',6X,''Alv_vol'',&
+            &7X,''Sur_con'',7X,''alv_radi'',7X,''alv_area'',8X,''Pc'',&
+            &9X,''Pe'',8X,''Pe_com'',9X,''Tension'',9X,''Pc_com'',9X,&
+            &''smoothed_Pc_com'',7X,''Smoo_Pc_com'',7X,''aci_flow'')')
        write(*,'(3X,''(s)'',4X,''(mL/s)'',3X,''(mL)'',1X,''(cmH/L.s)'',&
             &1X,''(L/cmH)'',1X,''(...cmH2O...)'',&
             &4X,''(L)'',5X,''(......cmH2O.......)'')')
        
-       write(*,'(F7.3,2(F8.1),8(F8.2))') &
+       write(*,'(F7.3,2(F8.1),8(F9.2),8(F18.8),10(F18.6))') &
             0.0_dp,0.0_dp,0.0_dp, &  !time, flow, tidal
             elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp, & !res (cmH2O/L.s)
             totalC*98.0665_dp/1.0e+6_dp, & !total model compliance
-            ppl_current/98.0665_dp, & !Ppl (cmH2O)
-            -ppl_current/98.0665_dp, & !mean Ptp (cmH2O)
+            ppl_current, & !Ppl (cmH2O)/98.0665_dp
+            -ppl_current, & !mean Ptp (cmH2O) /98.0665_dp
             init_vol/1.0e+6_dp, & !total model volume (L)
+            totalV, &
             0.0_dp, & !Pmuscle (cmH2O)
             Pcw/98.0665_dp, & !Pchest_wall (cmH2O)
-            (-Pcw)/98.0665_dp !Pmuscle - Pchest_wall (cmH2O)
+            (-Pcw)/98.0665_dp, & !Pmuscle - Pchest_wall (cmH2O)
+            unit_field(nu_vol,1), &
+!            unit_field(nu_vol,2000), &
+            Precoil, &
+            alv_unit_field_current(nu_vol,1), & !mm^3
+            surf_concentration(nu_vol,1), & !g/cm^2
+            alv_radii_current(nu_vol,1),&
+            alv_area_pre(nu_vol,1),&
+            Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
+            unit_field(nu_air_press,1),&
+            Paw,&
+            unit_field(nu_pe,1), &
+            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
+            surface_tension(nu_vol,1),&
+            Pc_com(nu_vol,1),&
+!            smoothed_Pc_com(nu_vol,1),&
+!            unit_field(nu_Vdot0,1),&
+!            elem_field(ne_radius,1),&
+            WOBe,&
+            WOBr,&
+            WOB
+
+            !alv_radii(nu_vol,1), &
+!            node_field(nj_aw_press,1), &
+!            unit_field(nu_Vdot0,1)!,&
+            !unit_field_pre(nu_vol,1),&
+            !unit_field_current(nu_vol,1)
     else
-       write(*,'(F7.3,2(F8.1),8(F8.2))') &
+       write(*,'(F7.3,2(F8.1),8(F9.2),8(F18.8),10(F18.6))') &
             time, & !time through breath (s)
             elem_field(ne_Vdot,1)/1.0e+3_dp, & !flow at the inlet (mL/s)
             (current_vol - init_vol)/1.0e+3_dp, & !current tidal volume (mL)
             elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp, & !res (cmH2O/L.s)
             totalC*98.0665_dp/1.0e+6_dp, & !total model compliance
-            ppl_current/98.0665_dp, & !Ppl (cmH2O)
-            pptrans/98.0665_dp, & !mean Ptp (cmH2O)
+            ppl_current, & !Ppl (cmH2O) /98.0665_dp
+            pptrans, & !mean Ptp (cmH2O) /98.0665_dp
             current_vol/1.0e+6_dp, & !total model volume (L)
+            totalV, &
             p_mus/98.0665_dp, & !Pmuscle (cmH2O)
             -Pcw/98.0665_dp, & !Pchest_wall (cmH2O)
-            (p_mus+Pcw)/98.0665_dp !Pmuscle - Pchest_wall (cmH2O)
-       
+            (p_mus+Pcw)/98.0665_dp, & !Pmuscle - Pchest_wall (cmH2O)
+            unit_field(nu_vol,1), &
+!            unit_field(nu_vol,2000), &
+            Precoil, &
+            alv_unit_field_current(nu_vol,1), & !mm^3
+            surf_concentration(nu_vol,1), & !g/cm^2
+            alv_radii_current(nu_vol,1),&
+            alv_area_pre(nu_vol,1),&
+            Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
+            unit_field(nu_air_press,1),&
+            Paw,&
+            unit_field(nu_pe,1), &
+            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
+            surface_tension(nu_vol,1),&
+            Pc_com(nu_vol,1),&
+!            smoothed_Pc_com(nu_vol,1),&
+!            unit_field(nu_Vdot0,1),&
+!            elem_field(ne_radius,1),&
+            WOBe,&
+            WOBr,&
+            WOB
+            !alv_radii(nu_vol,1), &
+!            node_field(nj_aw_press,1), &
+!            unit_field(nu_Vdot0,1)!,&
+            !unit_field_pre(nu_vol,1),&
+            !unit_field_current(nu_vol,1)
+
     endif
+
+    !deallocate(alv_unit_field)
 
     call enter_exit(sub_name,2)
 

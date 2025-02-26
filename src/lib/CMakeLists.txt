@@ -24,6 +24,7 @@ set(LIB_SRCS
   surface_fitting.f90
   ventilation.f90
   wave_transmission.f90
+  surfactant.f90
 )
 if (SUPERLU_FOUND)
   set_source_files_properties(capillaryflow.f90 PROPERTIES COMPILE_DEFINITIONS HAVE_SUPERLU)

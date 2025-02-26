@@ -35,6 +35,7 @@ set(INTERFACE_SRCS
   ../interface/surface_fitting.i
   ../interface/ventilation.i
   ../interface/wave_transmission.i
+  ../interface/surfactant.i
 )
 
 set_source_files_properties(${INTERFACE_SRCS} PROPERTIES INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/../c)

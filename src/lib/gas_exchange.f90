@@ -23,7 +23,7 @@ module gas_exchange
   !Module variables
 
   !Interfaces
-  private 
+  private
   public initial_gasexchange,steadystate_gasexchange
 
   real(dp),parameter :: standard_molar_vol = 22.4136e+3_dp ! at STP; mm^3/mmol
