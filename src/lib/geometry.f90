@@ -295,9 +295,9 @@ contains
     enddo
 
     do noelem=1,num_elems
-       ne=ne_global+noelem
-       elem_field(ne_group,ne)=2.0_dp!VEIN
        ne_m=elems(noelem)
+       ne=ne_global+ne_m ! element num ordering for veins matchs artery
+       elem_field(ne_group,ne)=2.0_dp!VEIN       
        elem_field(ne_group,ne_m)=0.0_dp!ARTERY
        elems(ne0+noelem)=ne
        if(.NOT.REVERSE)then
@@ -323,6 +323,7 @@ contains
              elem_cnct(-1,n,ne)=elem_cnct(1,n,ne_m)+ne0
           enddo
        endif
+       
        !if worrying about regions and versions do it here
        elems_at_node(elem_nodes(1,ne),0)=elems_at_node(elem_nodes(1,ne),0)+1
        elems_at_node(elem_nodes(1,ne),elems_at_node(elem_nodes(1,ne),0))=ne
@@ -335,10 +336,10 @@ contains
        nindex=no_hord
        elem_ordrs(nindex,ne)=elem_ordrs(nindex,ne_m)
     enddo
-
+    
     !update current no of nodes and elements to determine connectivity
     np0=np !current highest node
-    ne1=ne !current highest element
+    ne1=maxval(elems) !current highest element
     noelem0=maxval(elems)
     if(mesh_type.eq.'ladder')then
        !To be implemented
