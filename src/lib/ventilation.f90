@@ -85,7 +85,7 @@ contains
 
     sub_name = 'evaluate_vent'
     call enter_exit(sub_name,1)
-    
+
 !!! Initialise variables:
     pmus_factor_in = 1.0_dp
     pmus_factor_ex = 1.0_dp
