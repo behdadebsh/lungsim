@@ -172,12 +172,6 @@ contains
 !
 !###################################################################################
 !
-<<<<<<< HEAD
-  subroutine make_data_grid_c(surface_elems_len, surface_elems, offset, spacing, &
-       filename, filename_len, groupname, groupname_len)&
- bind(C, name="make_data_grid_c")
-
-=======
   subroutine list_tree_statistics_c(filename, filename_len) &
        bind(C, name="list_tree_statistics_c")
 
@@ -190,7 +184,7 @@ contains
     integer,intent(in) :: filename_len
     type(c_ptr), value, intent(in) :: filename
     character(len=MAX_FILENAME_LEN) :: filename_f
-    
+
     call strncpy(filename_f, filename, filename_len)
 
     call list_tree_statistics(filename_f)
@@ -200,35 +194,34 @@ contains
 !###################################################################################
 !
   subroutine internal_mesh_reorder_c() bind(C, name="internal_mesh_reorder_c")
-    
+
     use geometry,only: internal_mesh_reorder
     implicit none
 
     call internal_mesh_reorder()
 
   end subroutine internal_mesh_reorder_c
-  
+
 !
 !###################################################################################
 !
   subroutine make_data_grid_c(surface_elems_len, surface_elems, num_target, offset, spacing)&
        bind(C, name="make_data_grid_c")
-    
->>>>>>> prime/develop
+
     use arrays,only: dp
     use iso_c_binding, only: c_ptr
     use utils_c, only: strncpy
     use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
     use geometry, only: make_data_grid
     implicit none
-    
+
     integer,intent(in) :: surface_elems_len
     integer,intent(in) :: surface_elems(surface_elems_len)
     integer,intent(in) :: num_target
     real(dp),intent(in) :: offset, spacing
-    
+
     call make_data_grid(surface_elems, num_target, offset, spacing)
-    
+
   end subroutine make_data_grid_c
 
 !!!###################################################################################
