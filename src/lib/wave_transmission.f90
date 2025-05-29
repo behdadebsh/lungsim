@@ -295,7 +295,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       ! Write header and frequency values
       freq(1) = 0
       do j = 2, no_freq+1
-        freq(j) = (j-1)*harmonic_scale/10
+        freq(j) = (j-1)*harmonic_scale
       enddo
       write(10, *) "{"
       write(10, *) " ""frequency"": [", freq(1), ",", (freq(i),",",i=2,no_freq), freq(no_freq+1), "],"
@@ -1917,7 +1917,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     open(fid5, file = 'inputadmittance.txt',action='write')
     write(fid5,fmt=*) 'input admittance:'
     do nf=1,no_freq
-        omega=nf*harmonic_scale/10
+        omega=nf*harmonic_scale
         write(fid5,fmt=*) omega,abs(eff_admit(nf,1)),&
             atan2(dimag(eff_admit(nf,1)),real(eff_admit(nf,1), 8))
     enddo
@@ -1949,7 +1949,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         if (bc_type.eq.'pressure') then
           do nt=1,n_time
               do nf=1,no_freq
-                  omega=2*pi*nf*harmonic_scale/10
+                  omega=2*pi*nf*harmonic_scale
                   forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                       atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
                   forward_pressure_previous(nt)=forward_pressure_previous(nt)+abs(p_factor(nf,ne_previous))*&
@@ -1987,7 +1987,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         elseif (bc_type.eq.'flow') then
           do nt=1,n_time
               do nf=1,no_freq
-                  omega=2*pi*nf*harmonic_scale/10
+                  omega=2*pi*nf*harmonic_scale
 
                   forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
                   cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -2079,7 +2079,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     if (bc_type.eq.'pressure')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale/10
+              omega=2*pi*nf*harmonic_scale
               forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                   atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
 
@@ -2109,7 +2109,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     elseif(bc_type.eq.'flow')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale/10
+              omega=2*pi*nf*harmonic_scale
 
               forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
               cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -2166,7 +2166,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     if (bc_type.eq.'pressure')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale/10
+              omega=2*pi*nf*harmonic_scale
               forward_pressure(nt)=forward_pressure(nt)+abs(p_factor(nf,ne))*a(nf)*cos(omega*time+b(nf)+&
                   atan2(dimag(p_factor(nf,ne)),real(p_factor(nf,ne), 8)))
 
@@ -2196,7 +2196,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     elseif(bc_type.eq.'flow')then
       do nt=1,n_time
           do nf=1,no_freq
-              omega=2*pi*nf*harmonic_scale/10
+              omega=2*pi*nf*harmonic_scale
 
               forward_pressure(nt)=forward_pressure(nt)+(abs(q_factor(nf,ne))/abs(char_admit(nf,ne)))*a(nf)*&
               cos(omega*time+b(nf)+atan2(dimag(q_factor(nf,ne)),real(q_factor(nf,ne), 8))-&
@@ -2297,7 +2297,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       R1=admit_param%two_parameter%admit_P1
       C=admit_param%two_parameter%admit_P2
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale/10
+        omega=nf*2*PI*harmonic_scale
         if(mesh_type.eq.'simple_tree')then
           do nunit=1,num_units
             ne=units(nunit)
@@ -2318,7 +2318,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       R2=admit_param%three_parameter%admit_P2
       C=admit_param%three_parameter%admit_P3
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale/10
+        omega=nf*2*PI*harmonic_scale
         if(mesh_type.eq.'simple_tree')then
           do nunit=1,num_units
             ne=units(nunit)
@@ -2344,7 +2344,7 @@ subroutine boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic
       length=admit_param%four_parameter%admit_P3
       radius=admit_param%four_parameter%admit_P4
       do nf=1,no_freq !step through frequencies
-        omega=nf*2*PI*harmonic_scale/10
+        omega=nf*2*PI*harmonic_scale
         do nunit=1,num_units
           ne=units(nunit)
          !temporarily store in eff_admit, to be added to the char admit
@@ -2460,7 +2460,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         G=0.0_dp
       elseif(admit_param%admittance_type.eq.'duan_zamir')then
         do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
-         omega=nf*2*PI*harmonic_scale/10!q/s
+         omega=nf*2*PI*harmonic_scale!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity)
          call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
          f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
@@ -2476,7 +2476,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(admit_param%admittance_type.eq.'duan_zamir')then
       else
         do nf=1,no_freq
-          omega=nf*2*PI*harmonic_scale/10
+          omega=nf*2*PI*harmonic_scale
           char_admit(nf,ne)=sqrt(G+cmplx(0.0_dp,1.0_dp,8)*omega*C)/sqrt(R+cmplx(0.0_dp,1.0_dp,8)*omega*L)!mm3/Pa.s
           prop_const(nf,ne)=sqrt((G+cmplx(0.0_dp,1.0_dp,8)*omega*C)*(R+cmplx(0.0_dp,1.0_dp,8)*omega*L))!1/mm
         enddo!nf
@@ -2596,7 +2596,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         G=0.0_dp
       elseif(admit_param%admittance_type.eq.'duan_zamir')then
        do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
-         omega=nf*2*PI*harmonic_scale/10!q/s
+         omega=nf*2*PI*harmonic_scale!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity) !radii is already affected by a factor
          call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
          f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
@@ -2626,7 +2626,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       if(admit_param%admittance_type.eq.'duan_zamir')then
       else
         do nf=1,no_freq
-          omega=nf*2*PI*harmonic_scale/10
+          omega=nf*2*PI*harmonic_scale
           char_admit(nf,ne)=sqrt(G+cmplx(0.0_dp,1.0_dp,8)*omega*C)/sqrt(R+cmplx(0.0_dp,1.0_dp,8)*omega*L)!mm3/Pa.s
           prop_const(nf,ne)=sqrt((G+cmplx(0.0_dp,1.0_dp,8)*omega*C)*(R+cmplx(0.0_dp,1.0_dp,8)*omega*L))!1/mm
         enddo!nf
@@ -2663,7 +2663,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
 
     if(tree_direction.eq.'diverging')then
         do nf=1,no_freq
-            omega=nf*2*PI*harmonic_scale/10
+            omega=nf*2*PI*harmonic_scale
             do ne=max_elem,min_elem,-1!step backward through elements
                 daughter_admit=cmplx(0.0_dp,0.0_dp,8)!
 
@@ -2691,7 +2691,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
         enddo!nf
     elseif(tree_direction.eq.'converging')then
         do nf=1,no_freq
-            omega=nf*2*PI*harmonic_scale/10
+            omega=nf*2*PI*harmonic_scale
             do ne=min_elem,max_elem!step forward through elements
                 daughter_admit=cmplx(0.0_dp,0.0_dp,8)!
                 sister_admit=cmplx(0.0_dp,0.0_dp,8)!
@@ -2821,7 +2821,7 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
   q_factor=1.0_dp
   if (bc_type.eq.'pressure') then
     do nf=1,no_freq
-      omega=nf*2*PI*harmonic_scale/10
+      omega=nf*2*PI*harmonic_scale
       do ne=ne_min,ne_max
         !look for upstream element
         if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
@@ -2841,7 +2841,7 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
     enddo!nf
   elseif (bc_type.eq.'flow') then  ! NEEDS TO BE PROPERLY LOOKED AT. THE MATH ESPECIFICALLY
     do nf=1,no_freq
-      omega=nf*2*PI*harmonic_scale/10
+      omega=nf*2*PI*harmonic_scale
       do ne=ne_min,ne_max
         !look for upstream element
         if(elem_cnct(-1,0,ne).eq.0)then !no upstream elements, inlet, ignore
