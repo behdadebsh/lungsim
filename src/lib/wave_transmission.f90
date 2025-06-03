@@ -2852,9 +2852,12 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
             !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
         else
           ne_up=elem_cnct(-1,1,ne)
-          q_factor(nf,ne)=q_factor(nf,ne_up)*char_admit(nf,ne)*(1+reflect(nf,ne_up))* &
-            exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
-            (char_admit(nf,ne_up)*(1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne))))
+          p_factor(nf,ne)=p_factor(nf,ne_up)*(char_admit(nf,ne_up)*(1-reflect(nf,ne_up))* &
+            exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up)))/&
+            (2*char_admit(nf,ne)*(1-reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne))))
+          q_factor(nf,ne)=p_factor(nf,ne_up)*char_admit(nf,ne)!(1+reflect(nf,ne_up))* &
+            !exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
+            !(1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne)))
         endif!neup
       enddo!ne
     enddo!nf

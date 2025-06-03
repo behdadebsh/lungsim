@@ -23,6 +23,7 @@ SHO_PUBLIC void define_rad_from_file(const char *FIELDFILE, const char *radius_t
 SHO_PUBLIC int get_local_node_f(const char *ndimenstion, const char *np_global);
 SHO_PUBLIC void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM,
                                      double START_RAD, const char *GROUP_TYPE, const char *GROUP_OPTIONS);
+SHO_PUBLIC void occlude_vessel(int VESSEL_NUMBER, double RATIO);
 SHO_PUBLIC void element_connectivity_1d();
 SHO_PUBLIC void evaluate_ordering();
 SHO_PUBLIC void volume_of_mesh(double *volume_model, double *volume_tree);

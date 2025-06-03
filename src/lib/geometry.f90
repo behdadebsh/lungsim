@@ -37,6 +37,7 @@ module geometry
   public define_data_geometry
   public define_rad_from_file
   public define_rad_from_geom
+  public occlude_vessel
   public element_connectivity_1d
   public element_connectivity_2d
   public evaluate_ordering
@@ -297,7 +298,7 @@ contains
     do noelem=1,num_elems
        ne_m=elems(noelem)
        ne=ne_global+ne_m ! element num ordering for veins matchs artery
-       elem_field(ne_group,ne)=2.0_dp!VEIN       
+       elem_field(ne_group,ne)=2.0_dp!VEIN
        elem_field(ne_group,ne_m)=0.0_dp!ARTERY
        elems(ne0+noelem)=ne
        if(.NOT.REVERSE)then
@@ -323,7 +324,7 @@ contains
              elem_cnct(-1,n,ne)=elem_cnct(1,n,ne_m)+ne0
           enddo
        endif
-       
+
        !if worrying about regions and versions do it here
        elems_at_node(elem_nodes(1,ne),0)=elems_at_node(elem_nodes(1,ne),0)+1
        elems_at_node(elem_nodes(1,ne),elems_at_node(elem_nodes(1,ne),0))=ne
@@ -336,7 +337,7 @@ contains
        nindex=no_hord
        elem_ordrs(nindex,ne)=elem_ordrs(nindex,ne_m)
     enddo
-    
+
     !update current no of nodes and elements to determine connectivity
     np0=np !current highest node
     ne1=maxval(elems) !current highest element
@@ -569,7 +570,7 @@ contains
        call evaluate_ordering
        elem_ordrs(no_type,:) = 1 ! 0 for respiratory, 1 for conducting
     endif
-    
+
     call enter_exit(sub_name,2)
 
   end subroutine define_1d_elements
@@ -1257,7 +1258,7 @@ contains
   end subroutine import_ply_triangles
 
 !!!#############################################################################
- 
+
   subroutine list_tree_statistics(filename)
 
     character(len=*),intent(in) :: filename
@@ -1274,9 +1275,9 @@ contains
     logical :: add,writefile
     character(len=300) :: treefile
     character(len=60) :: sub_name
-    
+
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'list_tree_statistics'
     call enter_exit(sub_name,1)
 
@@ -1320,7 +1321,7 @@ contains
     num_ddp = 0
     num_llp = 0
     N = 0
-        
+
     do ne = 1,num_elems
        ne0 = elem_cnct(-1,1,ne) ! parent element number
        forall(i=1:3) ind(i) = elem_ordrs(i,ne) ! the gen, Hord, Sord for i=1,2,3
@@ -1332,7 +1333,7 @@ contains
        else if(ne0.ne.0.and.elem_ordrs(1,ne0).ne.ind(1))then ! gen not same as parent so add
           add = .true.
        endif
-       
+
        if(add)then
           N = N + 1
           nbranches(:,N) = ind(:) ! generation, H order, S order, D-D S order
@@ -1341,7 +1342,7 @@ contains
 !!!...... Add length of all segments along branch, calculate their mean diameter
           n_segments=1
           mean_diam = diameters(ne)
-          branches(1,N) = elem_field(ne_length,ne) 
+          branches(1,N) = elem_field(ne_length,ne)
           ne_next = ne
           do while(elem_cnct(1,0,ne_next).eq.1) ! while a line of elements
              ne_next = elem_cnct(1,1,ne_next) !next element
@@ -1388,7 +1389,7 @@ contains
 !!!... count the terminal branches in each generation
        if(elem_cnct(1,0,ne).eq.0) & ! this is a terminal element
             n_terminal(ind(1)) = n_terminal(ind(1)) + 1 ! ind(1) is element generation
-       
+
 !!!... Calculate geometric properties of tree
        branches(4,N) = -1.0_dp !initialise to no rotation angle
        if(elem_cnct(-1,0,ne).gt.0.and.elem_cnct(1,0,ne).gt.1)then
@@ -1407,11 +1408,11 @@ contains
              xp5(:) = node_xyz(:,np5)
              call make_plane_from_3points(norm_1,2,xp1,xp2,xp3) ! calculate unit normal and plane
              call make_plane_from_3points(norm_2,2,xp2,xp4,xp5) ! calculate unit normal and plane
-             branches(4,N) = angle_btwn_vectors(norm_1,norm_2)*180.0_dp/pi ! rotation angle 
+             branches(4,N) = angle_btwn_vectors(norm_1,norm_2)*180.0_dp/pi ! rotation angle
           endif
        endif
     enddo ! ne
-        
+
     n_br = N
     do ne = 1,num_elems
        ne0 = elem_cnct(-1,1,ne) ! parent element
@@ -1427,7 +1428,7 @@ contains
        if(elem_cnct(1,0,ne).ge.2)then !'bi'furcations only
           ne1 = elem_cnct(1,1,ne) !first child
           ne2 = elem_cnct(1,2,ne) !second child
-            
+
 !!!....   Summary statistics
           if(stats(6,ne1).ge.0.0_dp.and.stats(6,ne2).ge.0.0_dp)then
              if(stats(6,ne1).ge.stats(6,ne2))then !diameter classification
@@ -1441,7 +1442,7 @@ contains
                 stats(11,ne) = stats(2,ne_minor)*180.0_dp/pi
                 stats(12,ne) = stats(2,ne_major)*180.0_dp/pi
              endif
-              
+
              if(diameters(ne_minor).gt.0.0_dp.and.diameters(ne_major).gt.0.0_dp)then
                 stats(13,ne) = stats(5,ne_minor)/diameters(ne_minor) !L/D minor
                 stats(14,ne) = stats(5,ne_major)/diameters(ne_major) !L/D major
@@ -1453,37 +1454,37 @@ contains
           endif
        endif ! elem_cnct
     enddo ! ne
-        
+
 !!! Calculate mean branching statistics from values in 'branches' (not elements!)
     do N = 1,N_BR
        do i = 1,3 !for generations, Horsfield orders, Strahler orders
           ind(i) = nbranches(i,N) ! the branch gen, Hord, Sord
-!!!...... length and diameter            
+!!!...... length and diameter
           do j = 1,2
              sum_mean(i,j,ind(i)) = sum_mean(i,j,ind(i)) + branches(j,N)
              if(i.eq.3.and.j.eq.1)then
-                if(ind(i).ne.nbranches(5,N))then !not same as parent 
+                if(ind(i).ne.nbranches(5,N))then !not same as parent
                    ntally(i,j,ind(i)) = ntally(i,j,ind(i)) + 1
                 endif
              else
                 ntally(i,j,ind(i)) = ntally(i,j,ind(i)) + 1
              endif
           enddo !j
-!!!...... branching angle and rotation angle            
+!!!...... branching angle and rotation angle
           do j = 3,4
              if(branches(j,N).ge.0.0_dp)then
                 sum_mean(i,j,ind(i)) = sum_mean(i,j,ind(i)) + branches(j,N)
                 ntally(i,j,ind(i)) = ntally(i,j,ind(i)) + 1
              endif
           enddo !j
-!!!...... ratio of L:D            
+!!!...... ratio of L:D
           j = 5
           if(branches(j,N).ge.0.0_dp)then
              sum_mean(i,j,ind(i)) = sum_mean(i,j,ind(i)) + branches(j,N)
              ntally(i,j,ind(i)) = ntally(i,j,ind(i)) + 1
           endif
        enddo !i
-          
+
 !!!... Summary statistics from branches
        do j = 3,5 !branching angle, rotation angle, L/D
           if(branches(j,N).ge.0.0_dp)then
@@ -1511,7 +1512,7 @@ contains
           bins(N) = bins(N)/dble(nbins(N))*180.0_dp/PI
        endif
     enddo ! N
-        
+
 !!!...... Summary statistics from branches
     do j = 3,5 !branching angle, rotation angle, L/D
        if(ntotaln(j-2).ne.0)then
@@ -1520,7 +1521,7 @@ contains
           means(j-2) = 0.0_dp
        endif
     enddo !j
-        
+
     i = 2 !Horsfield orders
     j = 6 !Nw/Nw-1
     do N = 1,genm-1
@@ -1530,7 +1531,7 @@ contains
           sum_mean(i,j,N)=0.0_dp
        endif
     enddo !N
-        
+
 !!! Summary statistics from CE
     do ne = 1,num_elems
        do j = 11,21
@@ -1540,14 +1541,14 @@ contains
           endif
        enddo !j
     enddo ! ne
-        
+
     do j = 11,21
        if(ntotaln(j-7).gt.0)then
           means(j-7) = means(j-7)/dble(ntotaln(j-7))
        endif
     enddo !j
 !!! End of mean calculations
-        
+
 !!! Calculate the standard deviations...... sum of (value-mean)^2
     SD = 0.0_dp
     do N = 1,n_br
@@ -1572,7 +1573,7 @@ contains
           endif
        enddo !j
     enddo !noelem
-        
+
 !!! SD = sqrt(sum/(n-1))
     do N = 1,genm
        do i = 1,3 !for generations, Horsfield orders, Strahler orders
@@ -1588,8 +1589,8 @@ contains
           SDT(j) = sqrt(SDT(j)/dble(ntotaln(j)-1))
        endif
     enddo !j
-!!! End of standard deviation calculation        
-        
+!!! End of standard deviation calculation
+
 !!! Output tree statistics
     average_term_gen = 0.0_dp
     sum_term = 0
@@ -1605,7 +1606,7 @@ contains
             &      angle(deg)'')')
        write(10,'(115(''-''))')
     endif
-        
+
     i = 1
     do N = 1,nmax_gen(i)
        write(*,'(3(i10),5(f8.2,'' ('',f6.2,'')''))') N,ntally(i,1,N),n_terminal(N), &
@@ -1624,7 +1625,7 @@ contains
     else
        average_term_gen = 0.0_dp
     endif
-        
+
     write(*,'(/'' Horsfield   #branches     Length'',11x,''Diameter&
          &       Branching        Rotation         ratio L:D      Nw/Nw-1'')')
     write(*,'(4x,''order'',20x,''(mm)'',14x,''(mm)'',9x,''angle(deg)&
@@ -1637,7 +1638,7 @@ contains
             &     angle(deg)'')')
        write(10,'(115(''-''))')
     endif
-        
+
     i = 2
     do N = 1,nmax_gen(i)
        write(*,'(2(i10),5(f8.2,'' ('',f6.2,'')''),f8.2)') N,ntally(2,1,N),sum_mean(i,1,N), &
@@ -1649,7 +1650,7 @@ contains
                SD(i,4,N),sum_mean(i,5,N),SD(i,5,N),sum_mean(i,6,N)
        endif
     enddo
-        
+
     write(*,'(/''   Strahler  #branches    Length'',10x,''Diameter'',8x,''Branching&
          &        Rotation'',10x,''ratio L:D'')')
     write(*,'(''    order'',18x,''(mm)'',13x,''(mm)'',10x,''angle(deg)      angle(deg)'')')
@@ -1671,7 +1672,7 @@ contains
                sum_mean(i,5,N),SD(i,5,N)
        endif
     enddo
-        
+
     do i = 2,3 !Horsfield and Strahler orders
        do N = 1,nmax_gen(i)
           X(N) = N
@@ -1702,20 +1703,20 @@ contains
     write(*,'('' L/Lp                 = '',f7.3,'' ('',f6.3,'')'')') means(12),SDT(12)
     write(*,'('' %L/Lp < 1            = '',f7.3)') dble(num_llp)/dble(num_elems-1)*100.0_dp
     write(*,'('' L1/L2 (L1 < L2)      = '',f7.3,'' ('',f6.3,'')'')') means(13),SDT(13)
-        
+
     write(*,'('' Rb Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,1),r_sq(3,1)
     write(*,'('' Rl Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,2),r_sq(3,2)
     write(*,'('' Rd Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,3),r_sq(3,3)
     write(*,'('' Rb Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,1),r_sq(2,1)
     write(*,'('' Rl Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,2),r_sq(2,2)
     write(*,'('' Rd Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,3),r_sq(2,3)
-    
+
     write(*,'('' mean angle Dp 4.0+   = '',f7.3)') bins(1)
     write(*,'('' mean angle Dp 3.0+   = '',f7.3)') bins(2)
     write(*,'('' mean angle Dp 2.0+   = '',f7.3)') bins(3)
     write(*,'('' mean angle Dp 1.0+   = '',f7.3)') bins(4)
     write(*,'('' mean angle Dp 0.7+   = '',f7.3)') bins(5)
-    
+
     if(writefile)then
        write(10,'(/''SUMMARY OF MEAN GEOMETRY STATISTICS'')')
        write(10,'(60(''-''))')
@@ -1735,32 +1736,32 @@ contains
        write(10,'('' L/Lp                 = '',f7.3,'' ('',f6.3,'')'')') means(12),SDT(12)
        write(10,'('' %L/Lp < 1            = '',f7.3)') dble(num_llp)/dble(num_elems-1)*100.0_dp
        write(10,'('' L1/L2 (L1 < L2)      = '',f7.3,'' ('',f6.3,'')'')') means(13),SDT(13)
-       
+
        write(10,'('' Rb Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,1),r_sq(3,1)
        write(10,'('' Rl Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,2),r_sq(3,2)
        write(10,'('' Rd Strahler          = '',f7.3,'' Rsq = '',f6.3)') ratios(3,3),r_sq(3,3)
        write(10,'('' Rb Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,1),r_sq(2,1)
        write(10,'('' Rl Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,2),r_sq(2,2)
        write(10,'('' Rd Horsfield         = '',f7.3,'' Rsq = '',f6.3)') ratios(2,3),r_sq(2,3)
-       
+
        write(10,'('' mean angle Dp 4.0+   = '',f7.3)') bins(1)
        write(10,'('' mean angle Dp 3.0+   = '',f7.3)') bins(2)
        write(10,'('' mean angle Dp 2.0+   = '',f7.3)') bins(3)
        write(10,'('' mean angle Dp 1.0+   = '',f7.3)') bins(4)
        write(10,'('' mean angle Dp 0.7+   = '',f7.3)') bins(5)
     endif
-    
+
     deallocate(diameters)
     deallocate(stats)
     deallocate(branches)
     deallocate(nbranches)
-    
+
     close(10)
-    
+
     call enter_exit(sub_name,2)
-    
+
   end subroutine list_tree_statistics
-    
+
 !!!#############################################################################
 
   subroutine linregress(n,r_squared,slope,x,y)
@@ -1782,10 +1783,10 @@ contains
        xxsum = xxsum + x(i) * x(i)
     enddo
 !!! calculate least squares estimate of straight line thru solution
-    slope = (xysum-xsum*ysum/n)/(xxsum-xsum*xsum/n) 
-    intercept = ysum/n - slope*xsum/n 
+    slope = (xysum-xsum*ysum/n)/(xxsum-xsum*xsum/n)
+    intercept = ysum/n - slope*xsum/n
 !!! calculate r-squared correlation coefficient
-!!! see Numerical Recipes, Fortran 77, 2nd edition, page 632.      
+!!! see Numerical Recipes, Fortran 77, 2nd edition, page 632.
     ax = xsum/N !mean of X
     ay = ysum/N !mean of Y
     sxx = 0.0_dp
@@ -1800,9 +1801,9 @@ contains
     enddo
     r = sxy/sqrt(sxx*syy)
     r_squared = r**2.0_dp
-    
+
   end subroutine linregress
-  
+
 !!!#############################################################################
 
   subroutine triangles_from_surface(surface_elems)
@@ -3060,7 +3061,7 @@ contains
   end subroutine merge_trifurcations
 
 !!!#############################################################################
- 
+
   subroutine define_rad_from_file(FIELDFILE, radius_type_in)
     !*define_rad_from_file:* reads in a radius field associated with an
     ! airway tree and assigns radius information to each element, also
@@ -3351,6 +3352,38 @@ contains
 
   end subroutine define_rad_from_geom
 
+  !!!#############################################################################
+
+    subroutine occlude_vessel(VESSEL_NUMBER, RATIO)
+      !*occlude_vessel:* Occludes/modifies vessel or airway radius based on
+      ! the ratio provided by user. This subroutine is made for partial occlusions
+      ! where the vessel (artery or vein) element number and the ratio is provided by user
+      ! and this will be applied on unstrained radius of the vessels. This subroutine should
+      ! be called after define_rad_from_geom/file so that the tree radii are identified.
+      ! This subroutine is useful for running Pulmonary hypertension or pulmonary embolism cases.
+
+      integer, intent(in) :: VESSEL_NUMBER  ! Element number that you want to apply occlusion on
+      real(dp), intent(in) :: RATIO   ! partial/or full occlsion ratio (100 means full occlusions
+      !                                 and any other number between 0 and 100 is partial occlusion)
+
+      character(len=60) :: sub_name
+
+      ! --------------------------------------------------------------------------
+
+      sub_name = 'occlude_vessel'
+      call enter_exit(sub_name,1)
+      ! write(*,*) "before:", elem_field(ne_radius_in, VESSEL_NUMBER)
+      ! write(*,*) "ne_radius_in:", elem_field(ne_radius_in,21)
+
+      elem_field(ne_radius, VESSEL_NUMBER) = RATIO * elem_field(ne_radius, VESSEL_NUMBER)
+      elem_field(ne_radius_in, VESSEL_NUMBER) = RATIO * elem_field(ne_radius_in, VESSEL_NUMBER)
+      elem_field(ne_radius_out, VESSEL_NUMBER) = RATIO * elem_field(ne_radius_out, VESSEL_NUMBER)
+      ! write(*,*) "after:", elem_field(ne_radius_in, VESSEL_NUMBER)
+      ! pause
+      call enter_exit(sub_name,2)
+
+    end subroutine occlude_vessel
+
 !!!#############################################################################
 
   subroutine element_connectivity_1d()
@@ -3600,9 +3633,9 @@ contains
     real(dp),allocatable :: temp_elem_direction(:,:),temp_elem_field(:,:)
     logical,allocatable :: temp_expansile(:)
     character(len=60) :: sub_name
-    
+
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'internal_mesh_reorder'
     call enter_exit(sub_name,1)
 
@@ -3610,12 +3643,12 @@ contains
     allocate(list_term_branches(num_elems))
     allocate(map_to_new(num_elems))
     allocate(map_to_old(num_elems))
-   
+
     ! work through each successive generation, incrementing elements one by one
     count_elems = 0
     num_term_branches = 1
     ngen = 0
-    list_term_branches(1) = 1 ! this assumes that the first element is the stem! 
+    list_term_branches(1) = 1 ! this assumes that the first element is the stem!
     do while(num_term_branches.ne.0)
        num_branches = num_term_branches ! temporary, to loop over
        num_term_branches = 0 ! reset to zero and count for this generation
@@ -3651,7 +3684,7 @@ contains
     allocate(temp_elem_field(num_ne,num_elems))
     allocate(temp_elem_direction(3,num_elems))
     if(model_type.eq.'gas_mix') allocate(temp_expansile(num_elems))
-    
+
     do ne = 1,num_elems ! for the ordered elements
        ne_old = map_to_old(ne) ! the unordered element number
        temp_elems(ne) = elems(ne_old) ! mapping to global
@@ -3686,13 +3719,13 @@ contains
 
     call element_connectivity_1d
     call evaluate_ordering
-    
+
     elem_ordrs(no_type,:) = 1 ! all conducting
-    
+
     call enter_exit(sub_name,2)
 
   end subroutine internal_mesh_reorder
-  
+
 !!!#############################################################################
 
   subroutine evaluate_ordering()
