@@ -27,7 +27,7 @@ Quick start instructions for GNU/Linux and macOS (bash)::
   pip install numpy
   here=$(pwd)
   cmake -S lungsim -B build-lungsim -D Python_EXECUTABLE=$here/venv-aether/bin/python
-  cd lungsim-build
+  cd build-lungsim
   make
   pip install -e src/bindings/python
   
@@ -39,7 +39,7 @@ Quick start instructions for Windows (cmd)::
   pip install --upgrade pip
   pip install numpy
   cmake -S lungsim -B build-lungsim -D Python_EXECUTABLE=%cd%/venv-aether/Scripts/python
-  cd lungsim-build
+  cd build-lungsim
   cmake --build . --config Release
   pip install -e src/bindings/python/Release
 
