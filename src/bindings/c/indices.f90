@@ -34,6 +34,18 @@ contains
   end subroutine ventilation_indices_c
 !
 !######################################################################
+
+  !> combined_indices
+  subroutine combined_indices_c() bind(C, name="combined_indices_c")
+
+    use indices, only: combined_indices
+    implicit none
+
+    call combined_indices()
+
+  end subroutine combined_indices_c
+!
+!######################################################################
 !
 !> Lymphatic indices
   subroutine lymphatic_indices_c() bind(C, name="lymphatic_indices_c")

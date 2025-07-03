@@ -6,6 +6,7 @@
 void define_problem_type_c(const char *PROBLEMTYPE,int *PROBLEMTYPE_LEN);
 void lymphatic_indices_c();
 void ventilation_indices_c();
+void combined_indices_c();
 void perfusion_indices_c();
 int get_ne_radius_c();
 int get_nj_conc1_c();
@@ -27,6 +28,11 @@ void lymphatic_indices()
 void ventilation_indices()
 {
   ventilation_indices_c();
+}
+
+void combined_indices()
+{
+  combined_indices_c();
 }
 
 void perfusion_indices()

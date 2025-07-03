@@ -83,7 +83,7 @@ module indices
   
   !Interfaces
   private
-  public define_problem_type, lymphatic_indices,ventilation_indices, perfusion_indices, &
+  public define_problem_type, lymphatic_indices,ventilation_indices,combined_indices, perfusion_indices, &
        get_ne_radius, get_nj_conc1, growing_indices
   
 contains
@@ -120,6 +120,9 @@ contains
     case('grow_tree')
        print *, 'You are solving a growing problem, setting up indices'
        call growing_indices
+    case('combined_indices')
+       print *, 'You are solving a combined problem, setting up indices'
+       call combined_indices
     end select
     model_type=TRIM(PROBLEM_TYPE)
     call enter_exit(sub_name,2)
@@ -256,6 +259,57 @@ contains
   end subroutine ventilation_indices
 
 !!!#############################################################################
+  !> Combined_indices - for updated ventilation model, combined the indices related surf, ven,lym, perf
+  subroutine combined_indices
+
+    character(len=60) :: sub_name
+
+    sub_name = 'combined_indices'
+    call enter_exit(sub_name,1)
+    ! indices for elem_ordrs. These dont usually change.
+    ! indices for node_field
+    num_nj=2 !number of nodal fields
+    nj_aw_press=2 !air pressure
+    ! indices for elem_field
+    num_ne = 10 !number of element fields
+    ne_radius = 1 !radius of airway
+    ne_length = 2 !length of airway
+    ne_vol = 3 !volume
+    ne_resist = 4 !resistance of airway
+    ne_t_resist = 5
+    ne_Vdot = 6 !Air flow, current time step
+    ne_Vdot0 = 7 !air flow, last timestep
+    ne_dvdt = 8
+    ne_vd_bel = 9
+    ne_vol_bel = 10
+    ! indices for unit_field
+    num_nu=21
+    nu_vol=1
+    nu_comp=2
+    nu_Vdot0=3
+    nu_Vdot1=4
+    nu_Vdot2=5
+    nu_dpdt=6
+    nu_pe=7
+    nu_vt=8
+    nu_air_press=9
+    nu_vent=10
+    nu_Pe_max = 11
+    nu_Pe_min = 12
+    nu_perf = 13
+    nu_blood_press = 14
+    nu_sa = 15
+    nu_tt = 16
+    nu_flux = 17
+
+    nu_intsat = 18
+    nu_av_flux = 19
+    nu_lymphflow = 20
+    nu_time = 21
+    call enter_exit(sub_name,2)
+  end subroutine combined_indices
+
+!!!#############################################################################
   !> Lymphatic indices
   subroutine lymphatic_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_LYMPHATIC_INDICES" :: LYMPHATIC_INDICES
@@ -350,7 +404,7 @@ contains
     call enter_exit(sub_name,2)
   end subroutine perfusion_indices
 
-  
+  !######################################################################
   subroutine update_units
     !*update_units:* reallocates unit_field following a change in problem type
 
@@ -372,7 +426,7 @@ contains
 
   end subroutine update_units
     
-    
+   !######################################################################
   function get_ne_radius() result(res)
     
     implicit none
