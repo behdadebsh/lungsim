@@ -8,17 +8,17 @@ contains
 !###################################################################################
 !
 !*alveolar_capillary_flux:* 
-  subroutine alveolar_capillary_flux_c(num_nodes,write_out) bind(C, name="alveolar_capillary_flux_c")
+  subroutine alveolar_capillary_flux_c(num_units) bind(C, name="alveolar_capillary_flux_c")
     use lymphatics,only: alveolar_capillary_flux
     implicit none
 
-    integer,intent(in) :: num_nodes
-    logical,intent(in) :: write_out
+    integer,intent(in) :: num_units
+
 
 #if defined _WIN32 && defined __INTEL_COMPILER
-    call so_alveolar_capillary_flux(num_nodes,write_out)
+    call so_alveolar_capillary_flux(num_units)
 #else
-    call alveolar_capillary_flux(num_nodes,write_out)
+    call alveolar_capillary_flux(num_units)
 #endif
     
   end subroutine alveolar_capillary_flux_c
