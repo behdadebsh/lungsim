@@ -8,6 +8,7 @@ void import_capillary_c(const char *FLOWFILE,int *FLOWFILE_LEN);
 void import_terminal_c(const char *FLOWFILE,int *FLOWFILE_LEN);
 void import_ventilation_c(const char *FLOWFILE,int *FLOWFILE_LEN);
 void import_perfusion_c(const char *FLOWFILE,int *FLOWFILE_LEN);
+void import_capillary_terminal_c(const char *FLOWFILE,int *FLOWFILE_LEN);
 
 void import_capillary(const char *FLOWFILE)
 {
@@ -29,3 +30,9 @@ void import_perfusion(const char *FLOWFILE)
 	int filename_len = strlen(FLOWFILE);
 	import_perfusion_c(FLOWFILE, &filename_len);
 }
+void import_capillary_terminal(const char *FLOWFILE)
+{
+	int filename_len = strlen(FLOWFILE);
+	import_capillary_terminal_c(FLOWFILE, &filename_len);
+}
+

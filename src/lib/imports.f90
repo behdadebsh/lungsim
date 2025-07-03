@@ -29,6 +29,7 @@ module imports
   public import_ventilation
   public import_perfusion
   public import_terminal
+  public import_capillary_terminal
   
 contains
   !
@@ -38,19 +39,19 @@ contains
   ! components (capillary bed within 'units') of a perfusion model .
   subroutine import_capillary(micro_unit_file)
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_IMPORT_CAPILLARY" :: IMPORT_CAPILLARY
-    
+
     character(len=MAX_FILENAME_LEN),intent(in) :: micro_unit_file
     !local variables
     integer :: count_units,ios,ne,nunit
     real(dp) :: Pin,Pout,Qtot,temp(7),TOTAL_CAP_VOL,TOTAL_SHEET_SA,TT_TOTAL
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'import_capillary'
     call enter_exit(sub_name,1)
-    
+
     open(10, file = micro_unit_file, status='old')
-    
+
     ! ios is negative if an end of record condition is encountered or if
     ! an endfile condition was detected.  It is positive if an error was
     ! detected.  ios is zero otherwise.
@@ -62,7 +63,7 @@ contains
        if(ios == 0)then
           ! record the unit values for mean pressure, transit time, surface area.
           ! ne is the 'linker' element, so nunit is for its parent element
-          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
           unit_field(nu_blood_press,nunit) = (Pin+Pout)/2.0_dp
           unit_field(nu_tt,nunit) = TT_TOTAL
           unit_field(nu_sa,nunit) = TOTAL_SHEET_SA
@@ -76,10 +77,91 @@ contains
     endif
 
     close(10)
-    
+
    call enter_exit(sub_name,2)
-   
+
  end subroutine import_capillary
+!
+!###########################################################################################
+      !>*import_capillary:* This subroutine reads in the results for the terminal_cap.exnode
+
+  subroutine import_capillary_terminal(EXFILE)
+    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_IMPORT_CAPILLARY" :: IMPORT_CAPILLARY
+   character(len=MAX_FILENAME_LEN),intent(in) :: EXFILE
+   !local variables
+   integer :: count_units,field_label(10),i,ibeg,iend,ierror,ne,nunit,n_fields
+   real(dp) :: rtemp
+   character(LEN=132) :: ctemp,label
+   character(len=300) :: readfile
+   character(len=60) :: sub_name
+
+   sub_name = 'import_capillary_terminal'
+   call enter_exit(sub_name,1)
+
+   if(index(EXFILE, ".exnode")> 0) then !full filename is given
+      readfile = EXFILE
+   else ! need to append the correct filename extension
+      readfile = trim(EXFILE)//'.exnode'
+   endif
+
+   open(10, file=readfile, status='old')
+
+   n_fields = 0
+   ierror = 0
+
+   read_field_labels : do
+      read(10, fmt="(a)", iostat=ierror) ctemp
+      if(index(ctemp, "Node:")> 0) exit read_field_labels
+      if(index(ctemp, ") ")> 0) then
+         ibeg = index(ctemp, ") ")+1 ! beginning of label
+         iend = index(ctemp, ",")-1  ! end of label
+         label = adjustl(ctemp(ibeg:iend))
+         n_fields = n_fields + 1
+         field_label(n_fields) = 0
+
+         select case(label)
+!         case('flow')
+         case('pressure')
+            field_label(n_fields) = nu_blood_press
+         case('transit_time')
+            field_label(n_fields) = nu_tt
+         case('capillary_SA')
+            field_label(n_fields) = nu_sa
+
+         end select
+      endif
+
+   end do read_field_labels
+
+   nunit = 0
+   ierror = 0
+
+   do while (ierror == 0)
+      if(index(ctemp, "Node:")> 0) then
+
+         do i = 1,3  ! read coordinates; not used
+            read(10, *, iostat=ierror) ctemp
+         enddo
+         read(10, *, iostat=ierror) ctemp ! read element: not used but could be
+
+         nunit = nunit + 1
+
+         do i = 3,n_fields
+            read(10, *, iostat=ierror) rtemp
+            if(field_label(i).gt.0)then
+               unit_field(field_label(i),nunit) = rtemp
+            endif
+         enddo
+
+         read(10, *, iostat=ierror) ctemp
+      endif
+   enddo
+
+   close(10)
+
+   call enter_exit(sub_name,2)
+
+ end subroutine import_capillary_terminal
 !
 !##############################################################################
 !
