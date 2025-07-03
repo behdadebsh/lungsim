@@ -252,47 +252,7 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
       end if
 
 
-      !polynomial
-!      if (surf_concentration(nu_vol,nalv) .le. gamma_star) then
-!        surface_tension(nu_vol,nalv)= -162474.8_dp*(surf_concentration(nu_vol,nalv)/gamma_star)&
-!                +69.9_dp
-!
-!
-!      elseif ((surf_concentration(nu_vol,nalv) .gt. gamma_star)) then!.and. (dA(i) .lt. 0.0)) then
-!        surface_tension(nu_vol,nalv)= -475867.6_dp*(surf_concentration(nu_vol,nalv)/gamma_star)&
-!                +162.2_dp
-!
-!
-!
-!      end if
-
-
-        !polynomial
-!      surface_tension(nu_vol,nalv)= 98.9_dp*(alv_area_current(nu_vol,nalv)/undef_alv)**2.0_dp-89.0_dp*&
-!              (alv_area_current(nu_vol,nalv)/undef_alv)+18.3
-!      undef_sc= surf_concentration(nu_vol,nalv)/gamma_star
-
-!      surface_tension(nu_vol,nalv)= -8.897160187482798e+14_dp*(surf_concentration(nu_vol,nalv)/gamma_star)**2.0_dp*&
-!              -1.075814722911506e+08_dp*(surf_concentration(nu_vol,nalv)/gamma_star)+70
-
-
-
-
-
-!      Pc_pre(nu_vol,nalv) = alv_collapse_pressure(nu_vol,nalv)
-
-!      Pc(nu_vol,nalv)= -((alv_area_current(nu_vol,nalv)*(alv_radii_current(nu_vol,nalv)**2)))/(2.0*surface_tension(nu_vol,nalv))
-      !dyn/cm^2 to Pa (/10.0)
-!      alv_collapse_pressure(nu_vol,nalv) = alv_collapse_pressure(nu_vol,nalv)
-!      Pc_current(nu_vol,nalv) =alv_collapse_pressure(nu_vol,nalv)
-
     end do
-
-
-!    print*,'surface tension2',Pc_pre(nu_vol,1)
-!    print*,'surface tension2',Pc_current(nu_vol,1)
-
-!    print*,'surface tension2',surface_tension_pre(nu_vol,1)
 
     call enter_exit(sub_name,2)
 
@@ -327,18 +287,6 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
     real(dp), parameter :: sigma = window_size/4.0_dp!10.5_dp!window_size/4.0_dp
 
 
-!    integer :: nalv, nu_vol, i, j
-!    real(8), dimension(num_units) :: Pc_com
-!    real(8), dimension(kernel_size) :: kernel
-!    real(8), dimension(num_units) :: smoothed_Pc_com
-!    real(8) :: sigma, sum_weights, value, weight
-
-    ! Example values for testing
-
-
-    ! Initialize example values (replace with actual data)
-
-
     character(len=60) :: sub_name
 !
 ! !--------------------------------------------------------------------------
@@ -346,10 +294,6 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
   sub_name = 'Pc_compliance'
     call enter_exit(sub_name,1)
 
-!  print*,'surface tension3',surface_tension(nu_vol,1)
-!    print*,'aci_rad_current1',alv_radii_current(nu_vol,1)
-!    print*,'Pc',Pc(nu_vol,1)
-    !Pc & Pc_compliance of acinus unit
     do nalv = 1,num_units
 
         Pc(nu_vol,nalv)= ((2.0 *surface_tension(nu_vol,nalv)) /alv_radii_current(nu_vol,nalv))/10.0 !Pa
@@ -357,23 +301,6 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
         Pc_com(nu_vol,nalv)= (3.0 *unit_field(nu_vol,nalv)) /Pc(nu_vol,nalv)
 
     end do
-
-    ! Calculate mean of the original data
-!    mean_original = sum(Pc_com) / num_units
-
-!    moving average
-!        do nalv = 1, num_units
-!            sum_weights = 0.0_dp
-!            value = 0.0_dp
-!            do j =  max(1, nalv - window_size), min(num_units, nalv + window_size)
-!                if (nalv + j > 0 .and. nalv + j <= num_units) then
-!                    value = value + surface_tension(nu_vol, nalv + j)
-!                    sum_weights = sum_weights + 1.0_dp
-!                end if
-!            end do
-!            smoothed_Pc_com(nu_vol, nalv) = value / sum_weights
-!        end do
-
 
 
 !    Compute Gaussian kernel values
@@ -391,25 +318,8 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
             end if
         end do
         smoothed_Pc_com(nu_vol,nalv) = value / sum_weights
-!        if (sum_weights > 0.0_dp) then
-!            smoothed_Pc_com(nu_vol, nalv) = value / sum_weights
-!        else
-!            smoothed_Pc_com(nu_vol, nalv) = Pc_com(nu_vol, nalv)
-!        end if
 
     end do
-
-    ! Calculate mean of the smoothed data
-!    mean_smoothed = sum(smoothed_Pc_com) / num_units
-
-    ! Adjust the smoothed data by subtracting the mean shift
-!    smoothed_Pc_com = smoothed_Pc_com - (mean_smoothed - mean_original)
-
-     ! Initialize buffer and counters
-!     data_buffer = 0.0
-!     buffer_index = 0
-
-
 
     call enter_exit(sub_name,2)
 !
@@ -427,22 +337,7 @@ function gaussian_kernel(size, sigma) result(kernel)
     real(dp) :: sum, exponent
 !
 ! !--------------------------------------------------------------------------
-!
-!    sum = 0.0_dp
-!
-!    do i = -size/2, size/2
-!        exponent = -0.5_dp * (i / sigma )**2
-!        kernel(i + size/2 + 1) = exp(exponent) / (sigma * sqrt(2.0_dp * PI))
-!        sum = sum + kernel(i + size/2 + 1)
-!    end do
-!
-!    ! Normalize the kernel
-!    do i = 1, size
-!        kernel(i) = kernel(i) / sum
-!
-!    end do
-!
-!end function gaussian_kernel
+
 
         sum = 0.0_dp
         do i = 0, size-1
@@ -457,39 +352,5 @@ function gaussian_kernel(size, sigma) result(kernel)
         end do
 end function gaussian_kernel
 !##############################################################################
-!
-!function moving_average(y, n, size) result(smoothed)
-!        integer, intent(in) :: n, size
-!        real, intent(in) :: y(n)
-!        real :: smoothed(n)
-!        integer :: i, j
-!        real :: sum
-!
-!        ! Loop through each data point
-!        do i = 1, n
-!            sum = 0.0
-!            ! Calculate the moving average within the window
-!            do j = max(1, i-size/2), min(n, i+size/2)
-!                sum = sum + y(j)
-!            end do
-!            smoothed(i) = sum / (min(n, i+size/2) - max(1, i-size/2) + 1)
-!        end do
-!end function moving_average
-!    moving average
-!        do nalv = 1, num_units
-!            sum_weights = 0.0_dp
-!            value = 0.0_dp
-!            do j =  max(1, nalv - window_size), min(num_units, nalv + window_size)
-!!                if (nalv + j > 0 .and. nalv + j <= num_units) then
-!                    value = value + Pc_com(nu_vol, nalv + j)
-!                    sum_weights = sum_weights + 1.0_dp
-!!                end if
-!            end do
-!            smoothed_Pc_com(nu_vol, nalv) = value / sum_weights
-!        end do
-
-!
 !##############################################################################
-!##############################################################################
-
 end module surfactant
