@@ -30,6 +30,7 @@ module ventilation
   real(dp), dimension(:,:), allocatable :: alv_unit_field_pre
   real(dp), dimension(:,:), allocatable :: alv_radii_pre
   real(dp), dimension(:,:), allocatable :: alv_radii_current
+  real(dp), dimension(:,:), allocatable :: aci_radii_current
   real(dp), dimension(:,:), allocatable :: alv_area_pre
   real(dp), dimension(:,:), allocatable :: alv_area_current
   real(dp), dimension(:,:), allocatable :: alv_dA
@@ -109,7 +110,9 @@ contains
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
          sum_dpmus,sum_dpmus_ei,time,totalc,Tpass,ttime,volume_tree,WOBe,WOBr, &
          WOBe_insp,WOBr_insp,WOB_insp,WOB!, alv_unit_field
-    !real(dp),allocatable :: alv_unit_field(:,:)
+!    real(dp) :: alveolar_volume,  capillary_osm_n, initial_osm_n, interstitial_osmotic,&
+!             total_osm_flux
+
     !real(dp), dimension(:,:), allocatable :: alv_area
     !real(dp), dimension(:,:), allocatable :: alv_area_over_breath
     !real(dp), dimension(:,:), allocatable :: alv_dA
@@ -139,6 +142,7 @@ contains
 !    allocate( alv_radii(nu_vol,num_units))
     allocate( alv_radii_pre(nu_vol,num_units))
     allocate( alv_radii_current(nu_vol,num_units))
+    allocate( aci_radii_current(nu_vol,num_units))
 !    allocate( alv_area(nu_vol,num_units))
     allocate( alv_area_pre(nu_vol,num_units))
     allocate( alv_area_current(nu_vol,num_units))
@@ -164,9 +168,11 @@ contains
     allocate( interstitial_saturation (nu_intsat,num_units))
     allocate(flux_a(nu_av_flux,num_units))
     allocate(flux_b(nu_av_flux,num_units))
-    allocate(time_sum(num_units))
-    allocate(lym_condition(num_units))
-    allocate(sats(5,num_units))
+!    allocate(time_sum(num_units))
+!    allocate(lym_time(num_units))
+!    allocate(lym_condition(num_units))
+!    allocate(sats(5,num_units))
+!    allocate(alveolar_volume (alv_flux,num_units))
 !    allocate(unit_field(nu_time,num_units))
 !    allocate(unit_field(nu_av_flux,num_units))
 !    allocate(unit_field(nu_lymphflow,num_units))
@@ -178,7 +184,15 @@ contains
 !    allocate(cap_SA(num_units))
 !    allocate( unit_field(nu_pe,num_units))
 !    allocate(ppl_current (nu_pe,num_units))
-!    allocate( acinus_field(nu_comp,nunit))
+    allocate(osm_flux(nu_osmflux,num_units))
+    allocate(int_osm_n(nu_osmflux,num_units))
+    allocate(osm_n_flux(nu_osmflux,num_units))
+    allocate(alveolar_volume(nu_alvflow,num_units))
+    allocate(capillary_volume(nu_capflow,num_units))
+    allocate(initial_osm_n(nu_osmflux,num_units))
+    allocate(total_osm_flux(nu_osmflux,num_units))
+!    allocate(initial_osm_n(nu_osmflux,num_units))
+
 
 
 !!! Initialise variables:
@@ -209,6 +223,31 @@ contains
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
     !read the perfusion terminal exnode file
+!    call set_lymph_factors(1,213.00_dp)
+!    alveolar_volume = 0.0_dp !alveolar volume likely greater at rest, but is lost to respiration - further information needed to put in model
+!    ! Is this where the tidal volume importing could go????
+!
+!
+!
+!    ! initial lymphatic values
+!    initial_lymph_volume = 0.0_dp ! in mL ===> dependent on capillary_conductivity volume units
+!
+!    ! Osmotic pressures
+!    capillary_osm_n = 0.0_dp ! This doesnt change????? The bleed on effect means the rest of the osmotic flux doesnt work 1.025_dp / 66.5!
+!    interstitial_osmotic = 0.0_dp
+!    int_osm_n = 0.0_dp
+!    initial_osm_n = 0.0_dp
+!    total_osm_flux = 0.0_dp
+!
+!    lym_time = 0.0_dp
+!    time_sum = 0.0_dp
+!    total_hydro_flux = 0.0_dp
+
+
+!    ! These two would presumably change in a geometrically consistent lymphatics model
+!    int_diff = -8.00_dp - (-1.00_dp) ! intPmin - intPmax in mmHg
+!    lymph_diff = 1.00_dp - (-8.00_dp) ! lymphPmax-lymphPmin in mmHg
+!    sats = (/ 1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp /) ! unitless
     call lymphatic_transport('output/P2BRP268-H12816_terminal')
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
@@ -307,7 +346,7 @@ contains
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-               dpmus,converged,iter_step,WOB)!,alv_unit_field
+               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
 
 
 !!!.......update the estimate of pleural pressure
@@ -369,7 +408,7 @@ contains
 !!............................................................................
 
 !print*,'n',n
-print*,'end',time
+print*,'end',time,T_interval
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
 
@@ -404,12 +443,12 @@ print*,'end',time
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
        sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
-       WOB_insp,expiration_type,dpmus,converged,iter_step,WOB)!,alv_unit_field
+       WOB_insp,expiration_type,dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
 
     integer,intent(in) :: num_itns
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
          err_tol,init_vol,pmus_factor_ex,pmus_factor_in,pmus_step,pptrans, &
-         press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
+         press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef,T_interval
     real(dp) :: last_vol,current_vol,Pcw,ppl_current,prev_flow,p_mus, &
          sum_dpmus,sum_dpmus_ei,sum_expid,sum_tidal,WOBe,WOB_insp,WOBe_insp, &
          WOBr,WOBr_insp,WOB!, alv_area_current, alv_dA !, alv_unit_field
@@ -535,7 +574,7 @@ print*,'end',time
 !    print*,'num_unit',num_units
 !    print*, 'f',fluctuation
 !    print*,"Pe_unit_field_pre",Pe_unit_field_pre(nu_pe,1)
-    call alveolar_flux(dt,time, Tinsp,Pe_unit_field_pre)
+    call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
 !    print*,'ratio:', ip_array
 !    print*,'ip2:', initial_lymph_pressure
 
@@ -923,6 +962,9 @@ print*,'end',time
 
        ! collect the volume of the lumped tissue unit for current time step
        unit_field_current(nu_vol,nunit)=unit_field(nu_vol,nunit)
+
+       aci_radii_current(nu_vol,nunit) = ((3.0_dp * unit_field_current(nu_vol,nunit)) / (4.0_dp * PI)) &
+                **(1.0_dp/3.0_dp)
 
        !print*,'after',unit_field(nu_vol,nunit)
        if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
@@ -1580,25 +1622,26 @@ print*,'end',time
             unit_field(nu_vol,1), &
 !            unit_field(nu_vol,2000), &
             Precoil, &
-            alv_unit_field_current(nu_vol,1), & !mm^3
+
             surf_concentration(nu_vol,1), & !g/cm^2
-            alv_radii_current(nu_vol,1),&
 !            alv_area_pre(nu_vol,1),&
             Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
             unit_field(nu_air_press,1),&
             Paw,&
-            Pe_unit_field_pre(nu_pe,1), &
+            unit_field(nu_pe,88), &
             unit_field(nu_pe,1), &
 !            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
-            surface_tension(nu_vol,1),&
-            unit_field(nu_intsat,1),&
-            unit_field(nu_time, 1),&
-            lym_condition(2),&
-            interstitial_saturation (nu_intsat,88),&
-            interstitial_volume_b (nu_intsat,88),&
-            flux_b(nu_av_flux,88),&
+!            surface_tension(nu_vol,1),&
+!            unit_field(nu_intsat,1),&
+!            unit_field(nu_time, 1),&
+!            lym_condition(2),&
+            interstitial_pressure_a (nu_Pe,88),&
             interstitial_pressure_b (nu_Pe,88),&
-            interstitial_volume_a (nu_intsat,88)
+            flux_b(nu_av_flux,88),&
+            alv_radii_current(nu_vol,1),&
+            alv_unit_field_current(nu_vol,1), & !mm^3
+            alveolar_volume(nu_alvflow,88),&
+            P_initial_lymphtix (nu_Pe,88 )
 
             !alv_radii(nu_vol,1), &
 !            node_field(nj_aw_press,1), &
@@ -1622,25 +1665,26 @@ print*,'end',time
             unit_field(nu_vol,1), &
 !            unit_field(nu_vol,2000), &
             Precoil, &
-            alv_unit_field_current(nu_vol,1), & !mm^3
+
             surf_concentration(nu_vol,1), & !g/cm^2
-            alv_radii_current(nu_vol,1),&
 !            alv_area_pre(nu_vol,1),&
             Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
             unit_field(nu_air_press,1),&
             Paw,&
-            Pe_unit_field_pre(nu_pe,1), &
+            unit_field(nu_pe,88), &
             unit_field(nu_pe,1), &
 !            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
-            surface_tension(nu_vol,1),&
-            unit_field(nu_intsat,1),&
-            unit_field(nu_time, 1),&
-            lym_condition(2),&
-            interstitial_saturation (nu_intsat,88),&
-            interstitial_volume_b (nu_intsat,88),&
-            flux_b(nu_av_flux,88),&
+!            surface_tension(nu_vol,1),&
+!            unit_field(nu_intsat,1),&
+!            unit_field(nu_time, 1),&
+!            lym_condition(2),&
+            interstitial_pressure_a (nu_Pe,88),&
             interstitial_pressure_b (nu_Pe,88),&
-            interstitial_volume_a(nu_intsat,88)
+            flux_b(nu_av_flux,88),&
+            alv_radii_current(nu_vol,1),&
+            alv_unit_field_current(nu_vol,1), & !mm^3
+            alveolar_volume(nu_alvflow,88),&
+            P_initial_lymphtix (nu_Pe,88 )
             !alv_radii(nu_vol,1), &
 !            node_field(nj_aw_press,1), &
 !            unit_field(nu_Vdot0,1)!,&
@@ -1672,16 +1716,9 @@ print*,'end',time
        ventilation_continue = .false.
     elseif(abs(volume_target).gt.1.0e-3_dp)then
         ! Check if all lym_condition values are <= 0.000005_dp
-!         all_units_satisfied = .true.
-!    do nunit = 1, num_units
-!      if (lym_condition(nunit) > 0.000005_dp) then
-!!        all_units_satisfied = .false.
-!        exit
-!      endif
-!    end do
        if(abs(100.0_dp*(volume_target-sum_tidal) &
-            /volume_target).gt.0.1_dp.or.(n.lt.2).or. &
-            .not. all(lym_condition <= 0.000005_dp)) then
+            /volume_target).gt.0.001_dp.or.(n.lt.2)) then!.or. &  0.1
+        !    .not. all(lym_condition <= 0.00001_dp)) then !0.000005_dp
           ventilation_continue = .true.
        else
           ventilation_continue = .false.
