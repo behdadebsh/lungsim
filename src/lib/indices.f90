@@ -35,7 +35,7 @@ module indices
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
        nu_vd=0,nu_perf=0,nu_blood_press=0,nu_sa = 0,nu_tt = 0,nu_Pe_max=0, &
-       nu_Pe_min=0,nu_flux=0,nu_intsat=0,nu_av_flux=0,nu_lymphflow=0,nu_time=0
+       nu_Pe_min=0,nu_flux=0,nu_intsat=0,nu_av_flux=0,nu_lymphflow=0,nu_time=0,nu_alvflow=0,nu_osmflux=0,nu_capflow=0
 
   !indices for gas exchange field
   ! indices for gasex_field
@@ -68,8 +68,7 @@ module indices
   
   public num_nu,nu_vol,nu_comp, nu_conc2,nu_Vdot0,nu_Vdot1, &
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
-
-       nu_conc1,nu_vent,nu_vd,nu_flux,nu_intsat, &
+        nu_conc1,nu_vent,nu_vd,nu_flux,nu_intsat,nu_alvflow,nu_osmflux,nu_capflow,&
        nu_perf,nu_blood_press,nu_sa,nu_tt,nu_Pe_max,nu_Pe_min, &
        nu_av_flux,nu_lymphflow,nu_time
 
@@ -283,7 +282,7 @@ contains
     ne_vd_bel = 9
     ne_vol_bel = 10
     ! indices for unit_field
-    num_nu=21
+    num_nu=24
     nu_vol=1
     nu_comp=2
     nu_Vdot0=3
@@ -306,6 +305,10 @@ contains
     nu_av_flux = 19
     nu_lymphflow = 20
     nu_time = 21
+    nu_alvflow = 22
+    nu_osmflux =23
+    nu_capflow =24
+!    nu_intsat_a = 23
     call enter_exit(sub_name,2)
   end subroutine combined_indices
 
@@ -313,12 +316,12 @@ contains
   !> Lymphatic indices
   subroutine lymphatic_indices
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_LYMPHATIC_INDICES" :: LYMPHATIC_INDICES
-    
+
     character(len=60) :: sub_name
-    
+
     sub_name = 'lymphatic_indices'
     call enter_exit(sub_name,1)
-    
+
     ! indices for unit_field
     num_nu = 11
     nu_perf = 1
@@ -332,9 +335,9 @@ contains
     nu_av_flux = 9
     nu_lymphflow = 10
     nu_time = 11
-    
+
     call enter_exit(sub_name,2)
-    
+
   end subroutine lymphatic_indices
 
 !!!#############################################################################
