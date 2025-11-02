@@ -7,21 +7,22 @@ contains
 !
 !###################################################################################
 !
-!*alveolar_capillary_flux:* 
-  subroutine alveolar_capillary_flux_c(num_units) bind(C, name="alveolar_capillary_flux_c")
-    use lymphatics,only: alveolar_capillary_flux
+!*alveolar_flux:*
+  subroutine alveolar_flux_c(dt, time, T_interval,Pe_unit_field_pre) bind(C, name="alveolar_flux_c")
+    use lymphatics,only: alveolar_flux
+    use arrays,only: dp
     implicit none
 
-    integer,intent(in) :: num_units
-
+    real(dp), intent(in) :: dt,time, T_interval
+    real(dp), dimension(:,:), intent(in) :: Pe_unit_field_pre
 
 #if defined _WIN32 && defined __INTEL_COMPILER
-    call so_alveolar_capillary_flux(num_units)
+    call so_alveolar_flux(dt, time, T_interval,Pe_unit_field_pre)
 #else
-    call alveolar_capillary_flux(num_units)
+    call alveolar_flux(dt, time, T_interval,Pe_unit_field_pre)
 #endif
     
-  end subroutine alveolar_capillary_flux_c
+  end subroutine alveolar_flux_c
 !
 !###################################################################################
 !
