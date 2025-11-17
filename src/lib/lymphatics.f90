@@ -26,6 +26,9 @@ module lymphatics
   ! Baseline value parameters (eventually will be user-defined?)
   integer,protected :: sex !,n_timesteps
   !sex (0 = male, 1 = female) only determines the weight and therefore size of the lung. Should be updated based on CT
+
+  integer :: printcount
+
   real(dp),protected :: lung_mass,capillary_volume_raw
 
   ! Capillary parameters
@@ -64,12 +67,14 @@ module lymphatics
 !  real(dp), allocatable :: ic(:,:)     ! shape (2, num_units)
 !  real(dp), allocatable :: time_sum(:)       ! shape (num_units)
 !  real(dp), allocatable ::  lym_time(:)
-!  real(dp), allocatable :: lym_condition(:)
+  real(dp), allocatable :: lym_condition(:)
 !  real(dp), allocatable :: total_hydro_flux(:) ! shape (num_units)
 !  real(dp), allocatable :: total_osm_flux(:)  ! shape (num_units)
 !  real(dp), allocatable :: initial_lymph_volume(:) ! shape (num_units)
 !  real(dp), allocatable :: int_osm_n_unit(:)       ! shape (num_units)
-!  real(dp), allocatable :: sats(:,:)
+
+  real(dp), allocatable :: sats(:,:)
+
   real(dp), allocatable :: P_initial_lymphtix(:,:)
   real(dp), allocatable :: total_hydro_flux (:,:)
   real(dp), allocatable :: initial_lymph_flow(:,:)
@@ -146,7 +151,8 @@ contains
     count=1
     do while (count  .le.  fluid_steps)
 !    if (time .ge. T_interval) then
-
+!    print*,'int', unit_field(nu_blood_press,19272)/133.32239_dp,unit_field(nu_sa,19272), &
+!            unit_field(nu_tt,19272)
     do nunit = 1, num_units
 
 !     transit_time= unit_field(nu_tt, nunit)   ! assume already in seconds
@@ -155,7 +161,6 @@ contains
 !
 !    endif
 !    do while(time_sum .lt. transit_time)
-
      capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp  !capillary_pressure !from Pa to mmHg
 
      P_elastic = (unit_field(nu_Pe,nunit))/133.32239_dp !from Pa to mmHg!-664.0_dp
@@ -171,10 +176,7 @@ contains
              !interstitial pressure changes a lot at low volumes with a small volume change, but at high volumes
              !a large volume change is needed to cause a small change in pressure
              !remove  fluctuation
-!          interstitial_pressure_a (nu_Pe,nunit)= (fluctuation/2.0_dp)*sin(2.0_dp*pi*0.25*time)+ &
-!               (int_diff+fluctuation) * (interstitial_volume_a (nu_intsat, nunit)/ interstitial_capacity_a)**2.0_dp + &
-!               (int_diff+fluctuation)*(-2.0_dp) * (interstitial_volume_a(nu_intsat, nunit) / interstitial_capacity_a) + &
-!               (-8.00_dp+fluctuation/2.0_dp) (unit_field(nu_Pe_max,nunit)/133.32239_dp+unit_field(nu_Pe_min,nunit)/133.32239_dp)/2.0_dp
+
            interstitial_pressure_a (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2*pi*0.25_dp*time) + &
                (int_diff +fluctuation) * (interstitial_volume_a (nu_intsat, nunit)/ interstitial_capacity_a)**2.0_dp + &
                (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_a(nu_intsat, nunit) / interstitial_capacity_a) + &
@@ -187,10 +189,7 @@ contains
                (int_diff +fluctuation) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp + &
                (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b) + &
                (-8.00_dp+fluctuation/2.0_dp)
-!          interstitial_pressure_b (nu_Pe,nunit)= (fluctuation/2.0_dp)*sin(2.0_dp*pi*0.25*time) + &
-!               (int_diff+fluctuation) * (interstitial_volume_b (nu_intsat, nunit)/ interstitial_capacity_b)**2.0_dp + &
-!               (int_diff+fluctuation)*(-2.0_dp) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b) + &
-!               (-8.00_dp+fluctuation/2.0_dp)
+
           if(capillary_pressure > interstitial_pressure_a(nu_Pe,nunit))then
              flux_a(nu_av_flux,nunit) = 0.5_dp * (capillary_conductivity * unit_field(nu_sa,nunit) * &
              (capillary_pressure - interstitial_pressure_a(nu_Pe,nunit))) * (fluid_dt)
@@ -234,64 +233,7 @@ contains
           interstitial_volume_b(nu_intsat, nunit) = interstitial_volume_b(nu_intsat, nunit) + diffusion
           interstitial_volume_a(nu_intsat, nunit) = interstitial_volume_a (nu_intsat, nunit)- diffusion
 
-          ! Osmotic
-          int_osm_conc = int_osm_n(nu_osmflux,nunit)/interstitial_volume(nu_intsat, nunit) ! interstitial volume has technically changed since initialising in this loop but not officially
-          interstitial_osmotic = int_osm_conc*IGC_T
-          ! Dimensionally inconsistent, can't compute capillary_osmotic - interstitial_osmotic: capillary_osmotic in wrong units
-           osm_flux(nu_osmflux,nunit) = (lymphatic_properties%reflection_coefficient * unit_field(nu_sa,nunit)* &
-               (capillary_osmotic - interstitial_osmotic))* (fluid_dt)
 
-         !solute concentration
-          cap_osm_conc = capillary_osm_n / capillary_volume(nu_capflow,nunit) ! capillary_osm_n NEVER CHANGES???????
-!          int_osm_conc = int_osm_n / interstitial_volume(nu_intsat, nunit)
-
-!          if(capillary_osmotic .gt. interstitial_osmotic)then
-!             capillary_volume = capillary_volume - osm_flux
-!             iv_array(2) = iv_array(2) + osm_flux
-!          else
-!             capillary_volume = capillary_volume + osm_flux
-!             iv_array(2) = iv_array(2) - osm_flux
-!          endif
-!
-!          net_flux = osm_flux + flux_c
-!          if(net_flux.gt.0.0_dp)then
-!             osm_n_flux = net_flux * cap_osm_conc ! cap_osm_conc is 0 ==> never updates
-!             int_osm_n = int_osm_n + osm_n_flux ! This also doesn't update
-!             !assuming capillary is constant and does not need updating
-!          else
-!             osm_n_flux = net_flux * int_osm_conc
-!             int_osm_n = int_osm_n - osm_n_flux
-!          endif
-          if(capillary_osmotic > interstitial_osmotic)then
-             capillary_volume(nu_capflow,nunit) = capillary_volume(nu_capflow,nunit) - osm_flux(nu_osmflux,nunit)
-             interstitial_volume_b(nu_intsat, nunit)= interstitial_volume_b(nu_intsat, nunit)+osm_flux(nu_osmflux,nunit)
-          else
-             capillary_volume(nu_capflow,nunit) = capillary_volume(nu_capflow,nunit) + osm_flux(nu_osmflux,nunit)
-             interstitial_volume_b(nu_intsat, nunit) =interstitial_volume_b(nu_intsat, nunit)-osm_flux(nu_osmflux,nunit)
-          endif
-
-          net_flux = osm_flux(nu_osmflux,nunit) + flux_a(nu_av_flux,  nunit) + flux_b(nu_av_flux,  nunit)
-          if(net_flux > 0.0_dp)then
-             osm_n_flux(nu_osmflux,nunit)= net_flux * cap_osm_conc
-             int_osm_n(nu_osmflux,nunit) = int_osm_n(nu_osmflux,nunit)+ osm_n_flux(nu_osmflux,nunit)
-             !assuming capillary is constant and does not need updating
-          else
-             osm_n_flux(nu_osmflux,nunit) = net_flux * int_osm_conc
-             int_osm_n(nu_osmflux,nunit) = int_osm_n(nu_osmflux,nunit) - osm_n_flux(nu_osmflux,nunit)
-          endif
-          total_osm_flux(nu_osmflux,nunit) = total_osm_flux(nu_osmflux,nunit) + osm_flux(nu_osmflux,nunit)
-
-          !calculating flux from interstitium to initial lymphatics
-!          ratio = iv_array(2)/ic_array(2)
-!          if(ratio.lt.0.3_dp)then
-!             lymph_conductivity = 1.48_dp * capillary_conductivity !all calculated does as a function of capillary_conductivity
-!          !no information on the size of pores or similar for lympatic conductivity so assumed to be similar to capillary.
-!          else
-!             lymph_conductivity = ((845.87_dp * (ratio)**5.0_dp) + &
-!                  (-2416.7_dp * (ratio)**4.0_dp) + (2388.5_dp * &
-!                  (ratio)**3.0_dp) + (-922.24_dp * (ratio)**2.0_dp) + &
-!                  (125.85_dp * (ratio)) - 0.0067_dp)*  capillary_conductivity !(capillary_conductivity)
-!          endif
           if(interstitial_volume_b(nu_intsat, nunit)/interstitial_capacity_b < 0.3_dp)then
              lymph_conductivity = 1.48_dp * 4.41335e-8 !all calculated does as a function of capillary_conductivity
           !no information on the size of pores or similar for lympatic conductivity so assumed to be similar to capillary.
@@ -345,69 +287,41 @@ contains
 
 
           total_flux = total_hydro_flux(nu_flux,nunit) ! +total_osm_flux
-!          sumuptake = sumuptake + initial_lymph_flow(nu_lymphflow,nunit)
-!          time_sum(nunit) = time_sum(nunit) + dt
-!    end if !inner ! end inner transit time loop
-!     else
-!       sats(5,nunit) = sats(4,nunit)
-!       sats(4,nunit) = sats(3,nunit)
-!       sats(3,nunit) = sats(2,nunit)
-!       sats(2,nunit) = sats(1,nunit)
-!       sats(1,nunit) = interstitial_saturation(nu_intsat, nunit)
 
-
-
-!       lym_condition(nunit) = abs(sum(sats(:,nunit)) / 5.0_dp - sats(1,nunit))
-
-!       lym_time(nunit)=lym_time(nunit)+ time_sum(nunit)
-!      if (time_sum >= transit_time) then
-        ! write out exactly as the original did:
         unit_field(nu_intsat,   nunit) = interstitial_saturation(nu_intsat, nunit)
         unit_field(nu_time,     nunit) = time ! why time here is global time not the transit time
-        unit_field(nu_av_flux,  nunit) = total_flux/time  !flux_c
-        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/time!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
-
-!        ! now reset state so the next cycle starts fresh:
-!        iv_array_unit(:,nunit)        = (/ 0.0_dp, 0.48_dp*interstitial_capacity /)
-!        time_sum(nunit) = 0.0_dp
-!        total_hydro_flux_unit(nunit) = 0.0_dp
-!        total_osm_flux_unit(nunit)   = 0.0_dp
-!        initial_lymph_volume_unit(nunit) = 0.0_dp
-!        int_osm_n_unit(nunit)        = 0.0_dp
-!      else
-        ! still mid‐transit ⇒ just write back updated state
-!        iv_array_unit(1,i_unit)        = iv1
-!        iv_array_unit(2,i_unit)        = iv2
-!        total_hydro_flux_unit(i_unit)  = total_hydro_flux
-!        total_osm_flux_unit(i_unit)    = total_osm_flux
-!        initial_lymph_volume_unit(i_unit) = initial_lymph_volume
-!        int_osm_n_unit(i_unit)         = int_osm_n
-!      endif
-
-!
-!        unit_field(nu_intsat,nunit) = interstitial_saturation
-!        unit_field(nu_time,nunit) = time
-!        unit_field(nu_av_flux,nunit) = total_flux/transit_time !!! NEED THESE "/time" STATEMENTS TO REPLICATE THE RESULTS IN THE PAPER
-!        unit_field(nu_lymphflow,nunit) = initial_lymph_volume
-
-!    print*,'int', alveolar_volume
-!    !write(*,'('' T='',e12.3,'': intsat='',e12.6,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.6,'' ul/s'')') &
-!    !     unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),&
-!    !     unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
+        unit_field(nu_av_flux,  nunit) = total_flux!/time  !flux_c
+        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)!/time!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
 
 
       enddo
      count = count + 1
-!     print*,'int',  interstitial_pressure_b(nu_Pe,88), 'dt',fluid_dt
+
     end do
-!            print*,'ratio:', interstitial_pressure(1,1)
-!        print*,'bp', unit_field(nu_blood_press,1)!    unit_field(nu_intsat,nunit) = interstitial_saturation
-!    print*,'bp',  lymphatic_properties%reflection_coefficient
-!    print*,'int',  unit_field(nu_intsat,1)
-!    print*,'int',   unit_field(nu_time,1)
-!    print*,'int', unit_field(nu_av_flux,1)
-!    print*,'int',  unit_field(nu_lymphflow,1)
-!    endif
+
+    printcount = printcount + 1
+
+    print*,'printcount:', printcount
+
+     if (printcount.eq.80)then
+         do nunit = 1, num_units
+
+            sats(5,nunit) = sats(4,nunit)
+            sats(4,nunit) = sats(3,nunit)
+            sats(3,nunit) = sats(2,nunit)
+            sats(2,nunit) = sats(1,nunit)
+            sats(1,nunit) = interstitial_saturation(nu_intsat, nunit)
+
+
+            lym_condition(nunit) = abs(((sats(1,nunit) + sats(2,nunit)+ sats(3,nunit) + sats(4,nunit) +sats(5,nunit)) &
+                    /5.0_dp)-sats(1,nunit))
+         end do
+
+         print*, 'sats', sats(1,19272), sats(2,19272), sats(3,19272) , lym_condition(19272)
+
+         printcount = 0
+     endif
+
     call enter_exit(sub_name,2)
 
   end subroutine alveolar_flux
@@ -457,21 +371,21 @@ contains
     initial_lymph_volume = 0.0_dp ! in mL ===> dependent on capillary_conductivity volume units
 !
 !    ! Osmotic pressures
-    capillary_osm_n = 0.0_dp ! This doesnt change????? The bleed on effect means the rest of the osmotic flux doesnt work 1.025_dp / 66.5!
-    interstitial_osmotic = 0.0_dp
-    int_osm_n = 0.0_dp
-    initial_osm_n = 0.0_dp
-    total_osm_flux = 0.0_dp
-
-    osm_n_flux = 0.0_dp
-    osm_flux = 0.0_dp
+!    capillary_osm_n = 0.0_dp ! This doesnt change????? The bleed on effect means the rest of the osmotic flux doesnt work 1.025_dp / 66.5!
+!    interstitial_osmotic = 0.0_dp
+!    int_osm_n = 0.0_dp
+!    initial_osm_n = 0.0_dp
+!    total_osm_flux = 0.0_dp
+!
+!    osm_n_flux = 0.0_dp
+!    osm_flux = 0.0_dp
     total_hydro_flux = 0.0_dp
 
 
 !    lym_time = 0.0_dp
 !    time_sum = 0.0_dp
 
-!!    printcount = 0
+    printcount = 0
 !
 !    ! These two would presumably change in a geometrically consistent lymphatics model
 !    int_diff = -8.00_dp - (-1.00_dp) ! intPmin - intPmax in mmHg
@@ -483,6 +397,11 @@ contains
 !    sat4 = 4.0_dp
 !    sat5 = 5.0_dp
 !    sats = (/ 1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp /) ! unitless
+     sats(5,:) = 5.0_dp
+     sats(4,:) = 4.0_dp
+     sats(3,:) = 3.0_dp
+     sats(2,:) = 2.0_dp
+     sats(1,:) = 1.0_dp
 !    interstitial_capacity_a = 0.005_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
 !    interstitial_capacity_b = 0.995_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
 !    interstitial_volume_a = 0.0_dp

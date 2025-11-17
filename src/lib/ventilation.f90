@@ -170,8 +170,8 @@ contains
     allocate(flux_b(nu_av_flux,num_units))
 !    allocate(time_sum(num_units))
 !    allocate(lym_time(num_units))
-!    allocate(lym_condition(num_units))
-!    allocate(sats(5,num_units))
+    allocate(lym_condition(num_units))
+    allocate(sats(5,num_units))
 !    allocate(alveolar_volume (alv_flux,num_units))
 !    allocate(unit_field(nu_time,num_units))
 !    allocate(unit_field(nu_av_flux,num_units))
@@ -409,6 +409,8 @@ contains
 
 !print*,'n',n
 print*,'end',time,T_interval
+print*,'int', unit_field(nu_blood_press,1),unit_field(nu_sa,1),  unit_field(nu_tt,1)
+
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
 
@@ -575,6 +577,7 @@ print*,'end',time,T_interval
 !    print*, 'f',fluctuation
 !    print*,"Pe_unit_field_pre",Pe_unit_field_pre(nu_pe,1)
     call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
+
 !    print*,'ratio:', ip_array
 !    print*,'ip2:', initial_lymph_pressure
 
@@ -1641,7 +1644,8 @@ print*,'end',time,T_interval
             alv_radii_current(nu_vol,1),&
             alv_unit_field_current(nu_vol,1), & !mm^3
             alveolar_volume(nu_alvflow,88),&
-            P_initial_lymphtix (nu_Pe,88 )
+            P_initial_lymphtix (nu_Pe,88 ),&
+            unit_field(nu_blood_press,1)
 
             !alv_radii(nu_vol,1), &
 !            node_field(nj_aw_press,1), &
@@ -1666,25 +1670,26 @@ print*,'end',time,T_interval
 !            unit_field(nu_vol,2000), &
             Precoil, &
 
-            surf_concentration(nu_vol,1), & !g/cm^2
+            surf_concentration(nu_vol,19272), & !g/cm^2
 !            alv_area_pre(nu_vol,1),&
-            Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
-            unit_field(nu_air_press,1),&
+            Pc(nu_vol,19272),&  !alv_collapse_pressure (cmH2O)
+            unit_field(nu_air_press,19272),&
             Paw,&
-            unit_field(nu_pe,88), &
-            unit_field(nu_pe,1), &
+            unit_field(nu_pe,19272), &
+            unit_field(nu_pe,19272), &
 !            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
 !            surface_tension(nu_vol,1),&
 !            unit_field(nu_intsat,1),&
 !            unit_field(nu_time, 1),&
 !            lym_condition(2),&
-            interstitial_pressure_a (nu_Pe,88),&
-            interstitial_pressure_b (nu_Pe,88),&
-            flux_b(nu_av_flux,88),&
-            alv_radii_current(nu_vol,1),&
-            alv_unit_field_current(nu_vol,1), & !mm^3
-            alveolar_volume(nu_alvflow,88),&
-            P_initial_lymphtix (nu_Pe,88 )
+            interstitial_pressure_a (nu_Pe,19272),&
+            interstitial_pressure_b (nu_Pe,19272),&
+            flux_b(nu_av_flux,19272),&
+            alv_radii_current(nu_vol,19272),&
+            alv_unit_field_current(nu_vol,19272), & !mm^3
+            alveolar_volume(nu_alvflow,19272),&
+            P_initial_lymphtix (nu_Pe,19272 ),&
+            unit_field(nu_blood_press,19272)
             !alv_radii(nu_vol,1), &
 !            node_field(nj_aw_press,1), &
 !            unit_field(nu_Vdot0,1)!,&
@@ -1712,13 +1717,14 @@ print*,'end',time,T_interval
     ! --------------------------------------------------------------------------
 
     ventilation_continue = .true.
-    if(n.ge.num_brths)then ! change n_brths from 10 to 125 to make lymph has enough time to run
+    if(n.ge.num_brths)then
+        ! change n_brths from 10 to 125 to make lymph has enough time to run
        ventilation_continue = .false.
     elseif(abs(volume_target).gt.1.0e-3_dp)then
         ! Check if all lym_condition values are <= 0.000005_dp
        if(abs(100.0_dp*(volume_target-sum_tidal) &
-            /volume_target).gt.0.001_dp.or.(n.lt.2)) then!.or. &  0.1
-        !    .not. all(lym_condition <= 0.00001_dp)) then !0.000005_dp
+            /volume_target).gt.0.1_dp.or.(n.lt.2) &  !) !then!.or. &  0.1
+             .or. .not. all(lym_condition <= 0.001_dp)) then !0.000005_dp
           ventilation_continue = .true.
        else
           ventilation_continue = .false.
