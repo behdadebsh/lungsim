@@ -95,6 +95,7 @@ module lymphatics
 !  real(dp), allocatable :: time_sum_unit(:)
 !  real(dp), allocatable :: total_hydro_flux_unit(:)
   real(dp), allocatable :: total_osm_flux(:,:)
+  real(dp), dimension(:), allocatable :: unit_active_time
 !  real(dp), allocatable :: sumuptake_unit(:)
 !  real(dp), allocatable :: transit_time_unit(:)
 !  real(dp), allocatable :: interstitial_capacity_unit(:)
@@ -154,7 +155,9 @@ contains
 !    print*,'int', unit_field(nu_blood_press,19272)/133.32239_dp,unit_field(nu_sa,19272), &
 !            unit_field(nu_tt,19272)
     do nunit = 1, num_units
-
+        if (lym_condition(nunit) > 0.00001_dp) then
+          ! Track per-unit active time
+          unit_active_time(nunit) = unit_active_time(nunit) + fluid_dt
 !     transit_time= unit_field(nu_tt, nunit)   ! assume already in seconds
 
 !    if(transit_time.le.0.001)then
@@ -165,7 +168,7 @@ contains
 
      P_elastic = (unit_field(nu_Pe,nunit))/133.32239_dp !from Pa to mmHg!-664.0_dp
      diff_Pe = ((unit_field(nu_Pe,nunit)-Pe_unit_field_pre(nu_pe,nunit))/133.32239_dp)/dt
-     fluctuation = (unit_field(nu_Pe_max,nunit)/133.32239_dp-unit_field(nu_Pe_min,nunit)/133.32239_dp)!unit_field(nu_Pe_max,nunit)/133.32239_dp-unit_field(nu_Pe_min,nunit)
+     fluctuation = ((unit_field(nu_Pe_max,nunit)/133.32239_dp)-(unit_field(nu_Pe_min,nunit)/133.32239_dp))!unit_field(nu_Pe_max,nunit)/133.32239_dp-unit_field(nu_Pe_min,nunit)
 !     if (time_sum(nunit) < transit_time) then
      interstitial_volume (nu_intsat, nunit)= interstitial_volume_a (nu_intsat, nunit)+ interstitial_volume_b(nu_intsat, nunit)
 
@@ -247,8 +250,9 @@ contains
           endif
 
           P_initial_lymphtix (nu_Pe,nunit) = fluctuation/2.0_dp * sin((2*pi*0.25_dp*time) + pi/2.0_dp) + &
-               (lymph_diff-fluctuation)* (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp + &
+               (lymph_diff-fluctuation)* ((interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp) + &
                (-8.00_dp+(fluctuation/2.0_dp))
+
           !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a
           !large volume change, but at high volumes only a small volume change is needed to cause a large change in pressure
           !write(*,'(''Plym: '',f8.4)')initial_lymphatic_pressure  (diff_Pe /(2.0_dp * pi * 0.25_dp))
@@ -286,12 +290,14 @@ contains
           endif
 
 
-          total_flux = total_hydro_flux(nu_flux,nunit) ! +total_osm_flux
+!          total_flux = total_hydro_flux(nu_flux,nunit) ! +total_osm_flux
 
         unit_field(nu_intsat,   nunit) = interstitial_saturation(nu_intsat, nunit)
-        unit_field(nu_time,     nunit) = time ! why time here is global time not the transit time
-        unit_field(nu_av_flux,  nunit) = total_flux!/time  !flux_c
-        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)!/time!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
+        unit_field(nu_time,     nunit) = unit_active_time(nunit) ! why time here is global time not the transit time
+        unit_field(nu_av_flux,  nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
+        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/unit_active_time(nunit)!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
+
+      endif  ! End of if (lym_condition > 0.0001)
 
 
       enddo
@@ -303,8 +309,13 @@ contains
 
     print*,'printcount:', printcount
 
-     if (printcount.eq.80)then
+     if (printcount.eq.400)then ! one breath cycle has 80 printcount
          do nunit = 1, num_units
+            ! Calculate rates for this 5-breath period
+!            unit_field(nu_intsat, nunit) = interstitial_saturation(nu_intsat, nunit)
+!            unit_field(nu_time, nunit) = time
+!            unit_field(nu_av_flux, nunit) = total_hydro_flux(nu_flux, nunit) / time!(400.0_dp * dt)
+!            unit_field(nu_lymphflow, nunit) = initial_lymph_volume(nu_lymphflow, nunit) / time!(400.0_dp * dt)
 
             sats(5,nunit) = sats(4,nunit)
             sats(4,nunit) = sats(3,nunit)
@@ -315,9 +326,14 @@ contains
 
             lym_condition(nunit) = abs(((sats(1,nunit) + sats(2,nunit)+ sats(3,nunit) + sats(4,nunit) +sats(5,nunit)) &
                     /5.0_dp)-sats(1,nunit))
+
+!            !RESET accumulators for next period
+!            total_hydro_flux(nu_flux, nunit) = 0.0_dp
+!            initial_lymph_volume(nu_lymphflow, nunit) = 0.0_dp
          end do
 
-         print*, 'sats', sats(1,19272), sats(2,19272), sats(3,19272) , lym_condition(19272)
+         print*, 'sats', sats(1,19272), sats(2,19272), sats(3,19272) , lym_condition(19272), &
+                 total_hydro_flux(nu_flux, 19272), initial_lymph_volume(nu_lymphflow,19272),time
 
          printcount = 0
      endif
@@ -365,7 +381,7 @@ contains
     alveolar_volume = 0.0_dp !alveolar volume likely greater at rest, but is lost to respiration - further information needed to put in model
     ! Is this where the tidal volume importing could go????
 
-
+    unit_active_time = 0.0_dp
 
     ! initial lymphatic values
     initial_lymph_volume = 0.0_dp ! in mL ===> dependent on capillary_conductivity volume units
@@ -402,6 +418,8 @@ contains
      sats(3,:) = 3.0_dp
      sats(2,:) = 2.0_dp
      sats(1,:) = 1.0_dp
+     lym_condition = 2.0_dp
+     print*, 'sats1', sats(1,19272), sats(2,19272), sats(3,19272), lym_condition(19272)
 !    interstitial_capacity_a = 0.005_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
 !    interstitial_capacity_b = 0.995_dp*interstitial_capacity !arbitrarily sized - needs further studies on the capillary-lymph interface
 !    interstitial_volume_a = 0.0_dp
