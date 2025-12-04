@@ -9,42 +9,42 @@ module lymphatics
   !
   !This module contains code for pulmonary fluid flux within the alveolo-capillary network,
   !and lymph transport through lymphatic collecting vessels.
-  
+
   use arrays
   use diagnostics
   use indices
   use other_consts
   use precision ! sets dp for precision
-  
+
   implicit none
-  
+
   !Module parameters
-  
+
   !Module types
-  
+
   !Module variables
-  
+
   !Interfaces
 !  private
   public alveolar_capillary_flux
   public lymphatic_transport
 contains
-  
+
 !!!#############################################################################
-  
+
   subroutine alveolar_capillary_flux(ne,write_out)
     !*alveolar_capillary_flux:* calculate fluid flux from blood to interstitium
     !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_ALVEOLAR_CAPILLARY_FLUX" :: ALVEOLAR_CAPILLARY_FLUX
 
     use other_consts,only: pi
-    
+
     integer,intent(in) :: ne
     logical,intent(in) :: write_out
 
     ! Baseline value parameters (eventually will be user-defined?)
     integer,parameter :: sex = 1 ! 0 = male, 1 = female
     !sex only determines the weight and therefore size of the lung. Should be updated based on CT
-    
+
     ! Capillary parameters
     real(dp),parameter :: capillary_conductivity = 4.41335e-8 !ml/s/Pa  obtained from Parker (6e-8 cm H2O)
     !real(dp),parameter :: capillary_conductivity = 9.26e-8 !ml/s/Pa  obtained from Parker (6e-8 cm H2O)
@@ -57,7 +57,7 @@ contains
     ! Simulation parameters
     real(dp),parameter :: breathing_rate = 15.0_dp !constant but should be imported directly from ventilation model
 
-    
+
     ! Local variables
     integer :: i,liflowcount,nunit,n_timesteps,printcount
     real(dp) :: alveolar_volume,breathing_function,capillary_flow,capillary_vps,capillary_osmotic,capillary_osm_n, &
@@ -72,19 +72,19 @@ contains
     real(dp) :: sat1,sat2,sat3,sat4,sat5
 
     logical :: continue
-         
-    
+
+
     character(len=60) :: sub_name
-    
+
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'alveolar_capillary_flux'
     call enter_exit(sub_name,1)
 
-    ! get information for the unit fron unit_field 
+    ! get information for the unit fron unit_field
     ! ne is the 'linker' element in the artery-capillary-vein model, so nunit is for the parent element
-    nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
-    capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp !converted to mmHg 
+    nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
+    capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp !converted to mmHg
     transit_time = unit_field(nu_tt,nunit)
     capillary_SA = unit_field(nu_sa,nunit)
     max_Pe = unit_field(nu_Pe_max,nunit)
@@ -99,7 +99,7 @@ contains
     ! Calculated values
     lung_mass = abs(real((1-sex)*840.0_dp))+real(sex)*639.0_dp  ! g;female lung weight of 639g and male of 840g - should be updated from CT
     open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model?
-    capillary_volume_raw = 213.00_dp  !Gehr 1978 based on having a body mass of 74 kg - should be unique to each person 
+    capillary_volume_raw = 213.00_dp  !Gehr 1978 based on having a body mass of 74 kg - should be unique to each person
     capillary_volume = (capillary_volume_raw*open_capillaries)/real(num_units)
     !Only used for the osmotic model at the moment (which isn't operational) can volume be obtained elsewhere?
 
@@ -112,8 +112,8 @@ contains
     interstitial_volume_b = 0.48_dp*interstitial_capacity !assumed to be around 48% saturated at rest
     alveolar_volume = 0.0_dp !alveolar volume likely greater at rest, but is lost to respiration - further information needed to put in model
     liflowcount = 0
-    initial_lymphatic_surface_area = capillary_SA !initial lymphatic SA assumed to be the same as capillary SA as no other indication. 
-    !both initial lymphatic SA and initial lymphatic hydraulic conductivity make up the filtration coefficient and currently it is the 
+    initial_lymphatic_surface_area = capillary_SA !initial lymphatic SA assumed to be the same as capillary SA as no other indication.
+    !both initial lymphatic SA and initial lymphatic hydraulic conductivity make up the filtration coefficient and currently it is the
     !hydraulic conductivity that is adjusted to compensate
 
     ! initial lymphatic values
@@ -127,7 +127,7 @@ contains
     int_osm_n = 0.0_dp
     initial_osm_n = 0.0_dp
     total_osm_flux = 0.0_dp
-  
+
     time = 0.0_dp
     printcount = 0
     total_hydro_flux = 0.0_dp
@@ -144,7 +144,7 @@ contains
     ! dt or n_timesteps should be controlled by the user
     n_timesteps = 96
     dt = transit_time/real(n_timesteps)
-    
+
     breathing_function = (2.0_dp*pi)/(60.0_dp/breathing_rate)
 
     continue = .true.
@@ -154,7 +154,7 @@ contains
     sat3 = 3.0_dp
     sat4 = 4.0_dp
     sat5 = 5.0_dp
-    
+
     !do while(time < lymphatic_properties%test_time)
     do while (continue)
        time_sum = dt
@@ -165,7 +165,7 @@ contains
           interstitial_volume = interstitial_volume_a + interstitial_volume_b
           interstitial_saturation = interstitial_volume / interstitial_capacity  ! saturation as a proportion of 0-100%
           time_variable = time + time_sum
-          
+
           ! calculating flux from capillary into interstitium
           interstitial_pressure_a = fluctuation * sin(time_variable * breathing_function) + &
                (((intPmin-intPmax+(fluctuation*2.0_dp)) * (interstitial_volume_a / interstitial_capacity_a)**2.0_dp) + &
@@ -210,7 +210,7 @@ contains
           else
              interstitial_volume_a = interstitial_volume_a + flux_a
           endif
-          
+
           interstitial_volume_b = interstitial_volume_b + flux_b
           diffusion = (((interstitial_volume_a/interstitial_capacity_a)-(interstitial_volume_b/interstitial_capacity_b))/ &
                (200_dp)) * dt
@@ -221,7 +221,7 @@ contains
           int_osm_conc = int_osm_n/interstitial_volume
           interstitial_osmotic = real(i)*int_osm_conc*IGC*T
           osm_flux = (lymphatic_properties%reflection_coefficient * capillary_SA * &
-               (capillary_osmotic - interstitial_osmotic))* dt 
+               (capillary_osmotic - interstitial_osmotic))* dt
           cap_osm_conc = capillary_osm_n / capillary_volume
           int_osm_conc = int_osm_n / interstitial_volume
 
@@ -232,7 +232,7 @@ contains
              capillary_volume = capillary_volume + osm_flux
              interstitial_volume_b = interstitial_volume_b - osm_flux
           endif
-          
+
           net_flux = osm_flux + flux_a + flux_b
           if(net_flux > 0.0_dp)then
              osm_n_flux = net_flux * cap_osm_conc
@@ -242,9 +242,9 @@ contains
              osm_n_flux = net_flux * int_osm_conc
              int_osm_n = int_osm_n - osm_n_flux
           endif
-          
+
           total_osm_flux = total_osm_flux + osm_flux
-          
+
           !calculating flux from interstitium to initial lymphatics
           if(interstitial_volume_b/interstitial_capacity_b < 0.3_dp)then
              lymphatic_conductivity = 1.48_dp * 4.41335e-8 !all calculated does as a function of capillary_conductivity
@@ -261,7 +261,7 @@ contains
           initial_lymphatic_pressure = fluctuation * sin((time_variable * breathing_function) + pi/2.0_dp) + &
                ((((lymphPmax-lymphPmin-(fluctuation*2.0_dp))* ((interstitial_volume_b / interstitial_capacity_b)**2.0_dp)) + &
                (lymphPmin + fluctuation)))
-          !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a 
+          !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a
           !large volume change, but at high volumes only a small volume change is needed to cause a large change in pressure
           !write(*,'(''Plym: '',f8.4)')initial_lymphatic_pressure
           if(interstitial_volume.le.0.0_dp)then
@@ -286,7 +286,7 @@ contains
           else
              initial_lymph_conc = 0.0_dp
           endif
-          
+
           time_sum = time_sum + dt
 
           total_flux = total_hydro_flux ! +total_osm_flux
@@ -311,7 +311,7 @@ contains
           endif
           printcount = 0
           if(time.gt.200.0_dp*transit_time)then
-             if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le.0.000005_dp)then 
+             if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le.0.000005_dp)then
                 continue = .false.
              endif
           endif
@@ -326,13 +326,13 @@ contains
     unit_field(nu_av_flux,nunit) = total_flux/time
     unit_field(nu_lymphflow,nunit) = initial_lymphatic_volume/time
     !write(*,'('' T='',e12.3,'': intsat='',e12.6,'' %; flux='',e12.3,'' ul/s; avFlux='',e12.3,'' ul/s; lyFlo='',e12.6,'' ul/s'')') &
-    !     unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),& 
+    !     unit_field(nu_time,nunit),unit_field(nu_intsat,nunit),&
     !     unit_field(nu_flux,nunit),unit_field(nu_av_flux,nunit),unit_field(nu_lymphflow,nunit)
 
     call enter_exit(sub_name,2)
-    
+
   end subroutine alveolar_capillary_flux
-  
+
 !!!#############################################################################
 
   subroutine lymphatic_transport(filename)
@@ -345,9 +345,9 @@ contains
     real(dp) :: time_to_run,time_0
     character(len=300) :: writefile
     character(len=60) :: sub_name
-    !real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_av_flux,nu_lymphflow,nu_time    
+    !real(dp) :: interstitial_saturation,interstitial_pressure_b,nu_av_flux,nu_lymphflow,nu_time
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'lymphatic_transport'
     call enter_exit(sub_name,1)
 
@@ -356,13 +356,13 @@ contains
     else ! need to append the correct filename extension
        writefile = trim(filename)//'.oplymph'
     endif
-    
+
     open(10, file=writefile, status='replace')
 
     call cpu_time(time_0)
     do ne = 1,num_elems
        if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
-          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
           call alveolar_capillary_flux(ne,.false.)
           np = elem_nodes(2,ne)
           write(10,'(i8,11(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_av_flux,nunit),unit_field(nu_intsat,nunit), &
@@ -371,14 +371,14 @@ contains
        endif
     enddo
     time_to_run = time_0
-    call cpu_time(time_0)
+    call cpu_time(time_to_run)
     time_to_run = time_to_run - time_0
     write(*,*) 'run time=',time_to_run
     close(10)
 
     do ne = num_elems,1,-1
-       if(elem_field(ne_group,ne).eq.1.0_dp)then 
-          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne))) 
+       if(elem_field(ne_group,ne).eq.1.0_dp)then
+          nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
           elem_field(ne_radius_in0,ne) = unit_field(nu_flux,nunit)
           elem_field(ne_radius_out0,ne) = unit_field(nu_intsat,nunit)
        else if(elem_field(ne_group,ne).eq.0.0_dp)then ! artery
@@ -393,9 +393,9 @@ contains
           elem_field(ne_radius_out0,ne) = elem_field(ne_radius_out0,ne)/real(elem_cnct(1,0,ne))
        endif
     enddo
-    
+
     call enter_exit(sub_name,2)
-    
+
   end subroutine lymphatic_transport
 
 !!!#############################################################################
@@ -405,7 +405,7 @@ end module lymphatics
 
 !FUTURE DIRECTIONS
 !input a constant to account for difference between current values and expected values
-     !Model appeared to be working within the range of the literature but is likely off by a factor of 1000 due to nl to ul conversion error. 
+     !Model appeared to be working within the range of the literature but is likely off by a factor of 1000 due to nl to ul conversion error.
      !Need to check that outputted units are correct - most things are in ml and mmHg
 !Lymphatic network tree
      !currently all lymph is returned to the circulation immediately, in reality it moves up a tree of lymphatics against a pressure gradient
