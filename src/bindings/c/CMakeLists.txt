@@ -13,6 +13,7 @@ set(C_FORTRAN_LIB_SRCS
     growtree.f90
     indices.f90
     imports.f90
+    lymphatics.f90
     pressure_resistance_flow.f90
     species_transport.f90
     surface_fitting.f90
@@ -33,6 +34,7 @@ set(C_C_LIB_SRCS
     growtree.c
     indices.c
     imports.c
+    lymphatics.c
     pressure_resistance_flow.c
     species_transport.c
     surface_fitting.c
@@ -54,6 +56,7 @@ set(C_LIB_HDRS
   growtree.h
   indices.h
   imports.h
+  lymphatics.h
   pressure_resistance_flow.h
   species_transport.h
   surface_fitting.h
