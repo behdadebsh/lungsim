@@ -16,6 +16,7 @@ module surfactant
   use arrays
   use indices
   use other_consts
+  use lymphatics
 
 
 
@@ -29,11 +30,12 @@ module surfactant
   real(dp), parameter :: surface_tension_hat = (22.0_dp)!22.02_dp !dyn/cm  *0.005278_dp 0.12509917_dp *0.12509911_dp)*1.15
   real(dp), parameter :: surface_tension_min= 1.0_dp  !1.0_dpdyn/cm *0.85_dp
   real(dp), parameter :: gamma_max =  gamma_star*(1+(surface_tension_hat-surface_tension_min)/m2)! 0.345e-6_dp !g/cm^2
-  real(dp), parameter :: bulk_c = 10e-3_dp  ! bulk concentration  g/ml 0.1_dp
+!  real(dp), parameter :: bulk_c = 10e-3_dp
   real(dp), parameter :: k_a = (1667.0_dp) ! adsorption coefficient  ml/(g*sec) rate_diff_*0.117956756_dp  *0.113705033_dp  *0.12509911_dp 1667.6667
   real(dp), parameter :: k_d = k_a/((1.0_dp)*(10.0_dp**5)) !desorption coefficient sec^(-1)
   !real(dp), parameter :: frequency = 0.25_dp ! frequency of breathing per minute
   real(dp), dimension(:,:), allocatable :: surf_concentration_pre
+  real(dp):: bulk_c
 !  real(dp), dimension(:,:), allocatable :: surface_tension_pre
   !Module types
 
@@ -42,6 +44,7 @@ module surfactant
   !Interfaces
 
   private
+  public bulk_c
   public evaluate_surf
   public update_surfactant_concentration
   public update_surface_tension
@@ -73,6 +76,7 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
     real(dp), dimension(:,:), allocatable :: surface_tension
     real(dp), dimension(:,:), allocatable :: surface_tension_pre
     real(dp), dimension(:,:), allocatable :: Pc
+
 
 !    real(dp), dimension(:,:), allocatable :: alv_collapse_pressure_pre
 !    real(dp), dimension(:,:), allocatable :: alv_collapse_pressure_current
@@ -149,6 +153,7 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
     real(dp), dimension(:,:), intent(in) :: alv_area_current, alv_dA
 
     real(dp), dimension(:,:), intent(inout) :: surf_concentration
+!    real(dp) :: bulk_c   ! bulk concentration  g/ml 0.1_dp
 
     integer :: nalv
 
@@ -167,10 +172,17 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
     call enter_exit(sub_name,1)
 
 
-    do nalv = 1,num_units
 
+
+    do nalv = 1,num_units
+        if (alveolar_volume(nu_alvflow,nalv) > 1.0e-10_dp) then
+            bulk_c = 0.1e-3_dp   ! Diluted
+        else
+            bulk_c = 10e-3_dp    ! Normal
+        end if
 !    ratio= surf_concentration(nu_vol,nalv)/gamma_star
 
+!        Print*,"x", alveolar_volume(nu_alvflow,1),bulk_c
 
       if (surf_concentration(nu_vol,nalv) .lt. gamma_star) then
         surf_concentration(nu_vol,nalv)=surf_concentration(nu_vol,nalv)+dt*(k_a*bulk_c &
