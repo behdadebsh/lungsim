@@ -106,7 +106,7 @@ module lymphatics
   !PROTEIN PARAMETERS
   ! ============================================
   real(dp),parameter :: sigma = 0.6_dp !"Rat lung venules Lp=4.4×10⁻⁷; matches Safdar exactly" /Pulmonary σ=0.62 total protein; lung most consistent with lymph data"/Safdar/JCI (2003)/Parker/AJPLung (2006)
-  real(dp),parameter :: Gp = 0.85_dp *4.5e-7_dp!ul/s/mm2 with diameter 0.008 mm  1.13e-11_dp mu L/ms/mm
+  real(dp),parameter :: Gp = 4.5e-7_dp!ul/s/mm2 with diameter 0.008 mm  1.13e-11_dp mu L/ms/mm
   real(dp),parameter :: R_contamination = 0.01555_dp
   real(dp),parameter :: c_plasma_baseline = 70.0_dp ! mg/ml = ug/ul
   real(dp),parameter :: c_interstitial_baseline = 45.0_dp
@@ -142,6 +142,7 @@ module lymphatics
 
   !Interfaces
 !  private
+  public alveolar_volume
   public alveolar_flux
   public lymphatic_transport
 
@@ -185,7 +186,7 @@ contains
     sub_name = 'alveolar_capillary_flux'
     call enter_exit(sub_name,1)
 
-    fluid_steps = 3
+    fluid_steps = 2
     fluid_dt =dt/fluid_steps
     count=1
     do while (count  .le.  fluid_steps)
@@ -193,27 +194,32 @@ contains
 !    print*,'int', unit_field(nu_blood_press,19272)/133.32239_dp,unit_field(nu_sa,19272), &
 !            unit_field(nu_tt,19272)
 do nunit = 1, num_units
-    if (lym_condition(nunit) > 0.0001_dp) then  ! Changed from 0.01
+
+if ((lym_condition(nunit) > 0.000005_dp .or. &
+    unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) .and. &
+    unit_active_time(nunit) < 10000.0_dp * unit_field(nu_tt,nunit)) then
+
        unit_active_time(nunit) = unit_active_time(nunit) + fluid_dt
 
        ! ============================================
        ! STEP 1: PRESSURES
        ! ============================================
-       capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp
 
-       P_elastic = (unit_field(nu_Pe,nunit))/133.32239_dp
-       diff_Pe = ((unit_field(nu_Pe,nunit)-Pe_unit_field_pre(nu_pe,nunit))/133.32239_dp)/dt
+
+       capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp
+!       P_elastic = (unit_field(nu_Pe,nunit))/133.32239_dp
+!       diff_Pe = ((unit_field(nu_Pe,nunit)-Pe_unit_field_pre(nu_pe,nunit))/133.32239_dp)/dt
        fluctuation = ((unit_field(nu_Pe_max,nunit)/133.32239_dp)-(unit_field(nu_Pe_min,nunit)/133.32239_dp))
 
        interstitial_volume (nu_intsat, nunit)= interstitial_volume_a (nu_intsat, nunit)+ interstitial_volume_b(nu_intsat, nunit)
        interstitial_saturation (nu_intsat, nunit)= interstitial_volume (nu_intsat, nunit)/ interstitial_capacity
 
-       interstitial_pressure_a (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2*pi*0.25_dp*time) + &
+       interstitial_pressure_a (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2.0_dp*pi*0.25_dp*time) + &
            (int_diff +fluctuation) * (interstitial_volume_a (nu_intsat, nunit)/ interstitial_capacity_a)**2.0_dp + &
            (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_a(nu_intsat, nunit) / interstitial_capacity_a) + &
            (-8.00_dp +fluctuation/2.0_dp)
 
-       interstitial_pressure_b (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2*pi*0.25_dp*time) + &
+       interstitial_pressure_b (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2.0_dp*pi*0.25_dp*time) + &
            (int_diff +fluctuation) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp + &
            (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b) + &
            (-8.00_dp+fluctuation/2.0_dp)
@@ -335,6 +341,7 @@ Q_int_b(nu_osmflux,nunit) = Q_int_b(nu_osmflux,nunit) + Jp_cap_b(nu_osmflux,nuni
              interstitial_volume_a(nu_intsat, nunit) = interstitial_volume_a(nu_intsat, nunit) + flux_a(nu_av_flux,nunit)
           endif
 
+          unit_field (nu_alvflow,nunit)=alveolar_volume(nu_alvflow,nunit)
 
           interstitial_volume_b(nu_intsat, nunit) = interstitial_volume_b(nu_intsat, nunit) + flux_b(nu_av_flux,nunit)
 
@@ -432,7 +439,7 @@ endif
 !!   lymph_conductivity = polynomial_factor * capillary_conductivity * osmotic_reduction_factor
 !!endif
 
-          P_initial_lymphtix (nu_Pe,nunit) = fluctuation/2.0_dp * sin((2*pi*0.25_dp*time) + pi/2.0_dp) + &
+          P_initial_lymphtix (nu_Pe,nunit) = fluctuation/2.0_dp * sin((2.0_dp*pi*0.25_dp*time) + pi/2.0_dp) + &
                (lymph_diff-fluctuation)* ((interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp) + &
                (-8.00_dp+(fluctuation/2.0_dp))
 !
@@ -490,13 +497,16 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 !
 !!          total_flux = total_hydro_flux(nu_flux,nunit) ! +total_osm_flux
 !
+!        unit_field(nu_intsat,nunit) = interstitial_saturation(nu_intsat, nunit)
+!        unit_field(nu_time,nunit) = unit_active_time(nunit) ! why time here is global time not the transit time
+!        unit_field(nu_av_flux,nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
+!        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/unit_active_time(nunit)!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
+
+      endif  ! End of if (lym_condition > 0.0001)
         unit_field(nu_intsat,nunit) = interstitial_saturation(nu_intsat, nunit)
         unit_field(nu_time,nunit) = unit_active_time(nunit) ! why time here is global time not the transit time
         unit_field(nu_av_flux,nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
         unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/unit_active_time(nunit)!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
-
-      endif  ! End of if (lym_condition > 0.0001)
-
 
       enddo
      count = count + 1
@@ -505,9 +515,9 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 
     printcount = printcount + 1
 
-    print*,'printcount:', printcount
+!    print*,'printcount:', printcount
 
-     if (printcount.eq.400)then ! one breath cycle has 80 printcount
+     if (printcount.eq.320)then ! one breath cycle has 80 printcount
          do nunit = 1, num_units
             ! Calculate rates for this 5-breath period
 !        unit_field(nu_intsat,   nunit) = interstitial_saturation(nu_intsat, nunit)
@@ -622,7 +632,7 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
      sats(3,:) = 3.0_dp
      sats(2,:) = 2.0_dp
      sats(1,:) = 1.0_dp
-     lym_condition = 2.0_dp
+     lym_condition = 0.5_dp
 !     print*, 'sats1', sats(1,19272), sats(2,19272), sats(3,19272), lym_condition(19272)
 
     close(10)
