@@ -437,59 +437,59 @@ contains
     enddo !...WHILE(CONTINUE)
 
 print*, "pe_max", unit_field(nu_Pe_max,1)
-    continue = .true.
-    do while (continue)
-!    n=n+1! number of breath
-!    ttime=0.0_dp !each breath starts with ttime =0
-!    endtime = endtime +  Tinsp   !+ 0.1_dp
-!    endtime = (T_interval * n - 0.5_dp * dt)! the end time of this breath
-!    p_mus = 0.0_dp
-!    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
-
-!    sum_tidal = 0.0_dp !reset the tidal volume
-!    sum_expid = 0.0_dp !reset the expired volume
-!    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
-!    sum_dpmus = 0.0_dp
-!    sum_dpmus_ei = 0.0_dp
-
-!      do while (time.lt.endtime)
-!          ttime = ttime + dt ! increment the breath time
-          time = time + dt ! increment the whole simulation time
-
-
-!!!.......calculate the flow and pressure distribution for one time-step
-!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
-!          call evaluate_vent_step(num_itns,chest_wall_compliance, &
-!               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
-!               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
-!               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
-!               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
-!               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-!               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
-
-          call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
-!!!.......update the estimate of pleural pressure
-!          call update_pleural_pressure(ppl_current) ! new pleural pressure
+!    continue = .true.
+!    do while (continue)
+!!    n=n+1! number of breath
+!!    ttime=0.0_dp !each breath starts with ttime =0
+!!    endtime = endtime +  Tinsp   !+ 0.1_dp
+!!    endtime = (T_interval * n - 0.5_dp * dt)! the end time of this breath
+!!    p_mus = 0.0_dp
+!!    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
 !
-          call write_flow_step_results(chest_wall_compliance,init_vol, &
-               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
-
-
-!       enddo !while time<endtime
-       continue =Lymph_continue(time)!ventilation_continue(n, num_brths, sum_tidal, volume_target, vent_converged) ventilation_continue(n,num_brths,sum_tidal,volume_target)
-
-    ! === ADD THIS: Capture convergence state when exiting ===
-    if (.not. continue) then
-        if (all(lym_condition <= 0.0001_dp)) then
-            lymph_converged = .true.
-            write(*,'(A)') '=== LYMPHATICS CONVERGED - Running final breath ==='
-        else
-            write(*,'(A)') '=== LYMPHATICS TIMED OUT ==='
-        endif
-    endif
-    enddo !...WHILE(CONTINUE)
-
-print*, "pe_max", unit_field(nu_Pe_max,1)
+!!    sum_tidal = 0.0_dp !reset the tidal volume
+!!    sum_expid = 0.0_dp !reset the expired volume
+!!    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
+!!    sum_dpmus = 0.0_dp
+!!    sum_dpmus_ei = 0.0_dp
+!
+!!      do while (time.lt.endtime)
+!!          ttime = ttime + dt ! increment the breath time
+!          time = time + dt ! increment the whole simulation time
+!
+!
+!!!!.......calculate the flow and pressure distribution for one time-step
+!!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
+!!          call evaluate_vent_step(num_itns,chest_wall_compliance, &
+!!               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
+!!               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
+!!               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
+!!               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
+!!               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
+!!               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
+!
+!          call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
+!!!!.......update the estimate of pleural pressure
+!!          call update_pleural_pressure(ppl_current) ! new pleural pressure
+!!
+!          call write_flow_step_results(chest_wall_compliance,init_vol, &
+!               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
+!
+!
+!!       enddo !while time<endtime
+!       continue =Lymph_continue(time,num_brths,T_interval)!ventilation_continue(n, num_brths, sum_tidal, volume_target, vent_converged) ventilation_continue(n,num_brths,sum_tidal,volume_target)
+!
+!!    ! === ADD THIS: Capture convergence state when exiting ===
+!!    if (.not. continue) then
+!!        if (all(lym_condition .le. 0.0001_dp)) then
+!!            lymph_converged = .true.
+!!            write(*,'(A)') '=== LYMPHATICS CONVERGED - Running final breath ==='
+!!        else
+!!            write(*,'(A)') '=== LYMPHATICS TIMED OUT ==='
+!!        endif
+!!    endif
+!    enddo !...WHILE(CONTINUE)
+!
+!print*, "pe_max", unit_field(nu_Pe_max,1)
 !! solve for additional half breath (for time +Tinsp)
 !    if (any(alveolar_volume(nu_alvflow, :) > 0.0_dp)) then
 !    bulk_c = 0.1e-3_dp
@@ -1869,28 +1869,41 @@ print*,'nunit',num_units
 
   end function ventilation_continue
 
-  function Lymph_continue(time)
+  function Lymph_continue(time,num_brths,T_interval)
 
-    real(dp),intent(in) :: time
+    integer,intent(in) :: num_brths
+    real(dp),intent(in) :: time,T_interval
 !    real(dp),intent(in) :: sum_tidal,volume_target
     integer :: nunit
     ! Local variables
     logical :: Lymph_continue
-    logical :: all_units_satisfied
+    logical :: all_converged
     ! --------------------------------------------------------------------------
 
     Lymph_continue = .true.
 !    if(n.ge.num_brths)then
 !        ! change n_brths from 10 to 125 to make lymph has enough time to run
 !       Lymph_continue = .false.
-    if( .not. all(lym_condition <= 0.0001_dp)) then !0.000005_dp
-          Lymph_continue = .true.
-       elseif(time .gt.10000.0_dp*2.0_dp) then
-        Lymph_continue = .false.
-
-       else
+       if(time .ge. num_brths*T_interval) then !0.000005_dp
           Lymph_continue = .false.
+       else
+        ! Check if ALL units have converged (both conditions met)
+        all_converged = .true.
+        do nunit = 1, num_units
+            if (unit_active_time(nunit) >= 10000.0_dp * unit_field(nu_tt,nunit)) then
+                   cycle  ! This unit is done (timed out)
+            endif
 
+            if (lym_condition(nunit) > 0.000005_dp .or. &
+                unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) then
+                all_converged = .false.
+                exit  ! No need to check more
+            endif
+        enddo
+        if (all_converged) then
+            Lymph_continue = .false.
+
+        endif
     endif
 
   end function Lymph_continue
