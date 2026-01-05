@@ -2710,7 +2710,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
                     eff_admit(nf,ne)=char_admit(nf,ne)*(1&
                         -reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))/&
                         (1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-                else!a terminal
+                else !a terminal
                     daughter_admit=eff_admit(nf,ne) !a boundary condition is applied here
                     reflect(nf,ne)=(char_admit(nf,ne)-daughter_admit)/&
                         (char_admit(nf,ne)+daughter_admit)
@@ -2752,7 +2752,7 @@ subroutine tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmo
                     eff_admit(nf,ne)=char_admit(nf,ne)*(1&
                         -reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))/&
                         (1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-                else!a terminal
+                      else !a terminal
                     daughter_admit=eff_admit(nf,ne) !a boundary condition is applied here
                     reflect(nf,ne)=(char_admit(nf,ne)-daughter_admit)/&
                         (char_admit(nf,ne)+daughter_admit)
