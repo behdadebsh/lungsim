@@ -35,12 +35,6 @@ jobs:
             os: ubuntu-24.04,
           }
         - {
-            name: "macOS Ventura",
-            build_type: "Release",
-            os: macos-13,
-            gfortran: gfortran-13,
-          }
-        - {
             name: "macOS Sonoma",
             build_type: "Release",
             os: macos-14,
