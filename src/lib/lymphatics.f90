@@ -32,7 +32,7 @@ module lymphatics
   real(dp),protected :: lung_mass,capillary_volume_raw
 
   ! Capillary parameters
-  real(dp),parameter :: capillary_conductivity = 4.41335e-8! 5.98e-6!uL/s/mmHg/mm²   4.41335e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
+  real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp! 5.98e-6!uL/s/mmHg/mm²   4.41335e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
   !real(dp),parameter :: capillary_conductivity = 9.26e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
 
   real(dp),parameter :: open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model?
@@ -55,8 +55,16 @@ module lymphatics
   real(dp),protected :: breathing_function
 
     ! These two would presumably change in a geometrically consistent lymphatics model
-  real(dp),parameter ::  int_diff = -7.0_dp! -8.00_dp - (-1.00_dp) ! intPmin - intPmax in mmHg
-  real(dp),parameter ::  lymph_diff = 9.0_dp! 1.00_dp - (-8.00_dp) ! lymphPmax-lymphPmin in mmHg
+  real(dp),parameter ::  int_max = -1.0_dp
+  real(dp),parameter ::  int_min = -8.0_dp
+  real(dp),parameter ::  int_diff = int_min - int_max! -8.00_dp - (-1.00_dp) ! intPmin - intPmax in mmHg
+  real(dp),parameter ::  lymph_max = 1.0_dp! 1.00_dp - (-8.00_dp) ! lymphPmax-lymphPmin in mmHg
+  real(dp),parameter ::  lymph_min = -8.0_dp! 1.00_dp - (-8.00_dp) ! lymphPmax-lymphPmin in mmHg
+  real(dp),parameter ::  lymph_diff = lymph_max-lymph_min! 1.00_dp - (-8.00_dp) ! lymphPmax-lymphPmin in mmHg
+
+
+
+
 !  real(dp), allocatable :: interstitial_pressure(:,:)        ! shape (2, num_units)
   real(dp), allocatable ::  interstitial_pressure_a (:,:)
   real(dp), allocatable ::  interstitial_pressure_b (:,:)
@@ -86,7 +94,7 @@ module lymphatics
 !  real(dp), allocatable :: ic_array_unit(:,:)        ! shape (2, num_units)
 !  real(dp), allocatable :: capillary_volume_unit(:)  ! length num_units
   real(dp), allocatable :: int_osm_n(:,:)
-  real(dp), allocatable ::  osm_n_flux(:,:)   ! length num_units
+!  real(dp), allocatable ::  osmotic_gradient(:,:)   ! length num_units
 
   real(dp), allocatable ::  alveolar_volume(:,:)
 !  real(dp), allocatable ::  capillary_volume(:,:)
@@ -110,7 +118,7 @@ module lymphatics
   real(dp),parameter :: R_contamination = 0.01555_dp
   real(dp),parameter :: c_plasma_baseline = 70.0_dp ! mg/ml = ug/ul
   real(dp),parameter :: c_interstitial_baseline = 45.0_dp
-  real(dp),parameter :: volume_threshold = 1.0e-12_dp
+  real(dp),parameter :: volume_threshold = 1.0e-10_dp
 
 ! ============================================
   ! PROTEIN STATE VARIABLES (per unit)
@@ -174,7 +182,7 @@ contains
 
 
     ! protein variables:
-    real(dp) :: c_overflow_a, Jq_diffusion, Q_overflow_alv, Q_overflow_b, hydrostatic_gradient, osmotic_gradient ,&
+    real(dp) :: c_overflow_a, Jq_diffusion, Q_overflow_alv, Q_overflow_b, hydrostatic_gradient ,&
             effective_gradient, sat, osmotic_reduction_factor, polynomial_factor
 !    real(dp) :: flux_a,flux_b
     logical :: cont
@@ -195,9 +203,9 @@ contains
 !            unit_field(nu_tt,19272)
 do nunit = 1, num_units
 
-if ((lym_condition(nunit) > 0.000005_dp .or. &
-    unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) .and. &
-    unit_active_time(nunit) < 10000.0_dp * unit_field(nu_tt,nunit)) then
+    if ((lym_condition(nunit) > 0.00001_dp .or. &
+        unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) .and. &
+        unit_active_time(nunit) < 5000.0_dp * unit_field(nu_tt,nunit)) then
 
        unit_active_time(nunit) = unit_active_time(nunit) + fluid_dt
 
@@ -206,7 +214,9 @@ if ((lym_condition(nunit) > 0.000005_dp .or. &
        ! ============================================
 
 
-       capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp
+       capillary_pressure = ((unit_field(nu_blood_press,nunit))/133.32239_dp)*2.0_dp
+!       unit_field(nu_sa,nunit) = unit_field(nu_sa,nunit) + 430.0_dp
+!       unit_field(nu_tt,nunit) = unit_field(nu_tt,nunit)+5.0_dp
 !       P_elastic = (unit_field(nu_Pe,nunit))/133.32239_dp
 !       diff_Pe = ((unit_field(nu_Pe,nunit)-Pe_unit_field_pre(nu_pe,nunit))/133.32239_dp)/dt
        fluctuation = ((unit_field(nu_Pe_max,nunit)/133.32239_dp)-(unit_field(nu_Pe_min,nunit)/133.32239_dp))
@@ -217,22 +227,45 @@ if ((lym_condition(nunit) > 0.000005_dp .or. &
        interstitial_pressure_a (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2.0_dp*pi*0.25_dp*time) + &
            (int_diff +fluctuation) * (interstitial_volume_a (nu_intsat, nunit)/ interstitial_capacity_a)**2.0_dp + &
            (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_a(nu_intsat, nunit) / interstitial_capacity_a) + &
-           (-8.00_dp +fluctuation/2.0_dp)
+           (int_min +fluctuation/2.0_dp)
 
        interstitial_pressure_b (nu_Pe,nunit)= fluctuation/2.0_dp * sin(2.0_dp*pi*0.25_dp*time) + &
            (int_diff +fluctuation) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp + &
            (int_diff +fluctuation)*(-2.0_dp) * (interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b) + &
-           (-8.00_dp+fluctuation/2.0_dp)
+           (int_min+fluctuation/2.0_dp)
 
        ! ============================================
        ! STEP 2: PROTEIN CONCENTRATIONS
        ! ============================================
-       if(V_plasma_unit> volume_threshold) then
-          c_plasma(nu_osmflux, nunit) = Q_plasma(nu_osmflux, nunit) / V_plasma_unit
-       else
+!       if(V_plasma_unit> volume_threshold) then
+!          c_plasma(nu_osmflux, nunit) = Q_plasma(nu_osmflux, nunit) / V_plasma_unit
+!       else
           c_plasma(nu_osmflux, nunit) = c_plasma_baseline
-       endif
+!       endif
+if (interstitial_volume_a(nu_intsat, nunit) < volume_threshold) then
+!    print*, 'WARNING: volume_a too small at unit', nunit, 'time', time
+!    print*, 'volume_a =', interstitial_volume_a(nu_intsat, nunit)
+    interstitial_volume_a(nu_intsat, nunit) = volume_threshold
 
+!    elseif(interstitial_volume_a(nu_intsat, nunit) > volume_threshold) then
+!          c_int_a(nu_osmflux, nunit) = Q_int_a(nu_osmflux, nunit) / interstitial_volume_a(nu_intsat, nunit)
+!
+!    else
+!          c_int_a(nu_osmflux, nunit) = c_interstitial_baseline
+!
+endif
+
+if (interstitial_volume_b(nu_intsat, nunit) < volume_threshold) then
+!    print*, 'WARNING: volume_b too small at unit', nunit, 'time', time
+!    print*, 'volume_b =', interstitial_volume_b(nu_intsat, nunit)
+    interstitial_volume_b(nu_intsat, nunit) = volume_threshold
+
+!    elseif(interstitial_volume_b(nu_intsat, nunit) > volume_threshold) then
+!          c_int_b(nu_osmflux, nunit) = Q_int_b(nu_osmflux, nunit) / interstitial_volume_b(nu_intsat, nunit)
+!    else
+!          c_int_b(nu_osmflux, nunit) = c_interstitial_baseline
+
+endif
        if(interstitial_volume_a(nu_intsat, nunit) > volume_threshold) then
           c_int_a(nu_osmflux, nunit) = Q_int_a(nu_osmflux, nunit) / interstitial_volume_a(nu_intsat, nunit)
        else
@@ -259,7 +292,7 @@ if ((lym_condition(nunit) > 0.000005_dp .or. &
 !       ! STEP 4: OSMOTIC REDUCTION FACTOR (NOW IT'S SAFE!)
 !       ! ============================================
 !       hydrostatic_gradient = capillary_pressure - interstitial_pressure_b(nu_Pe,nunit)
-!       osmotic_gradient = sigma * (osm_cap(nu_osmflux,nunit) - osm_int_b(nu_osmflux,nunit))
+
 !
 !       if(abs(hydrostatic_gradient) > 0.1_dp) then
 !          osmotic_reduction_factor = (hydrostatic_gradient - osmotic_gradient) / hydrostatic_gradient
@@ -289,7 +322,8 @@ if ((lym_condition(nunit) > 0.000005_dp .or. &
 
           flux_c = flux_a(nu_av_flux,  nunit) + flux_b(nu_av_flux,  nunit)
           total_hydro_flux (nu_flux,nunit) = total_hydro_flux (nu_flux,nunit) + flux_c
-!
+          unit_field(nu_osmflux,  nunit) = sigma * (osm_cap(nu_osmflux,nunit) - osm_int_a(nu_osmflux,nunit)) + &
+                  sigma * (osm_cap(nu_osmflux,nunit) - osm_int_b(nu_osmflux,nunit))
 
 ! Calculate protein fluxes to IntA
 Jp_diffusive(nu_osmflux,nunit) = Gp * (unit_field(nu_sa,nunit) * 0.5_dp) * &
@@ -360,16 +394,21 @@ if(interstitial_volume_a(nu_intsat,nunit) >= interstitial_capacity_a .and. exces
 
    ! Protein distribution
    if(overflow > 0.0_dp) then
-      Q_overflow_alv = c_overflow_a * 0.5_dp * excess
-      Q_overflow_b = c_overflow_a * (0.5_dp * excess - overflow)
+      Q_overflow_alv = c_overflow_a * (0.5_dp * excess + overflow)
+      Q_overflow_b = c_overflow_a * (0.5_dp * excess - overflow) !the amount of protein left in intB when dlooding
    else
       Q_overflow_b = c_overflow_a * 0.5_dp * excess
-      Q_overflow_alv = 0.0_dp
+      Q_overflow_alv = c_overflow_a * 0.5_dp * excess ! the flooding from inta to alveolar
    endif
 
    ! Update amounts
    Q_int_a(nu_osmflux,nunit) = Q_int_a(nu_osmflux,nunit) - Q_overflow_alv - Q_overflow_b
    Q_int_b(nu_osmflux,nunit) = Q_int_b(nu_osmflux,nunit) + Q_overflow_b
+
+   if(Q_int_a(nu_osmflux,nunit) < 0.0_dp) then
+      Q_int_a(nu_osmflux,nunit) = 0.0_dp
+   end if
+
 endif
 
           !!!! DIMENSIONALLY INCONSISTENT??????? ==> doesn't reduce to mm3; 200 is presumably R_alv which is highly assumptive based on parameterisation
@@ -441,7 +480,7 @@ endif
 
           P_initial_lymphtix (nu_Pe,nunit) = fluctuation/2.0_dp * sin((2.0_dp*pi*0.25_dp*time) + pi/2.0_dp) + &
                (lymph_diff-fluctuation)* ((interstitial_volume_b(nu_intsat, nunit) / interstitial_capacity_b)**2.0_dp) + &
-               (-8.00_dp+(fluctuation/2.0_dp))
+               (lymph_min+(fluctuation/2.0_dp))
 !
 !          !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a
 !          !large volume change, but at high volumes only a small volume change is needed to cause a large change in pressure
@@ -502,7 +541,7 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 !        unit_field(nu_av_flux,nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
 !        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/unit_active_time(nunit)!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
 
-      endif  ! End of if (lym_condition > 0.0001)
+      endif  ! End of if (lym_condition > 0.00001)
         unit_field(nu_intsat,nunit) = interstitial_saturation(nu_intsat, nunit)
         unit_field(nu_time,nunit) = unit_active_time(nunit) ! why time here is global time not the transit time
         unit_field(nu_av_flux,nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
@@ -517,13 +556,12 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 
 !    print*,'printcount:', printcount
 
-     if (printcount.eq.320)then ! one breath cycle has 80 printcount
-         do nunit = 1, num_units
-            ! Calculate rates for this 5-breath period
-!        unit_field(nu_intsat,   nunit) = interstitial_saturation(nu_intsat, nunit)
-!        unit_field(nu_time,     nunit) = unit_active_time(nunit) ! why time here is global time not the transit time
-!        unit_field(nu_av_flux,  nunit) = total_hydro_flux(nu_flux,nunit)/unit_active_time(nunit)!total_flux/time  !flux_c
-!        unit_field(nu_lymphflow,nunit) =  initial_lymph_volume(nu_lymphflow,nunit)/unit_active_time(nunit)!initial_lymph_flow(nu_lymphflow,nunit)!initial_lymph_volume(nu_lymphflow,nunit)
+     if (printcount.eq.4000)then ! one breath cycle(4s) has 80 printcount, 4000 × 0.05s = 200s
+    do nunit = 1, num_units
+        ! Only update sats for units that are STILL RUNNING
+!        if ((lym_condition(nunit) > 0.000005_dp .or. &
+!            unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) .and. &
+!            unit_active_time(nunit) < 10000.0_dp * unit_field(nu_tt,nunit)) then
 
             sats(5,nunit) = sats(4,nunit)
             sats(4,nunit) = sats(3,nunit)
@@ -531,14 +569,10 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
             sats(2,nunit) = sats(1,nunit)
             sats(1,nunit) = interstitial_saturation(nu_intsat, nunit)
 
-
-            lym_condition(nunit) = abs(((sats(1,nunit) + sats(2,nunit)+ sats(3,nunit) + sats(4,nunit) +sats(5,nunit)) &
-                    /5.0_dp)-sats(1,nunit))
-
-!            !RESET accumulators for next period
-!            total_hydro_flux(nu_flux, nunit) = 0.0_dp
-!            initial_lymph_volume(nu_lymphflow, nunit) = 0.0_dp
-         end do
+            lym_condition(nunit) = abs(((sats(1,nunit) + sats(2,nunit) + sats(3,nunit) + &
+                    sats(4,nunit) + sats(5,nunit))/5.0_dp) - sats(1,nunit))
+!        endif
+    enddo
 
 !         print*, 'sats', sats(1,19272), sats(2,19272), sats(3,19272) , lym_condition(19272), &
 !                 total_hydro_flux(nu_flux, 19272), initial_lymph_volume(nu_lymphflow,19272),time
@@ -619,7 +653,7 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 !Jp_diffusive = 0.0_dp
 !Jp_convective = 0.0_dp
     ! INITIALIZE PROTEIN AMOUNTS FOR ALL UNITS
-     Q_plasma = c_plasma_baseline * V_plasma_unit
+!     Q_plasma = c_plasma_baseline * V_plasma_unit
      Q_int_a = c_interstitial_baseline * interstitial_volume_a
      Q_int_b = c_interstitial_baseline * interstitial_volume_b
 
