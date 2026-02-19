@@ -35,7 +35,7 @@ module surfactant
   real(dp), parameter :: k_d = k_a/((1.0_dp)*(10.0_dp**5)) !desorption coefficient sec^(-1)
   !real(dp), parameter :: frequency = 0.25_dp ! frequency of breathing per minute
   real(dp), dimension(:,:), allocatable :: surf_concentration_pre
-  real(dp):: bulk_c
+  real(dp), dimension(:,:), allocatable ::  bulk_c
 !  real(dp), dimension(:,:), allocatable :: surface_tension_pre
   !Module types
 
@@ -175,17 +175,17 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
 
 
     do nalv = 1,num_units
-        if (alveolar_volume(nu_alvflow,nalv) > 1.0e-10_dp) then
-            bulk_c = 0.1e-3_dp   ! Diluted
+        if (alveolar_volume(nu_alvflow,nalv) > 0.0_dp) then
+            bulk_c(nu_vol,nalv) = 0.1e-3_dp   ! Diluted
         else
-            bulk_c = 10e-3_dp    ! Normal
+            bulk_c(nu_vol,nalv) = 10e-3_dp    ! Normal  mg/ml
         end if
 !    ratio= surf_concentration(nu_vol,nalv)/gamma_star
 
 !        Print*,"x", alveolar_volume(nu_alvflow,1),bulk_c
 
       if (surf_concentration(nu_vol,nalv) .lt. gamma_star) then
-        surf_concentration(nu_vol,nalv)=surf_concentration(nu_vol,nalv)+dt*(k_a*bulk_c &
+        surf_concentration(nu_vol,nalv)=surf_concentration(nu_vol,nalv)+dt*(k_a*bulk_c(nu_vol,nalv) &
                 *(gamma_star-surf_concentration(nu_vol,nalv))-k_d*surf_concentration(nu_vol,nalv) &
                 -(surf_concentration(nu_vol,nalv)/alv_area_current(nu_vol,nalv))*alv_dA(nu_vol,nalv))
 
@@ -315,23 +315,23 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
     end do
 
 
-!    Compute Gaussian kernel values
-    kernel = gaussian_kernel(window_size, sigma)
+!!    Compute Gaussian kernel values
+!    kernel = gaussian_kernel(window_size, sigma)
+!!
+!!!     Smooth the Pc_com values for this volume
+!    do nalv = 1, num_units
+!        sum_weights = 0.0_dp
+!        value = 0.0_dp
+!        do j = -window_size/2, window_size/2
+!            if (nalv + j > 0 .and. nalv + j <= num_units) then
+!                weight = kernel(j + window_size/2 + 1)
+!                value= value + Pc_com(nu_vol, nalv + j) * weight
+!                sum_weights = sum_weights + weight
+!            end if
+!        end do
+!        smoothed_Pc_com(nu_vol,nalv) = value / sum_weights
 !
-!!     Smooth the Pc_com values for this volume
-    do nalv = 1, num_units
-        sum_weights = 0.0_dp
-        value = 0.0_dp
-        do j = -window_size/2, window_size/2
-            if (nalv + j > 0 .and. nalv + j <= num_units) then
-                weight = kernel(j + window_size/2 + 1)
-                value= value + Pc_com(nu_vol, nalv + j) * weight
-                sum_weights = sum_weights + weight
-            end if
-        end do
-        smoothed_Pc_com(nu_vol,nalv) = value / sum_weights
-
-    end do
+!    end do
 
     call enter_exit(sub_name,2)
 !
@@ -340,29 +340,29 @@ subroutine evaluate_surf !(num_steps, dt, t, volumes, radii, area, dA, surf_conc
 
 !##############################################################################
 
-function gaussian_kernel(size, sigma) result(kernel)
-
-    integer, intent(in) :: size
-    real(dp), intent(in) :: sigma
-    real(dp), dimension(size):: kernel
-    integer :: i
-    real(dp) :: sum, exponent
+!function gaussian_kernel(size, sigma) result(kernel)
 !
-! !--------------------------------------------------------------------------
-
-
-        sum = 0.0_dp
-        do i = 0, size-1
-            exponent = -0.5_dp * ((i - size/2) / sigma)**2
-            kernel(i + 1) = exp(exponent) / (sigma * sqrt(2.0_dp * PI))
-            sum = sum + kernel(i + 1)
-        end do
-
-        ! Normalize the kernel
-        do i = 1, size
-            kernel(i) = kernel(i) / sum
-        end do
-end function gaussian_kernel
+!    integer, intent(in) :: size
+!    real(dp), intent(in) :: sigma
+!    real(dp), dimension(size):: kernel
+!    integer :: i
+!    real(dp) :: sum, exponent
+!!
+!! !--------------------------------------------------------------------------
+!
+!
+!        sum = 0.0_dp
+!        do i = 0, size-1
+!            exponent = -0.5_dp * ((i - size/2) / sigma)**2
+!            kernel(i + 1) = exp(exponent) / (sigma * sqrt(2.0_dp * PI))
+!            sum = sum + kernel(i + 1)
+!        end do
+!
+!        ! Normalize the kernel
+!        do i = 1, size
+!            kernel(i) = kernel(i) / sum
+!        end do
+!end function gaussian_kernel
 !##############################################################################
 !##############################################################################
 end module surfactant
