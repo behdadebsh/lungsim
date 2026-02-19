@@ -120,7 +120,7 @@ contains
     !real(dp), dimension(:,:), allocatable :: alv_area_over_breath
     !real(dp), dimension(:,:), allocatable :: alv_dA
     !real(dp), dimension(:,:), allocatable :: alv_dA_time
-    integer :: n_time_steps, time_step, n_time,time_step_curr
+    integer :: n_time_steps, time_step, n_time,time_step_curr,i
 
     character :: expiration_type*(10) ! active (sine wave), passive, pressure
     logical :: CONTINUE,converged
@@ -182,6 +182,7 @@ contains
 !    allocate(lym_time(num_units))
     allocate(lym_condition(num_units))
     allocate(sats(5,num_units))
+    allocate(bulk_c(nu_vol,num_units))
 !    allocate(alveolar_volume (alv_flux,num_units))
 !    allocate(unit_field(nu_time,num_units))
 !    allocate(unit_field(nu_av_flux,num_units))
@@ -345,15 +346,7 @@ contains
                pmus_step,sum_expid,sum_tidal,volume_target,WOBe_insp, &
                WOBr_insp,WOB_insp)
 
-                ! === CHECK CONVERGENCE HERE (AFTER COMPLETE BREATH) ===
-!      if (.not. vent_converged .and. n >= 2) then
-!         if (abs(100.0_dp*(volume_target-sum_tidal)/volume_target) < 0.1_dp) then
-!            write(*,'(A)') '=== VENTILATION CONVERGED ==='
-!!            converged_vol(:) = unit_field(nu_vol, :)
-!!            converged_init_vol = current_vol
-!            vent_converged = .true.
-!         endif
-!      endif
+
 
       ! Only adjust pmus if not converged
 !      if (.not. vent_converged .and. abs(volume_target).gt.1.0e-5_dp) then
@@ -370,27 +363,7 @@ contains
        endif
 
 
-          ! Reset to FRC if converged
-!   if (vent_converged) then
-!    p_mus = 0.0_dp
-!    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
-!
-!    sum_tidal = 0.0_dp !reset the tidal volume
-!    sum_expid = 0.0_dp !reset the expired volume
-!    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
-!    sum_dpmus = 0.0_dp
-!    sum_dpmus_ei = 0.0_dp
-!
-!!      unit_field(nu_vol, :) = converged_vol(:)
-!!      elem_field(ne_Vdot, :) = 0.0_dp
-!!!      call volume_of_mesh(current_vol, volume_tree)
-!!!      call tissue_compliance(undef)
-!!      init_vol = converged_init_vol
-!!      last_vol = converged_init_vol
-!   endif
 
-       !print*,'unit_field', size(unit_field(nu_vt,1:num_units),1)
-!!! solve for a single breath (for time up to endtime)
 
 !       surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2 initial value of surfactant concentration
        do while (time.lt.endtime)
@@ -410,11 +383,7 @@ contains
 
           call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
 
-!          if (any(alveolar_volume(nu_alvflow, :) > 0.0_dp)) then
-!           bulk_c = 0.1e-3_dp
-!           else
-!           bulk_c = 10e-3_dp
-!           end if
+
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
 
@@ -436,68 +405,101 @@ contains
 
     enddo !...WHILE(CONTINUE)
 
-print*, "pe_max", unit_field(nu_Pe_max,1)
-!    continue = .true.
-!    do while (continue)
-!!    n=n+1! number of breath
-!!    ttime=0.0_dp !each breath starts with ttime =0
-!!    endtime = endtime +  Tinsp   !+ 0.1_dp
-!!    endtime = (T_interval * n - 0.5_dp * dt)! the end time of this breath
-!!    p_mus = 0.0_dp
-!!    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+    continue = .true.
+    do while (continue)
+!    n=n+1! number of breath
+!    ttime=0.0_dp !each breath starts with ttime =0
+!    endtime = endtime +  Tinsp   !+ 0.1_dp
+!    endtime = (T_interval * n - 0.5_dp * dt)! the end time of this breath
+!    p_mus = 0.0_dp
+!    ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+
+!    sum_tidal = 0.0_dp !reset the tidal volume
+!    sum_expid = 0.0_dp !reset the expired volume
+!    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
+!    sum_dpmus = 0.0_dp
+!    sum_dpmus_ei = 0.0_dp
+
+!      do while (time.lt.endtime)
+!          ttime = ttime + dt ! increment the breath time
+          time = time + dt ! increment the whole simulation time
+
+
+!!!.......calculate the flow and pressure distribution for one time-step
+!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
+!          call evaluate_vent_step(num_itns,chest_wall_compliance, &
+!               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
+!               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
+!               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
+!               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
+!               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
+!               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
+
+          call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
+!!!.......update the estimate of pleural pressure
+!          call update_pleural_pressure(ppl_current) ! new pleural pressure
 !
-!!    sum_tidal = 0.0_dp !reset the tidal volume
-!!    sum_expid = 0.0_dp !reset the expired volume
-!!    unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
-!!    sum_dpmus = 0.0_dp
-!!    sum_dpmus_ei = 0.0_dp
-!
-!!      do while (time.lt.endtime)
-!!          ttime = ttime + dt ! increment the breath time
-!          time = time + dt ! increment the whole simulation time
-!
-!
-!!!!.......calculate the flow and pressure distribution for one time-step
-!!          surf_concentration(nu_vol,1:num_units) = 0.3e-6_dp/2.0_dp ! gamma*/2
-!!          call evaluate_vent_step(num_itns,chest_wall_compliance, &
-!!               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
-!!               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
-!!               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
-!!               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
-!!               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-!!               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
-!
-!          call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
-!!!!.......update the estimate of pleural pressure
-!!          call update_pleural_pressure(ppl_current) ! new pleural pressure
-!!
-!          call write_flow_step_results(chest_wall_compliance,init_vol, &
-!               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
-!
-!
-!!       enddo !while time<endtime
-!       continue =Lymph_continue(time,num_brths,T_interval)!ventilation_continue(n, num_brths, sum_tidal, volume_target, vent_converged) ventilation_continue(n,num_brths,sum_tidal,volume_target)
-!
-!!    ! === ADD THIS: Capture convergence state when exiting ===
-!!    if (.not. continue) then
-!!        if (all(lym_condition .le. 0.0001_dp)) then
-!!            lymph_converged = .true.
-!!            write(*,'(A)') '=== LYMPHATICS CONVERGED - Running final breath ==='
-!!        else
-!!            write(*,'(A)') '=== LYMPHATICS TIMED OUT ==='
-!!        endif
-!!    endif
-!    enddo !...WHILE(CONTINUE)
-!
+          call write_flow_step_results(chest_wall_compliance,init_vol, &
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
+
+
+!       enddo !while time<endtime
+       continue =Lymph_continue(time,num_brths,T_interval)!ventilation_continue(n, num_brths, sum_tidal, volume_target, vent_converged) ventilation_continue(n,num_brths,sum_tidal,volume_target)
+
+    enddo !...WHILE(CONTINUE)
+
 !print*, "pe_max", unit_field(nu_Pe_max,1)
 !! solve for additional half breath (for time +Tinsp)
 !    if (any(alveolar_volume(nu_alvflow, :) > 0.0_dp)) then
 !    bulk_c = 0.1e-3_dp
 !   if (lymph_converged) then
+    surf_concentration = 0.3e-6_dp/2.0_dp ! gamma*/2
+!    alv_dA = 0.0_dp
+    surface_tension = 0.0_dp
+    Pc_com = 100.0_dp
+!    acinus_field=0.0_dp
+    Pc=0.0_dp
+do i = 1, 3   ! 10 breaths for surfactant equilibration
+   n = n + 1
+   ttime = 0.0_dp
+   endtime = time + Tinsp + Texpn
+   p_mus = 0.0_dp
+   ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units
+
+   sum_tidal = 0.0_dp
+   sum_expid = 0.0_dp
+   unit_field(nu_vt,1:num_units) = 0.0_dp
+   sum_dpmus = 0.0_dp
+   sum_dpmus_ei = 0.0_dp
+
+
+    do while (time.lt.endtime)
+      ttime = ttime + dt
+      time = time + dt
+
+          call evaluate_vent_step(num_itns,chest_wall_compliance, &
+               chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
+               Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
+               pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
+               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
+               WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
+               dpmus,converged,iter_step,WOB,T_interval)!,alv_unit_field
+
+!          call alveolar_flux(dt,time, T_interval,Pe_unit_field_pre)
+!!!.......update the estimate of pleural pressure
+          call update_pleural_pressure(ppl_current) ! new pleural pressure
+
+          call write_flow_step_results(chest_wall_compliance,init_vol, &
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
+   enddo
+
+
+   end do
+
 
     n=n+1! number of breath
     ttime=0.0_dp !each breath starts with ttime =0
-    endtime = time +  Tinsp  + Texpn !+ 0.1_dp
+    endtime = time +  Tinsp  !+ 0.1_dp
     p_mus = 0.0_dp
     ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
 
@@ -527,10 +529,6 @@ print*, "pe_max", unit_field(nu_Pe_max,1)
                current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime, WOBe,WOBr,WOB)
 
     enddo
-!    endif
-
-!!............................................................................
-
 !print*,'n',n
 print*,'end',time,T_interval
 print*,'int', unit_field(nu_blood_press,1),unit_field(nu_sa,1),  unit_field(nu_tt,1)
@@ -1141,15 +1139,15 @@ print*,'nunit',num_units
     do nunit = 1,num_units
         !pre_step alveolus volume cm3
         !assume alveolus shape is hemisphere
-        alv_unit_field_pre(nu_vol,nunit)=unit_field_pre(nu_vol,nunit)/26000000 !mm3 to cm3
-
+        alv_unit_field_pre(nu_vol,nunit)=unit_field_pre(nu_vol,nunit)/ 24100000 !mm3 to cm3
+        !r=sqrt[3]{{3V}{2*pi}}
         alv_radii_pre(nu_vol,nunit) = ((3.0_dp * alv_unit_field_pre(nu_vol,nunit)) / (2.0_dp * PI)) &
                 **(1.0_dp/3.0_dp)
 
         alv_area_pre(nu_vol,nunit)=2.0_dp * PI * (alv_radii_pre(nu_vol,nunit)**2.0_dp)
 
         !current alveolus volume cm3
-        alv_unit_field_current(nu_vol,nunit)=unit_field_current(nu_vol,nunit)/26000000 !mm3 to cm3
+        alv_unit_field_current(nu_vol,nunit)=unit_field_current(nu_vol,nunit)/ 24100000 !mm3 to cm3
 
         alv_radii_current(nu_vol,nunit) = ((3.0_dp * alv_unit_field_current(nu_vol,nunit)) / (2.0_dp * PI)) &
                 **(1.0_dp/3.0_dp)
@@ -1720,7 +1718,7 @@ print*,'nunit',num_units
     !the total model compliance
     totalC = 1.0_dp/(1.0_dp/sum(unit_field(nu_comp,1:num_units))+ &
          1.0_dp/chest_wall_compliance)
-    Precoil = sum(unit_field(nu_pe,1:num_units))/num_units
+    Precoil = sum(unit_field(nu_vol,1:num_units))/num_units
 !    Precoil = sum(unit_field(nu_pe,1:num_units)*unit_field(nu_vol,1:num_units))/sum(unit_field(nu_vol,1:num_units))
     totalV = sum(unit_field(nu_vol,1:num_units))/num_units
     Paw = sum(unit_field(nu_air_press,1:num_units))/num_units!sum(node_field(nj_aw_press,1:num_elems))/num_elems
@@ -1748,38 +1746,39 @@ print*,'nunit',num_units
             0.0_dp, & !Pmuscle (cmH2O)
             Pcw/98.0665_dp, & !Pchest_wall (cmH2O)
             (-Pcw)/98.0665_dp, & !Pmuscle - Pchest_wall (cmH2O)
-            unit_field(nu_vol,1), &
+!            unit_field(nu_vol,19272), &
 !            unit_field(nu_vol,2000), &
-            Precoil, &
+!            Precoil, &
 
-            surf_concentration(nu_vol,1), & !g/cm^2
+!            surf_concentration(nu_vol,19272), & !g/cm^2
 !            alv_area_pre(nu_vol,1),&
-            Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
-            unit_field(nu_air_press,1),&
-            Paw,&
-            unit_field(nu_pe,1), &
+!            Pc(nu_vol,19272,&  !alv_collapse_pressure (cmH2O)
+!            unit_field(nu_air_press,19272),&
+!            Paw,&
+            unit_field(nu_pe,19272), &
 !            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
 !            surface_tension(nu_vol,1),&
 !            unit_field(nu_intsat,1),&
 !            unit_field(nu_time, 1),&
 !            lym_condition(2),&
-            interstitial_pressure_a (nu_Pe,1),&
-            interstitial_pressure_b (nu_Pe,1),&
-            flux_b(nu_av_flux,1),&
+            interstitial_pressure_a (nu_Pe,19272),&
+            interstitial_pressure_b (nu_Pe,19272),&
+            flux_b(nu_av_flux,19272),&
 !            alv_radii_current(nu_vol,19272),&
 !            alv_unit_field_current(nu_vol,19272), & !mm^3
 !            alveolar_volume(nu_alvflow,19272),&
-            P_initial_lymphtix (nu_Pe,1),&
-            unit_field(nu_blood_press,1),&
-            unit_field(nu_lymphflow,1),&
-            unit_field(nu_av_flux,1),&
-            interstitial_saturation(nu_intsat, 1), &
-            unit_field(nu_time, 1), &
+            P_initial_lymphtix (nu_Pe,19272),&
+!            unit_field(nu_blood_press,19272),&
+            unit_field(nu_lymphflow,19272),&
+            unit_field(nu_av_flux,19272),&
+            interstitial_saturation(nu_intsat, 19272), &
+            unit_field(nu_time, 19272), &
+            unit_field(nu_tt,19272),&
 !            unit_active_time(19727), &
-            alveolar_volume (nu_alvflow,1), &
-            unit_field(nu_sa, 1), &
-            surface_tension(nu_vol,5),&
-            osm_cap(nu_osmflux, 1)
+            alveolar_volume (nu_alvflow,19272), &
+            Precoil/0.0042_dp, &
+            surface_tension(nu_vol,19272),&
+            osm_cap(nu_osmflux, 19272)
 
 !            unit_field(nu_Vdot0,1)!,&
             !unit_field_pre(nu_vol,1),&
@@ -1798,37 +1797,38 @@ print*,'nunit',num_units
             p_mus/98.0665_dp, & !Pmuscle (cmH2O)
             -Pcw/98.0665_dp, & !Pchest_wall (cmH2O)
             (p_mus+Pcw)/98.0665_dp, & !Pmuscle - Pchest_wall (cmH2O)
-            unit_field(nu_vol,1), &
+!            unit_field(nu_vol,19272), &
 !            unit_field(nu_vol,2000), &
-            Precoil, &
+!            Precoil, &
 
-            surf_concentration(nu_vol,1), & !g/cm^2
+!            surf_concentration(nu_vol,19272), & !g/cm^2
 !            alv_area_pre(nu_vol,1),&
-            Pc(nu_vol,1),&  !alv_collapse_pressure (cmH2O)
-            unit_field(nu_air_press,1),&
-            Paw,&
-            unit_field(nu_pe,1), &
+!            Pc(nu_vol,19272),&  !alv_collapse_pressure (cmH2O)
+!            unit_field(nu_air_press,19272),&
+!            Paw,&
+            unit_field(nu_pe,19272), &
 !            unit_field(nu_comp,1), & !unit_field(nu_vol,1), &
 !            surface_tension(nu_vol,1),&
 !            unit_field(nu_intsat,1),&
 !            unit_field(nu_time, 1),&
 !            lym_condition(2),&
-            interstitial_pressure_a (nu_Pe,1),&
-            interstitial_pressure_b (nu_Pe,1),&
-            flux_b(nu_av_flux,1),&
+            interstitial_pressure_a (nu_Pe,19272),&
+            interstitial_pressure_b (nu_Pe,19272),&
+            flux_b(nu_av_flux,19272),&
 !            alv_radii_current(nu_vol,19272),&
 !            alv_unit_field_current(nu_vol,19272), & !mm^3
 !            alveolar_volume(nu_alvflow,19272),&
-            P_initial_lymphtix (nu_Pe,1),&
-            unit_field(nu_blood_press,1),&
-            unit_field(nu_lymphflow,1),&
-            unit_field(nu_av_flux,1),&
-            interstitial_saturation(nu_intsat, 1), &
-            unit_field(nu_time, 1), &
-            alveolar_volume (nu_alvflow,1), &
-            unit_field(nu_sa, 1), &
-            surface_tension(nu_vol,5),&
-            osm_cap(nu_osmflux, 1)
+            P_initial_lymphtix (nu_Pe,19272),&
+!            unit_field(nu_blood_press,19272),&
+            unit_field(nu_lymphflow,19272),&
+            unit_field(nu_av_flux,19272),&
+            interstitial_saturation(nu_intsat, 19272), &
+            unit_field(nu_time, 19272), &
+            unit_field(nu_tt,19272),&
+            alveolar_volume (nu_alvflow,19272), &
+            Precoil/0.0042_dp, &
+            surface_tension(nu_vol,19272),&
+            osm_cap(nu_osmflux, 19272)
             !alv_radii(nu_vol,1), &
 !            node_field(nj_aw_press,1), &
 !            unit_field(nu_Vdot0,1)!,&
@@ -1869,44 +1869,39 @@ print*,'nunit',num_units
 
   end function ventilation_continue
 
-  function Lymph_continue(time,num_brths,T_interval)
+function Lymph_continue(time, num_brths, T_interval)
 
-    integer,intent(in) :: num_brths
-    real(dp),intent(in) :: time,T_interval
-!    real(dp),intent(in) :: sum_tidal,volume_target
+    integer, intent(in) :: num_brths
+    real(dp), intent(in) :: time, T_interval
     integer :: nunit
-    ! Local variables
     logical :: Lymph_continue
-    logical :: all_converged
-    ! --------------------------------------------------------------------------
+    logical :: any_unit_running
 
     Lymph_continue = .true.
-!    if(n.ge.num_brths)then
-!        ! change n_brths from 10 to 125 to make lymph has enough time to run
-!       Lymph_continue = .false.
-       if(time .ge. num_brths*T_interval) then !0.000005_dp
-          Lymph_continue = .false.
-       else
-        ! Check if ALL units have converged (both conditions met)
-        all_converged = .true.
-        do nunit = 1, num_units
-            if (unit_active_time(nunit) >= 10000.0_dp * unit_field(nu_tt,nunit)) then
-                   cycle  ! This unit is done (timed out)
-            endif
 
-            if (lym_condition(nunit) > 0.000005_dp .or. &
-                unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) then
-                all_converged = .false.
-                exit  ! No need to check more
-            endif
-        enddo
-        if (all_converged) then
-            Lymph_continue = .false.
-
+    ! FIRST: Check if any unit is still running
+    any_unit_running = .false.
+    do nunit = 1, num_units
+        if ((lym_condition(nunit) > 0.00001_dp .or. &
+            unit_active_time(nunit) < 200.0_dp * unit_field(nu_tt,nunit)) .and. &
+            unit_active_time(nunit) < 5000.0_dp * unit_field(nu_tt,nunit)) then
+            any_unit_running = .true.
+            exit  ! Found one, no need to check more
         endif
+    enddo
+
+    ! If all units stopped, we're done
+    if (.not. any_unit_running) then
+        Lymph_continue = .false.
+        return
     endif
 
-  end function Lymph_continue
+    ! SECOND: Global timeout (safety net)
+    if (time >= num_brths * T_interval) then
+        Lymph_continue = .false.
+    endif
+
+end function Lymph_continue
 !function ventilation_continue(n, num_brths, sum_tidal, volume_target, vent_converged)
 !    integer, intent(in) :: n, num_brths
 !    real(dp), intent(in) :: sum_tidal, volume_target
