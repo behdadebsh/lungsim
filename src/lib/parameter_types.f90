@@ -6,19 +6,25 @@ module parameter_types
   !real(dp),parameter :: o2mv_37deg = 25.452e+3_dp ! mm^3/mmol (converted from 22.41e3 at STP using V2=T2*V1/T1)
   !real(dp),parameter :: max_o2_concentration = 3.93236e-5_dp  !mmol/mm^3, maximum concentration (at 100% O2)
 
+  ! make the defined types available across modules
   public :: lung_params
   public :: gx_params
   public :: V_params
   public :: Q_params
   public :: solve_params
-  public :: update_lung
 
+  ! make the 'update' subroutines accessible via python bindings
+  public :: update_lung
+  public :: update_gasexchange
+  public :: update_ventilation
+  public :: update_cardiac
+  public :: update_solve
   
   type :: lung_parameters
      ! parameters for lung orientation and sizing
      integer  :: gravity_dirn = 3                       ! gravity direction, 1== on side, 2==supine, 3==upright          
      real(dp) :: surface_area = 3.0e3_dp * 32.0e3_dp    ! mm^2, gas exchange surface area == 30 mm^2/acinus * 32K acini
-     real(dp) :: V_cap = 80.0e3_dp                      ! mm^3, capillary blood volume
+     real(dp) :: capillary_volume = 80.0e3_dp           ! mm^3, capillary blood volume
      real(dp) :: FRC = 3.0e6_dp                         ! mm^3, functional residual capacity
      real(dp) :: TLC = 6.0e6_dp                         ! mm^3, total lung capacity
      real(dp) :: anatomical_deadspace = 150.0e3_dp      ! mm^3, volume of airways
@@ -80,7 +86,7 @@ module parameter_types
       case ('surface_area')
          lung_params%surface_area = param_value
       case ('capillary_volume')
-         lung_params%V_cap = param_value
+         lung_params%capillary_volume = param_value
       case('FRC')
          lung_params%FRC = param_value
       case('TLC')
