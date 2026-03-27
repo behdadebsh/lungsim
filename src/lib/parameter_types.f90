@@ -38,10 +38,8 @@ module parameter_types
      real(dp) :: FiO2 = 0.21_dp                         ! fractional inspired O2
      real(dp) :: target_p_art_co2 = 40.0_dp             ! mmHg, target PaCO2
      real(dp) :: target_p_ven_o2 = 38.0_dp              ! mmHg, target PvO2
-     real(dp) :: p_alv_o2 =  100.0_dp                   ! mmHg, initial alveolar partial pressure of oxygen (PaO2)
-     real(dp) :: p_art_o2 =  100.0_dp                   ! mmHg, initial arterial partial pressure of oxygen (PaO2)
-     real(dp) :: p_ven_co2 = 45.0_dp                    ! mmHg, initial venous partial pressure of CO2 (PvCO2)
      real(dp) :: VO2 = 250.0e3_dp /60.0_dp              ! mm^3/s, metabolic consumption of O2
+     real(dp) :: VCO2 = 0.8_dp * 250.0e3_dp /60.0_dp    ! mm^3/s, metabolic production of CO2
   end type gasexchange_parameters
 
   type :: ventilation_parameters
@@ -118,14 +116,10 @@ module parameter_types
          gx_params%target_p_art_co2 = param_value
       case ('target_p_ven_o2')
          gx_params%target_p_ven_o2 = param_value
-      case ('p_alv_o2')
-         gx_params%p_alv_o2 = param_value
-      case ('p_art_o2')
-         gx_params%p_art_o2 = param_value
-      case ('p_ven_co2')
-         gx_params%p_ven_co2 = param_value
       case ('VO2')
          gx_params%VO2 = param_value
+      case ('VCO2')
+         gx_params%VCO2 = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
       end select
