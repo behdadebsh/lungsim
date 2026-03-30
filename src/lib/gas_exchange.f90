@@ -24,16 +24,18 @@ module gas_exchange
 
   !Interfaces
   private 
-  public initial_gasexchange,steadystate_gasexchange
+  public initial_gasexchange, steadystate_gasexchange
 
+  logical :: initialised_gastransfer = .false.
   real(dp),parameter :: standard_molar_vol = 22.4136e+3_dp ! at STP; mm^3/mmol
   real(dp),parameter :: p_water = 47.0_dp !mmHg
   real(dp),parameter :: Kr = 3.6e+6_dp !L/mol
   real(dp),parameter :: Kt = 10.0e+3_dp !L/mol
   real(dp),parameter :: L = 171.2e+6_dp
-  real(dp),parameter :: mcv = 90.0e-15_dp !L
-  real(dp),parameter :: mch = 30.0e-12_dp !grams
-  real(dp),parameter :: mw = 64458_dp !molecular weight of Hb, g/mol
+  real(dp) :: mcv, mch, mw, Hct, S2, tau_h
+  !real(dp),parameter :: mcv = 90.0e-15_dp !L
+  !real(dp),parameter :: mch = 30.0e-12_dp !grams
+  !real(dp),parameter :: mw = 64458_dp !molecular weight of Hb, g/mol
   real(dp),parameter :: pH=7.4_dp ! pH of plasma
   real(dp),parameter :: temperature=37.0_dp !blood temperature,degrees
   real(dp),parameter :: press_atm=760.0_dp !atmospheric pressure, mmHg
@@ -129,6 +131,66 @@ contains
   
 !!! ######################################################################
 
+  subroutine initialise_gastransfer()
+
+    use parameter_types
+    
+    implicit none
+  
+    real(dp) :: p_i_o2
+
+    ! set up species-specific values
+    select case(species_params%species)
+    case ('Human')
+       mcv = 90e-3_dp        ! pico-L, mean RBC volume for human (ref range 80-96)
+       mch = 30_dp           ! pico-grams, mean mass Hb/RBC for human (ref 27-31 picograms/cell)
+       Hct = 0.45_dp         ! hematocrit (Dietel & Kampmann 1971)
+       tau_h = 1.11e-3_dp    ! mm (1.11 um). Thickness of tissue barrier plus plasma. Weibel (1993)
+       S2 = 2.34e4_dp        ! coefficient in Severinghaus 
+    case ('Rabbit')
+       mcv = 66.7e-3_dp       ! pico-L, mean RBC volume for human (ref range 80-96)
+       mch = 20.95_dp          ! pico-grams, mean mass Hb/RBC for human (ref 27-31 picograms/cell)
+       Hct = 0.436_dp        ! hematocrit (Dietel & Kampmann 1971)
+       tau_h = 0.8e-3_dp   ! mm (1.11 um). Thickness of tissue barrier plus plasma. Weibel (1993)
+       S2 = 3.5e4_dp        ! coefficient in Severinghaus 
+    case ('Rat')
+       mcv = 59.35e-3_dp       ! pico-L, mean RBC volume for human (ref range 80-96)
+       mch = 17.9_dp          ! pico-grams, mean mass Hb/RBC for human (ref 27-31 picograms/cell)
+       Hct = 0.5182_dp        ! hematocrit (Dietel & Kampmann 1971)
+       tau_h = 0.754e-3_dp   ! mm (1.11 um). Thickness of tissue barrier plus plasma. Weibel (1993)
+       S2 = 5.0e4_dp        ! coefficient in Severinghaus 
+    case ('Mouse')
+       mcv = 55.1e-3_dp     
+       mch = 15.95_dp       
+       Hct = 0.523_dp       
+       tau_h = 0.7e-3_dp   
+       S2 = 8.0e4_dp        
+    case default
+       write(*,*) 'Warning: unknown species, using human blood values as default'
+       mcv = 90e-3_dp        ! pico-L, mean RBC volume for human (ref range 80-96)
+       mch = 30_dp           ! pico-grams, mean mass Hb/RBC for human (ref 27-31 picograms/cell)
+       Hct = 0.45_dp         ! hematocrit (Dietel & Kampmann 1971)
+       tau_h = 1.11e-3_dp    ! mm (1.11 um). Thickness of tissue barrier plus plasma. Weibel (1993)
+       S2 = 2.34e4_dp        ! coefficient in Severinghaus 
+    end select
+
+    gasex_field(ng_p_cap_co2, :) = 40.0_dp
+    gasex_field(ng_p_alv_co2, :) = 40.0_dp
+    gasex_field(ng_p_cap_o2, :) = gx_params%init_p_alv_o2
+    gasex_field(ng_p_alv_o2, :) = gx_params%init_p_alv_o2
+    node_field(nj_conc1,:) = gx_params%init_p_alv_o2 / (constants%o2molvol_37deg * gx_params%press_atm)
+    node_field(nj_conc2,:) = 40.0_dp / (constants%o2molvol_37deg * gx_params%press_atm)
+    unit_field(nu_conc1,:) = gx_params%init_p_alv_o2 / (constants%o2molvol_37deg * gx_params%press_atm)
+    unit_field(nu_conc2,:) = gasex_field(ng_p_alv_co2,:) / (constants%o2molvol_37deg * gx_params%press_atm)
+    
+    p_i_o2 = gx_params%FiO2 * (gx_params%press_atm - gx_params%press_h2O) ! accounting for humidification by the upper airway
+    node_field(nj_conc1,1) = p_i_o2/gx_params%press_atm * constants%max_o2_concentration !mmol/mm^3, inspired O2
+    node_field(nj_conc2,1) = 0.0_dp ! inspired CO2; should make FiCO2 user-defined
+
+  end subroutine initialise_gastransfer
+  
+!!! ######################################################################
+
   subroutine steadystate_gasexchange(c_art_o2,c_ven_o2,&
        p_art_co2,p_art_o2,p_i_o2,p_ven_co2,p_ven_o2,shunt_fraction,&
        VCO2,VO2)
@@ -149,6 +211,12 @@ contains
     
     sub_name = 'steadystate_gasexchange'
     call enter_exit(sub_name,1)
+
+    ! call initialisation if not already done
+    if(.not.initialised_gastransfer)then
+       call initialise_gastransfer
+       initialised_gastransfer = .true.
+    endif
     
 !!! Calculate steady state gas exchange for CO2
     p_ven_co2_last = p_ven_co2 ! updates at each iteration, until converged
