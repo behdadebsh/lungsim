@@ -12,6 +12,7 @@ module parameter_types
   public :: V_params
   public :: Q_params
   public :: solve_params
+  public :: species_params
 
   ! make the 'update' subroutines accessible via python bindings
   public :: update_lung
@@ -19,9 +20,15 @@ module parameter_types
   public :: update_ventilation
   public :: update_cardiac
   public :: update_solve
+
+  type :: fundamental_constants
+     ! fixed constants; no update option
+     real(dp) :: o2molvol_37deg = 25.452e+3_dp          ! mm^3/mmol, @BTP; O2 molecular volume converted from 22.41e3 at STP
+     real(dp) :: max_o2_concentration = 3.93236e-5_dp   !mmol/mm^3, maximum concentration (at 100% O2)
+  end type fundamental_constants
   
   type :: lung_parameters
-     ! parameters for lung orientation and sizing
+     ! parameters for species, lung orientation, and sizing
      integer  :: gravity_dirn = 3                       ! gravity direction, 1== on side, 2==supine, 3==upright          
      real(dp) :: surface_area = 3.0e3_dp * 32.0e3_dp    ! mm^2, gas exchange surface area == 30 mm^2/acinus * 32K acini
      real(dp) :: capillary_volume = 80.0e3_dp           ! mm^3, capillary blood volume
@@ -33,9 +40,10 @@ module parameter_types
   type :: gasexchange_parameters
      ! parameters related to gas properties and gas exchange
      real(dp) :: press_atm = 760.0_dp                   ! mmHg, atmospheric pressure
-     real(dp) :: press_h20 = 47.0_dp                    ! mmHg, water vapour pressure
+     real(dp) :: press_H2O = 47.0_dp                    ! mmHg, water vapour pressure
      real(dp) :: diffusion_coeff = 22.5_dp              ! mm^2/s, binary diffusion coefficient
      real(dp) :: FiO2 = 0.21_dp                         ! fractional inspired O2
+     real(dp) :: init_p_alv_o2 = 100.0_dp               ! mmHg, initial PO2 in alveoli
      real(dp) :: target_p_art_co2 = 40.0_dp             ! mmHg, target PaCO2
      real(dp) :: target_p_ven_o2 = 38.0_dp              ! mmHg, target PvO2
      real(dp) :: VO2 = 250.0e3_dp /60.0_dp              ! mm^3/s, metabolic consumption of O2
@@ -62,12 +70,19 @@ module parameter_types
      real(dp) :: dt = 0.025_dp                          ! time step for PDE solution
   end type solve_parameters
     
+  type :: species_parameters
+     ! define the species. keeping separate because update routine needs different bindings
+     character(len=8) :: species = 'Human'              ! code accepts human, rabbit, rat, mouse
+  end type species_parameters
+  
   ! retain between modules
-  type(lung_parameters) :: lung_params
+  type(fundamental_constants)  :: constants
+  type(lung_parameters)        :: lung_params
   type(gasexchange_parameters) :: gx_params
   type(ventilation_parameters) :: V_params
-  type(cardiac_parameters) :: Q_params
-  type(solve_parameters) :: solve_params
+  type(cardiac_parameters)     :: Q_params
+  type(solve_parameters)       :: solve_params
+  type(species_parameters)     :: species_params
 
   
   contains
@@ -93,11 +108,11 @@ module parameter_types
          lung_params%anatomical_deadspace = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
 
     end subroutine update_lung
 
-    
     subroutine update_gasexchange(param_name, param_value)
       
       character(len=*), intent(in) :: param_name
@@ -106,22 +121,25 @@ module parameter_types
       select case (trim(param_name))
       case ('press_atm')
          gx_params%press_atm = param_value
-      case ('press_h20')
-         gx_params%press_h20 = param_value
+      case ('press_h2o')
+         gx_params%press_H2O = param_value
       case ('diffusion_coefficient')
          gx_params%diffusion_coeff = param_value
-      case ('FiO2')
+      case ('fio2')
          gx_params%FiO2 = param_value
+      case('init_p_alv_o2')
+         gx_params%init_p_alv_o2 = param_value
       case ('target_p_art_co2')
          gx_params%target_p_art_co2 = param_value
       case ('target_p_ven_o2')
          gx_params%target_p_ven_o2 = param_value
-      case ('VO2')
+      case ('vo2')
          gx_params%VO2 = param_value
-      case ('VCO2')
+      case ('vco2')
          gx_params%VCO2 = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
     end subroutine update_gasexchange
 
@@ -138,6 +156,7 @@ module parameter_types
          V_params%tidal_volume = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
     end subroutine update_ventilation
 
@@ -154,6 +173,7 @@ module parameter_types
          Q_params%shunt_fraction = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
     end subroutine update_cardiac
     
@@ -176,8 +196,24 @@ module parameter_types
          solve_params%dt = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
     end subroutine update_solve
+
+    
+    subroutine update_species(param_name, param_value)
+      
+      character(len=*), intent(in) :: param_name
+      character(len=*), intent(in) :: param_value
+
+      select case (trim(param_name))
+      case ('species')
+         species_params%species = param_value
+      case default
+         write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
+      end select
+    end subroutine update_species
 
 
   end module parameter_types
