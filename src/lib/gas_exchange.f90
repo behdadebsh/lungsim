@@ -24,7 +24,8 @@ module gas_exchange
 
   !Interfaces
   private 
-  public initial_gasexchange, steadystate_gasexchange
+  public initial_gasexchange, steadystate_gasexchange, steadystate_co2, &
+       content_from_po2
 
   logical :: initialised_gastransfer = .false.
   real(dp),parameter :: standard_molar_vol = 22.4136e+3_dp ! at STP; mm^3/mmol
@@ -43,6 +44,7 @@ module gas_exchange
   real(dp),parameter :: Hb = 2.33e-3_dp !haemoglobin
   real(dp),parameter :: alphaO2 = 1.46e-6_dp ! O2 solubilitiy in water at T=37, mol/mmHg
   real(dp),parameter :: Wbl=0.81_dp !fractional water content of blood
+  real(dp),parameter :: mmL_to_mlml = 25.452e-3_dp ! to convert mmol/L to mL/mL
   !!! The O2 and CO2 concentrations are stored in node_field(nj_conc1/nj_conc2,np)
 
 !!! The O2 and CO2 partial pressures are stored in gasex_field(ng_p_x_y,nunit),
@@ -174,6 +176,9 @@ contains
        S2 = 2.34e4_dp        ! coefficient in Severinghaus 
     end select
 
+!!! allocate memory for the gasex_field array, if not already allocated
+    if(.not.allocated(gasex_field)) allocate(gasex_field(num_gx,num_units))
+    
     gasex_field(ng_p_cap_co2, :) = 40.0_dp
     gasex_field(ng_p_alv_co2, :) = 40.0_dp
     gasex_field(ng_p_cap_o2, :) = gx_params%init_p_alv_o2
@@ -430,6 +435,162 @@ contains
 
   !!! ####################################################
 
+  function steadystate_CO2 (p_art_co20, p_art_o2, p_ven_co20, p_ven_o2, Vdot_alv) result(p_art_co2)
+
+    ! Uses CO2 content<->PCO2 mapping with Haldane coupling:
+    !   content_from_pco2(pco2, so2, pH, Hb_g_dL) returns ml(gas)/ml(blood)
+    !   pco2_from_content(c_mlml, so2, pH, Hb_g_dL) returns mmHg
+
+    ! steady-state is reached when there is no change between current and previous p_ven_co2
+
+    use precision, only: dp
+    use parameter_types
+    implicit none
+
+    ! Arguments
+    real(dp), intent(in) :: p_art_co20, p_art_o2, p_ven_co20, p_ven_o2, Vdot_alv
+    ! Local variables
+    integer :: counter, k, ne, np, nunit
+    real(dp) :: cardiac_output, c_art_co2, c_cap_co2, c_ven_co2, fdash, fun_co2, Hb_g_dL, &
+         p_art_co2, p_art_co2_last, p_cap_co2, pH_a, pH_v, p_ven_co2, &
+         p_ven_co2_last, Q_total, RV_flow, SaO2, &
+         shunt_flow, SvO2, target_c_ven_co2, VCO2, v_q
+    logical :: continue
+
+    ! call initialisation if not already done
+    if(.not.initialised_gastransfer)then
+       call initialise_gastransfer
+       initialised_gastransfer = .true.
+    endif
+    
+    pH_a = gx_params%pHa
+    pH_v = pH_a - 0.03_dp
+    Hb_g_dL = gx_params%Hb
+
+    VCO2 = gx_params%VCO2
+
+    cardiac_output = Q_params%cardiac_output
+    shunt_flow = Q_params%shunt_fraction * cardiac_output
+    RV_flow = cardiac_output - shunt_flow
+
+    p_ven_co2 = p_ven_co20
+    p_art_co2 = p_art_co20
+    p_ven_co2_last = p_ven_co2
+    p_art_co2_last = p_art_co2
+    counter = 1
+    continue = .true.
+
+    do while (continue)
+
+       Q_total   = 0.0_dp
+       c_art_co2 = 0.0_dp
+
+       do nunit = 1, num_units
+          ne = units(nunit)
+          ! Initialise to previous capillary value
+          p_cap_co2 = gasex_field(ng_p_cap_co2, nunit)
+          if (unit_field(nu_perf, nunit) < loose_tol) then
+             v_q = 1.0e5_dp ! set to high enough, but not ridiculous, value
+          else
+             v_q = Vdot_alv / RV_flow * &
+                  (unit_field(nu_Vdot0, nunit) / elem_field(ne_Vdot,1)) / &
+                  unit_field(nu_perf, nunit)
+          endif
+          if (abs(v_q) <= 1.0e-3_dp) then
+             ! no ventilation: capillary CO2 tends to venous CO2
+             p_cap_co2 = p_ven_co2
+          elseif (abs(v_q) > 100.0_dp) then
+             ! essentially infinite ventilation: alveolar/capillary CO2 ~ 0
+             p_cap_co2 = 0.0_dp
+          else
+             k = 0
+             do
+                fun_co2 = function_co2(v_q, p_cap_co2, p_ven_co2)
+                if (abs(fun_co2) < 1.0e-4_dp) exit
+                if (k >= 200) exit
+                fdash = fdash_co2(v_q, p_cap_co2)
+                if (abs(fdash) < zero_tol) exit
+                p_cap_co2 = p_cap_co2 - fun_co2 / fdash
+                k = k + 1
+             end do
+          endif
+
+          p_cap_co2 = max(p_cap_co2, 0.0_dp)
+
+          ! Store alveolar/capillary PCO2
+          gasex_field(ng_p_cap_co2, nunit) = p_cap_co2
+          gasex_field(ng_p_alv_co2, nunit) = p_cap_co2
+
+          if(p_cap_co2 < 1.0e-2_dp)then
+             SvO2 = 0.0_dp
+             c_cap_co2 = 0.0_dp
+          else
+             ! Compute O2 saturation in the capillary for Haldane effect on CO2 content.
+             SvO2 = saturation_of_o2(p_cap_co2, gasex_field(ng_p_cap_o2, nunit))
+             ! CO2 content in capillary blood in ml/ml
+             c_cap_co2 = co2_content_from_pco2(p_cap_co2, SvO2, pH_a, Hb_g_dL)
+             ! Flow-weighted sum of CO2 content
+             Q_total   = Q_total + abs(unit_field(nu_perf, nunit)) * units_effective(nunit)
+             c_art_co2 = c_art_co2 + units_effective(nunit) * (c_cap_co2 * abs(unit_field(nu_perf, nunit)))
+          endif
+       end do ! nunit
+
+       ! Normalise by total flow
+       if (Q_total > 0.0_dp) then
+          c_art_co2 = c_art_co2 / Q_total
+       else
+          c_art_co2 = 0.0_dp
+       endif
+
+       ! Mixed venous CO2 content (ml/ml) at current guess p_ven_co2, using venous oxygenation
+       SvO2 = saturation_of_o2(p_ven_co2, p_ven_o2)
+       c_ven_co2 = co2_content_from_pco2(p_ven_co2, SvO2, pH_v, Hb_g_dL)
+
+       ! Add shunt
+       c_art_co2 = (c_art_co2 * RV_flow + c_ven_co2 * shunt_flow) / (RV_flow + shunt_flow)
+
+       !infer arterial PCO2 from arterial CO2 content using arterial oxygenation (SaO2)
+       SaO2 = saturation_of_o2(p_art_co2, p_art_o2)  ! uses current p_art_co2
+       p_art_co2 = pco2_from_co2content(c_art_co2, SaO2, pH_a, Hb_g_dL)
+
+       ! Tissue addition of CO2: target venous CO2 content
+       target_c_ven_co2 = c_art_co2 + VCO2 / (RV_flow + shunt_flow)   ! units: (ml/ml)
+
+       ! Infer venous PCO2 from target venous content, using current venous oxygenation SvO2
+       SvO2 = saturation_of_o2(p_ven_co2, p_ven_o2)
+       p_ven_co2 = pco2_from_co2content(target_c_ven_co2, SvO2, pH_v, Hb_g_dL)
+
+       ! Convergence check
+       if (counter > 1) then
+          if (abs(p_ven_co2 - p_ven_co2_last) / max(zero_tol, abs(p_ven_co2_last)) < loose_tol .and. &
+               abs(p_art_co2 - p_art_co2_last) / max(zero_tol, abs(p_art_co2_last)) < loose_tol) then
+             continue = .false.
+          else
+             if (counter >= 200) continue = .false.
+             counter = counter + 1
+             p_ven_co2_last = p_ven_co2
+             p_art_co2_last = p_art_co2
+          endif
+       else
+          counter = counter + 1
+          p_ven_co2_last = p_ven_co2
+          p_art_co2_last = p_art_co2
+       endif
+    end do ! while continue
+
+    do nunit = 1, num_units
+       ne = units(nunit)
+       np = elem_nodes(2, ne)
+       node_field(nj_conc2, np) = gasex_field(ng_p_cap_co2, nunit) / (constants%o2molvol_37deg * gx_params%press_atm)
+    end do
+
+    unit_field(nu_conc2, 1:num_units) = gasex_field(ng_p_alv_co2, 1:num_units) / (constants%o2molvol_37deg * gx_params%press_atm)
+
+  end function steadystate_CO2
+  
+
+!!! ####################################################
+
   function function_co2 ( v_q, p_cap_co2, p_ven_co2)
 
     real(dp),intent(in) :: v_q, p_cap_co2, p_ven_co2
@@ -446,6 +607,8 @@ contains
   function function_o2(p_cap_co2,p_cap_o2,p_i_o2,&
        p_ven_co2,p_ven_o2,v_q)
 
+    use parameter_types
+
 !!! Parameters
     real(dp),intent (in) :: p_cap_co2,p_cap_o2,p_i_o2,p_ven_co2,&
          p_ven_o2,v_q
@@ -455,7 +618,8 @@ contains
     c_cap_o2 = content_from_po2(p_cap_co2,p_cap_o2)
     c_ven_o2 = content_from_po2(p_ven_co2,p_ven_o2)
 
-    function_o2 = v_q * (p_i_o2 - p_cap_o2) - 713.0_dp*(c_cap_o2 - c_ven_o2)
+    function_o2 = v_q * (p_i_o2 - p_cap_o2) - (gx_params%press_atm - &
+         gx_params%press_h2o) * (c_cap_o2 - c_ven_o2)
 
   end function function_o2
 
@@ -463,13 +627,16 @@ contains
 
   function fdash_co2 (v_q,p_cap_co2)
 
+    use parameter_types
+
 !!! Parameters
     real(dp),intent(in) :: v_q,p_cap_co2
 !!! Local variables
     real(dp) :: fdash_co2
     real(dp),parameter :: m = 0.02386_dp
 
-    fdash_co2 = v_q + 713.0_dp * m/(1 + m * p_cap_co2)**2
+    fdash_co2 = v_q + (gx_params%press_atm - &
+         gx_params%press_h2o) * m/(1 + m * p_cap_co2)**2
 
   end function fdash_co2
 
@@ -477,14 +644,20 @@ contains
 
   function fdash_o2 (p_x_co2,p_x_o2,v_q)
 
+    use parameter_types
+
 !!! Parameters
     real(dp),intent(in) :: p_x_co2, v_q
     real(dp) :: p_x_o2
 !!! Local variables
     real(dp),parameter :: A1=-8.538889e+3_dp, A2=2.121401e+3_dp, A3=-6.707399e+1_dp,&
          A4=9.359609e+5_dp, A5=-3.134626e+4_dp, A6=2.396167e+3_dp, A7=-6.710441e+1_dp
-    real(dp) :: aa,bb,aa_dash,bb_dash,C,gamma,X,fdash_o2
+    real(dp) :: aa,bb,aa_dash,bb_dash,C,gamma, Hb_conc, pH, X
+    real(dp) :: fdash_o2
 
+    Hb_conc = gx_params%Hb * 10.0_dp / constants%mw  ! g/dL * 10 dL/L / (g/mol) --> mol/L
+    pH = gx_params%pHa                               ! assumes pH for arterial blood
+    
     gamma = 10.0_dp**(0.024_dp*(37.0_dp-temperature)+0.4_dp*(pH-7.4_dp)+ &
          0.06_dp*(DLOG10(DBLE(40.0_dp))-DLOG10(DBLE(p_x_co2))))
     X = p_x_o2*gamma
@@ -493,8 +666,9 @@ contains
     bb = (X*(X*(X*(X+A7)+A6)+A5)+A4)
     aa_dash = gamma*(4.0_dp*X**3 + 3.0_dp*A3*X**2 + 2.0_dp*A2*X+A1)
     bb_dash = gamma*(4.0_dp*X**3 + 3.0_dp*A7*X**2 + 2.0_dp*A6*X+A5)
-    C = (Wbl*alphaO2 + 4.0_dp*HB*(aa_dash*bb-aa*bb_dash)/bb**2)*(O2molVol*1.0e-3_dp)
-    FDASH_O2 = -v_q - 713.0_dp * C
+    C = (Wbl*alphaO2 + 4.0_dp* Hb_conc *(aa_dash*bb-aa*bb_dash)/bb**2)*(O2molVol*1.0e-3_dp)
+    
+    FDASH_O2 = -v_q - (gx_params%press_atm - gx_params%press_h2o) * C
 
     RETURN
   END function fdash_o2
@@ -502,29 +676,32 @@ contains
 
 !!! ####################################################
 
-  function content_from_po2 (PCO2,po2)
+  function content_from_po2 (PCO2,po2) result(c_from_po2)
 
+    use parameter_types
+    
 !!! Kelman method for calculating the content of O2 from partial pressure
 
 !!! Parameters
     real(dp) :: PCo2,po2
 !!! Local variables
-    real(dp) :: content_from_po2,ShbO2
+    real(dp) :: c_from_po2, Hb_conc, ShbO2
 
+    Hb_conc = gx_params%Hb * 10.0_dp / constants%mw  ! g/dL * 10 dL/L / (g/mol) --> mol/L
+    
     if(dabs(po2).lt.zero_tol)then
        SHbO2 = 0.0_dp
-       content_from_po2 = 0.0_dp
+       c_from_po2 = 0.0_dp
     else
-
        SHbO2 = saturation_of_o2(pco2,po2)
 
 !!! Calculate O2 content (convert from molar to ml O2 per ml blood)
 !!! o2molvol is in units of mm^3/mmol; alphaO2 is mol/mmHg; content should be ml/ml
-       content_from_po2 = (Wbl * alphaO2 * PO2 + 4.0_dp * Hb * SHbO2) * (o2molvol*1.0e-3_dp)
-
+       c_from_po2 = (constants%Wbl * constants%alphaO2 * PO2 + 4.0_dp * Hb_conc * SHbO2) * &
+            (constants%o2molvol_37deg * 1.0e-3_dp)
     endif
 
-    if(content_from_po2.LT.0.0_dp) content_from_po2=0.0_dp !curve fit behaves poorly at low PO2
+    if(c_from_po2.LT.0.0_dp) c_from_po2=0.0_dp !curve fit behaves poorly at low PO2
 
   end function content_from_po2
 
@@ -557,6 +734,8 @@ contains
 
   end function saturation_of_o2
 
+!!! ####################################################
+  
    function po2_from_content(c_o2,p_co2)
 
 !!! Parameter List
@@ -620,5 +799,86 @@ contains
     endif
 
   end function po2_from_content
+
+!!!#########################################################################################
+
+  function co2_content_from_pco2(pco2, so2_frac, pH, Hb_g_dL) result(c_mlml)
+    
+    ! Implementation of Douglas, J Appl Physiol, 1985. 
+    
+    real(dp), intent(in) :: pco2        ! mmHg
+    real(dp), intent(in) :: so2_frac    ! O2 saturation, fraction 0-1
+    real(dp), intent(in) :: pH          ! blood pH
+    real(dp), intent(in) :: Hb_g_dL     ! haemoglobin concentration, g/dL
+    real(dp) :: c_mlml                  ! mL CO2 (STPD) / mL blood
+
+    ! Local variables
+    real(dp) :: alpha_co2, pkp, c_plasma_mldl, blood_factor, c_blood_mldl
+    
+    alpha_co2 = 0.0307_dp! CO2 solubility in plasma, mmol / (L * mmHg)
+    ! Apparent dissociation constant for plasma CO2 / bicarbonate
+    pkp = 6.125_dp - log10(1.0_dp + 10.0_dp**(pH - 8.7_dp))
+    ! Plasma CO2 content in mL STPD / dL. 2.226 converts mmol/L to mL STPD/dL
+    c_plasma_mldl = 2.226_dp * alpha_co2 * pco2 * (1.0_dp + 10.0_dp**(pH - pkp))
+    ! Douglas whole-blood correction factor; so2_frac must be 0-1 here
+    blood_factor = 1.0_dp - (0.0289_dp * Hb_g_dL) / &
+         ((3.352_dp - 0.456_dp * so2_frac) * (8.142_dp - pH))
+    c_blood_mldl = c_plasma_mldl * blood_factor  ! Whole-blood CO2 content in mL STPD / dL
+    c_mlml = c_blood_mldl / 100.0_dp  ! Convert mL/dL -> mL/mL
+    
+  end function co2_content_from_pco2
+
+!!!#########################################################################################
+
+  function pco2_from_co2content(c_mlml, so2, pH, Hb_g_dL) result(pco2)
+
+    real(dp), intent(in) :: c_mlml, so2, pH, Hb_g_dL
+    real(dp) :: cc_target, pco2
+    real(dp) :: lo, hi, mid
+    real(dp) :: f_lo, f_hi, f_mid
+    integer :: it
+    integer, parameter :: itmax = 80
+    real(dp), parameter :: tol = 1.0e-8_dp
+    
+    cc_target = c_mlml / mmL_to_mlml ! Convert ml/ml → mmol/L
+    
+    ! Physiologic bracket in mmHg
+    lo = 0.1_dp
+    hi = 200.0_dp
+    
+    f_lo = co2_content_from_pco2(lo, so2, pH, Hb_g_dL)/ mmL_to_mlml - cc_target
+    f_hi = co2_content_from_pco2(hi, so2, pH, Hb_g_dL)/ mmL_to_mlml - cc_target
+    
+    ! If target is out of bracket, expand hi a bit (rare)
+    if (f_lo*f_hi > 0.0_dp) then
+       hi = 400.0_dp
+       f_hi = co2_content_from_pco2(hi, so2, pH, Hb_g_dL)/ mmL_to_mlml - cc_target
+       if (f_lo*f_hi > 0.0_dp) then
+          ! end safely (return best guess)
+          pco2 = max(lo, min(hi, 40.0_dp))
+          return
+       endif
+    endif
+    
+    do it = 1, itmax
+       mid = 0.5_dp*(lo + hi)
+       f_mid = co2_content_from_pco2(mid, so2, pH, Hb_g_dL)/ mmL_to_mlml - cc_target
+       
+       if (abs(f_mid) < tol) exit
+       
+       if (f_lo*f_mid <= 0.0_dp) then
+          hi = mid
+          f_hi = f_mid
+       else
+          lo = mid
+          f_lo = f_mid
+       endif
+    enddo
+    
+    pco2 = 0.5_dp*(lo + hi)
+    
+  end function pco2_from_co2content
+
+!!!#########################################################################################
 
 end module gas_exchange
