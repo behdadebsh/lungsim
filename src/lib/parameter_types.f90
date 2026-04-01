@@ -24,7 +24,11 @@ module parameter_types
   type :: fundamental_constants
      ! fixed constants; no update option
      real(dp) :: o2molvol_37deg = 25.452e+3_dp          ! mm^3/mmol, @BTP; O2 molecular volume converted from 22.41e3 at STP
-     real(dp) :: max_o2_concentration = 3.93236e-5_dp   !mmol/mm^3, maximum concentration (at 100% O2)
+     real(dp) :: max_o2_concentration = 3.93236e-5_dp   ! mmol/mm^3, maximum concentration (at 100% O2)
+     real(dp) :: mw = 64458.0_dp                        ! g/mol, molecular weight of Hb
+     real(dp) :: alphaO2 = 1.46e-6_dp                   ! mol/mmHg, O2 solubility in water at T=37
+     real(dp) :: R = 6.23e4_dp                          ! mm^3.mmHg/mmol/K
+     real(dp) :: Wbl = 0.81_dp                          ! fractional water content of blood
   end type fundamental_constants
   
   type :: lung_parameters
@@ -48,6 +52,8 @@ module parameter_types
      real(dp) :: target_p_ven_o2 = 38.0_dp              ! mmHg, target PvO2
      real(dp) :: VO2 = 250.0e3_dp /60.0_dp              ! mm^3/s, metabolic consumption of O2
      real(dp) :: VCO2 = 0.8_dp * 250.0e3_dp /60.0_dp    ! mm^3/s, metabolic production of CO2
+     real(dp) :: Hb = 150.0_dp * 0.1_dp                 ! g/dL, haemoglobin concentration [M 13.5 - 17.5; F 12.0 - 15.5]
+     real(dp) :: pHa = 7.4_dp
   end type gasexchange_parameters
 
   type :: ventilation_parameters
@@ -137,6 +143,10 @@ module parameter_types
          gx_params%VO2 = param_value
       case ('vco2')
          gx_params%VCO2 = param_value
+      case ('hb')
+         gx_params%Hb = param_value
+      case ('pha')
+         gx_params%pHa = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
