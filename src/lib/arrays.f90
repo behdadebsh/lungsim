@@ -41,6 +41,7 @@ module arrays
   integer,allocatable :: elems_at_node_2d(:,:)
   integer,allocatable :: triangle(:,:)
   integer,allocatable :: units(:)
+  integer,allocatable :: units_effective(:)
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -135,7 +136,7 @@ module arrays
   public set_node_field_value, elem_field, num_elems, num_elems_2d, num_groups, elem_nodes, node_xyz, &
        nodes,nodes_2d, elems, num_nodes, num_nodes_2d, num_data, num_triangles, num_vertices, &
        data_field, data_xyz, data_weight, &
-       node_xyz_2d, node_versn_2d, units, num_units, unit_field, node_field, dp, &
+       node_xyz_2d, node_versn_2d, units, units_effective, num_units, unit_field, node_field, dp, &
        data_group_names, elem_group_names, ndata_groups, nelem_groups, &
        elem_cnct, elem_ordrs, elem_direction, elems_at_node, elem_symmetry, expansile, &
        elem_units_below, maxgen,capillary_bf_parameters, zero_tol,loose_tol,gasex_field, &

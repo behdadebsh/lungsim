@@ -395,7 +395,7 @@ contains
     !*append_units:* Appends terminal units at the end of a tree structure
 
     ! Local parameters
-    integer :: ne,ne0,nu
+    integer :: ne, ne0, nunit, nu, n_double
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -413,9 +413,11 @@ contains
     if(allocated(units))then !increasing the array size; just overwrite
        deallocate(units)
        deallocate(unit_field)
+       deallocate(units_effective)
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
+    allocate(units_effective(num_units))
 
     unit_field=0.0_dp
     units=0
@@ -436,6 +438,18 @@ contains
        elem_units_below(ne0) = elem_units_below(ne0) &
             + elem_units_below(ne)*elem_symmetry(ne)
     enddo !ne
+
+!!! for each unit, find out its 'effective' replacement number. i.e. how many proximal 
+!!! branches are symmetric? This doubles the effective number each time.
+    do nunit = 1,num_units
+       ne = units(nunit)
+       n_double = elem_symmetry(ne)
+       do while (elem_cnct(-1,0,ne).ne.0)
+          ne = elem_cnct(-1,1,ne)
+          n_double = n_double * elem_symmetry(ne)
+       enddo
+       units_effective(nunit) = n_double
+    enddo
 
     call enter_exit(sub_name,2)
 
