@@ -41,6 +41,7 @@ module geometry
   public element_connectivity_1d
   public element_connectivity_2d
   public evaluate_ordering
+  public get_airway_deadspace
   public get_final_real
   public get_local_elem_1d
   public get_local_node_f
@@ -52,6 +53,7 @@ module geometry
   public make_data_grid
   public make_2d_vessel_from_1d
   public reallocate_node_elem_arrays
+  public scale_airways
   public set_initial_volume
   public triangles_from_surface
   public volume_of_mesh
@@ -3870,6 +3872,20 @@ contains
 
   end subroutine evaluate_ordering
 
+!!!###############################################################
+
+  subroutine scale_airways(scale_factor)
+
+    real(dp),intent(in) :: scale_factor
+    integer :: ne
+
+    do ne = 1,num_elems
+       elem_field(ne_radius,ne) = elem_field(ne_radius,ne)*scale_factor
+       elem_field(ne_vol,ne) = elem_field(ne_vol,ne)*scale_factor**2
+    enddo
+
+  end subroutine scale_airways
+
 !!!#############################################################################
 
   subroutine set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
@@ -4505,6 +4521,17 @@ contains
 
   end subroutine reallocate_node_elem_arrays
 
+!!!#############################################################################
+
+  function get_airway_deadspace() result(airway_deadspace)
+
+    ! Local variables
+    real(dp) :: airway_deadspace, volume_model
+    
+    call volume_of_mesh(volume_model, airway_deadspace)
+
+  end function get_airway_deadspace
+  
 !!!#############################################################################
 
   function get_local_node_f(ndimension,np_global) result(get_local_node)

@@ -373,7 +373,38 @@ contains
 
   end subroutine evaluate_ordering_c
 
+  !
+  !###################################################################################
+  !
+  !*scale_airways:* scales all radii by a given scale factor
+  subroutine scale_airways_c(scale_factor) bind(C, name="scale_airways_c")
+    use geometry, only: scale_airways
+    implicit none
+
+    real(dp),intent(in) :: scale_factor
+
+    call scale_airways(scale_factor)
+
+  end subroutine scale_airways_c
 !
+!###################################################################################
+!
+  !*set_initial_volume:* set the volume of elastic units, with gravitational gradient
+  ! and heterogeneity
+  subroutine set_initial_volume_c(Gdirn,COV,total_volume,Rmax,Rmin) &
+       bind(C, name="set_initial_volume_c")
+    use geometry, only: set_initial_volume
+    use precision, only: dp
+    implicit none
+
+    integer, intent(in) :: Gdirn
+    real(dp), intent(in) :: COV, total_volume, Rmax, Rmin
+    
+    call set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
+
+  end subroutine set_initial_volume_c
+
+!  
 !###################################################################################
 !
 !*volume_of_mesh:* calculates the volume of an airway mesh including conducting and respiratory airways
@@ -388,7 +419,22 @@ contains
 
   end subroutine volume_of_mesh_c
 
+!
+!###################################################################################
+!
+  function get_airway_deadspace_c() result(airway_deadspace) bind(C, name="get_airway_deadspace_c")
+    use precision, only: dp
+    use geometry, only: get_airway_deadspace
+    implicit none
 
+    real(dp) :: airway_deadspace
+
+    airway_deadspace = get_airway_deadspace()
+
+  end function get_airway_deadspace_c
+!
+!###################################################################################
+!
   function get_local_node_f_c(ndimension,np_global) result(get_local_node) bind(C, name="get_local_node_f_c")
     use arrays, only: dp
     use geometry, only: get_local_node_f
