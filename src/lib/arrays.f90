@@ -128,6 +128,28 @@ module arrays
      real(dp) :: air_density = 1.146e-6_dp        ! g.mm^-3
   end type fluid_properties
   
+  type :: gx_units
+     
+     real(dp), allocatable :: Vdot(:)
+     real(dp), allocatable :: Qdot(:)
+     
+     real(dp), allocatable :: p_alv_o2(:)
+     real(dp), allocatable :: p_cap_o2(:)
+     real(dp), allocatable :: c_cap_o2(:)
+     real(dp), allocatable :: conc_o2(:)
+     
+     real(dp), allocatable :: p_alv_co2(:)
+     real(dp), allocatable :: p_cap_co2(:)
+     real(dp), allocatable :: c_cap_co2(:)
+     real(dp), allocatable :: conc_co2(:)
+
+     real(dp), allocatable :: ph_cap(:)
+     real(dp), allocatable :: sat_cap(:)
+     
+  end type gx_units
+
+  type(gx_units) :: gasex
+
 ! temporary, for debugging:
   real(dp) :: unit_before
 
@@ -146,7 +168,7 @@ module arrays
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX
+       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex
 
 contains
   subroutine set_node_field_value(row, col, value)
