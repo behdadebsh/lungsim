@@ -929,12 +929,15 @@ contains
 
   subroutine export_terminal_ssgexch(EXNODEFILE, name)
 
+    use gas_exchange,only : o2_content_from_po2
+    
 !!! Parameters
     character(len=MAX_FILENAME_LEN),intent(in) :: EXNODEFILE
     character(len=MAX_STRING_LEN),intent(in) :: name
 
 !!! Local Variables
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
+    real(dp) :: content
     logical :: FIRST_NODE
 
     len_end=len_trim(name)
@@ -952,7 +955,7 @@ contains
           !*** Write the field information
           VALUE_INDEX=1
           if(FIRST_NODE)THEN
-             write(10,'( '' #Fields=5'' )')
+             write(10,'( '' #Fields=6'' )')
              write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
              do nj=1,3
                 if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
@@ -980,16 +983,23 @@ contains
              write(10,'('' 5) p_c_co2, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+              !c_o2
+             VALUE_INDEX=VALUE_INDEX+1
+             write(10,'('' 6) c_o2, field, rectangular cartesian, #Components=1'')')
+             write(10,'(2X,''1.  '')',advance="no")
+             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
           do nj=1,3
              write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
           enddo !njj2
-           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_Vdot0,NOLIST)) !ventilation
-           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_perf,NOLIST)) !perfusion
-           write(10,'(2X,4(1X,F12.6))') (gasex_field(ng_p_cap_o2,NOLIST)) !end capillary o2
-           write(10,'(2X,4(1X,F12.6))') (gasex_field(ng_p_cap_co2,NOLIST)) !end capillary co2
+          write(10,'(2X,4(1X,F12.6))') (gasex%Vdot(NOLIST)) !ventilation
+          write(10,'(2X,4(1X,F12.6))') (gasex%Qdot(NOLIST)) !perfusion
+          write(10,'(2X,4(1X,F12.6))') (gasex%p_cap_o2(NOLIST)) !end capillary o2
+          write(10,'(2X,4(1X,F12.6))') (gasex%p_cap_co2(NOLIST)) !end capillary co2
+          content = o2_content_from_po2(gasex%p_cap_co2(NOLIST), gasex%p_cap_o2(NOLIST), 0.97_dp)
+          write(10,'(2X,4(1X,F12.6))') content ! content of o2
           FIRST_NODE=.FALSE.
           np_last=np
        enddo !nolist (np)
