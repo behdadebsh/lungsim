@@ -3,8 +3,6 @@ module parameter_types
   use precision
 
   implicit none
-  !real(dp),parameter :: o2mv_37deg = 25.452e+3_dp ! mm^3/mmol (converted from 22.41e3 at STP using V2=T2*V1/T1)
-  !real(dp),parameter :: max_o2_concentration = 3.93236e-5_dp  !mmol/mm^3, maximum concentration (at 100% O2)
 
   ! make the defined types available across modules
   public :: lung_params
@@ -20,13 +18,16 @@ module parameter_types
   public :: update_ventilation
   public :: update_cardiac
   public :: update_solve
+  public :: update_species
 
   type :: fundamental_constants
      ! fixed constants; no update option
-     real(dp) :: o2molvol_37deg = 25.452e+3_dp          ! mm^3/mmol, @BTP; O2 molecular volume converted from 22.41e3 at STP
+     real(dp) :: o2molvol_37deg = 25.452e+3_dp          ! mm^3/mmol, O2 molecular volume @BTP; converted from 22.41e3 at STP using V2=T2*V1/T1
+     real(dp) :: o2molvol_stpd = 22.41e+3_dp            ! mm^3/mmol, O2 molecular volume @STPD; 
      real(dp) :: max_o2_concentration = 3.93236e-5_dp   ! mmol/mm^3, maximum concentration (at 100% O2)
      real(dp) :: mw = 64458.0_dp                        ! g/mol, molecular weight of Hb
      real(dp) :: alphaO2 = 1.46e-6_dp                   ! mol/mmHg, O2 solubility in water at T=37
+     real(dp) :: alphaCO2 = 0.0307_dp                   ! mmol/L/mmHg, CO2 solubility in plasma at T=37 (T dependent)
      real(dp) :: R = 6.23e4_dp                          ! mm^3.mmHg/mmol/K
      real(dp) :: Wbl = 0.81_dp                          ! fractional water content of blood
   end type fundamental_constants
@@ -53,7 +54,9 @@ module parameter_types
      real(dp) :: VO2 = 250.0e3_dp /60.0_dp              ! mm^3/s, metabolic consumption of O2
      real(dp) :: VCO2 = 0.8_dp * 250.0e3_dp /60.0_dp    ! mm^3/s, metabolic production of CO2
      real(dp) :: Hb = 150.0_dp * 0.1_dp                 ! g/dL, haemoglobin concentration [M 13.5 - 17.5; F 12.0 - 15.5]
-     real(dp) :: pHa = 7.4_dp
+     real(dp) :: pHa = 7.4_dp                           ! pH of arterial blood
+     real(dp) :: body_temp = 37.0_dp                    ! degC, body temperature
+     character(len=9) :: sat_model = 'dash'             ! the model of O2 saturation. options: dash, kelman, valsecchi
   end type gasexchange_parameters
 
   type :: ventilation_parameters
@@ -77,8 +80,14 @@ module parameter_types
   end type solve_parameters
     
   type :: species_parameters
-     ! define the species. keeping separate because update routine needs different bindings
-     character(len=8) :: species = 'Human'              ! code accepts human, rabbit, rat, mouse
+     ! define species-specific parameters (non-geometric or functional)
+
+     ! gas exchange - default human values. use update_species to set new values
+     real(dp) :: mcv = 90e-3_dp                         ! pico-L, mean RBC volume for human (ref range 80-96)
+     real(dp) :: mch = 30_dp                            ! pico-grams, mean mass Hb/RBC for human (ref 27-31 picograms/cell)
+     real(dp) :: Hct = 0.45_dp                          ! hematocrit (Dietel & Kampmann 1971)
+     real(dp) :: tau_h = 1.11e-3_dp                     ! mm (1.11 um). Thickness of tissue barrier plus plasma. Weibel (1993)
+     real(dp) :: S2 = 2.34e4_dp                         ! coefficient in Severinghaus 
   end type species_parameters
   
   ! retain between modules
@@ -147,6 +156,8 @@ module parameter_types
          gx_params%Hb = param_value
       case ('pha')
          gx_params%pHa = param_value
+      case ('body_temp')
+         gx_params%body_temp = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
@@ -211,14 +222,35 @@ module parameter_types
     end subroutine update_solve
 
     
-    subroutine update_species(param_name, param_value)
+    subroutine update_species(param_name)
       
-      character(len=*), intent(in) :: param_name
-      character(len=*), intent(in) :: param_value
+      character(len=*), intent(in) :: param_name    ! human, rabbit, rat, mouse
 
       select case (trim(param_name))
-      case ('species')
-         species_params%species = param_value
+      case ('Human')
+         species_params%mcv = 90e-3_dp 
+         species_params%mch = 30_dp    
+         species_params%Hct = 0.45_dp  
+         species_params%tau_h = 1.11e-3_dp
+         species_params%S2 = 2.34e4_dp    
+      case ('Rabbit')
+         species_params%mcv = 66.7e-3_dp  
+         species_params%mch = 20.95_dp    
+         species_params%Hct = 0.436_dp    
+         species_params%tau_h = 0.8e-3_dp 
+         species_params%S2 = 3.5e4_dp     
+      case ('Rat')
+         species_params%mcv = 59.35e-3_dp 
+         species_params%mch = 17.9_dp     
+         species_params%Hct = 0.5182_dp   
+         species_params%tau_h = 0.754e-3_dp
+         species_params%S2 = 5.0e4_dp      
+      case ('Mouse')
+         species_params%mcv = 55.1e-3_dp     
+         species_params%mch = 15.95_dp       
+         species_params%Hct = 0.523_dp       
+         species_params%tau_h = 0.7e-3_dp   
+         species_params%S2 = 8.0e4_dp        
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
