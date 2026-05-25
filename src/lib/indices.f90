@@ -22,9 +22,9 @@ module indices
   integer :: num_ord=4,no_gen=1,no_hord=2,no_sord=3,no_type = 4
   ! indices for node_fields
   integer :: num_nj,nj_aw_press=0,nj_bv_press=0,nj_conc1=0,&
-       nj_conc2=0
+       nj_conc2=0,nj_pp=0
   ! indices for elem_field
-  integer ::num_ne,ne_radius=0,ne_length=0,ne_vol=0,&
+  integer ::num_ne,ne_radius=0,ne_length=0,ne_mass=0,ne_vol=0,&
        ne_resist=0,ne_t_resist=0,ne_Vdot=0,ne_Vdot0=0,ne_a_A=0,&
        ne_dvdt=0,ne_radius_in=0,ne_radius_in0=0,&
        ne_radius_out=0,ne_radius_out0=0,ne_group=0,ne_Qdot=0, &
@@ -54,9 +54,9 @@ module indices
   
   public num_ord,no_gen,no_hord,no_sord,no_type
   
-  public num_nj,nj_aw_press,nj_bv_press,nj_conc1,nj_conc2
+  public num_nj,nj_aw_press,nj_bv_press,nj_conc1,nj_conc2, nj_pp
   
-  public num_ne,ne_radius,ne_length,ne_vol,&
+  public num_ne,ne_radius,ne_length,ne_mass,ne_vol,&
        ne_resist,ne_t_resist,ne_Vdot,ne_Vdot0,ne_a_A,&
        ne_dvdt,ne_radius_in,ne_radius_in0,ne_radius_out,&
        ne_radius_out0,ne_group,ne_Qdot, &
@@ -123,13 +123,14 @@ contains
     call enter_exit(sub_name,1)
     ! indices for elem_ordrs. These dont usually change.
     ! indices for node_field
-    num_nj=4
+    num_nj=5
     nj_conc1=2
     nj_conc2=3
     nj_aw_press=4 !air pressure
+    nj_pp = 5
     
     ! indices for elem_field
-    num_ne = 11
+    num_ne = 15
     ne_radius = 1
     ne_length = 2
     ne_vol = 3
@@ -141,6 +142,10 @@ contains
     ne_vd_bel = 9
     ne_vol_bel = 10
     ne_Qdot = 11
+    ne_mass = 12
+    ne_a_A = 13
+    ne_radius_in = 14
+    ne_radius_out = 15
     
     ! indices for unit_field
     num_nu=14
