@@ -9,7 +9,7 @@ module parameter_types
   public :: gx_params
   public :: V_params
   public :: Q_params
-  public :: solve_params
+  public :: solve_gx_params
   public :: species_params
 
   ! make the 'update' subroutines accessible via python bindings
@@ -22,14 +22,20 @@ module parameter_types
 
   type :: fundamental_constants
      ! fixed constants; no update option
-     real(dp) :: o2molvol_37deg = 25.452e+3_dp          ! mm^3/mmol, O2 molecular volume @BTP; converted from 22.41e3 at STP using V2=T2*V1/T1
-     real(dp) :: o2molvol_stpd = 22.41e+3_dp            ! mm^3/mmol, O2 molecular volume @STPD; 
+     real(dp) :: o2molvol_37deg = 27.128e+3_dp          ! mm^3/mmol, O2 molecular volume @BTPD = R.T/P_dry
+     real(dp) :: o2molvol_btps  = 25.452e+3_dp          ! mm^3/mmol, O2 molecular volume @BTPS = R.T/P_atm
+     real(dp) :: o2molvol_stpd  = 22.414e+3_dp          ! mm^3/mmol, O2 molecular volume @STPD
      real(dp) :: max_o2_concentration = 3.93236e-5_dp   ! mmol/mm^3, maximum concentration (at 100% O2)
      real(dp) :: mw = 64458.0_dp                        ! g/mol, molecular weight of Hb
-     real(dp) :: alphaO2 = 1.46e-6_dp                   ! mol/mmHg, O2 solubility in water at T=37
-     real(dp) :: alphaCO2 = 0.0307_dp                   ! mmol/L/mmHg, CO2 solubility in plasma at T=37 (T dependent)
-     real(dp) :: R = 6.23e4_dp                          ! mm^3.mmHg/mmol/K
+     real(dp) :: alphaO2 = 1.19e-9_dp                   ! mmol/mm^3/mmHg, O2 solubility in water at T=37 (converted from 0.0031 mL/dL/mmHg)
+     real(dp) :: alphaCO2 = 3.07e-8_dp                  ! mmol/mm^3/mmHg, CO2 solubility in plasma at T=37 (T dependent)
+     real(dp) :: R = 6.2364e4_dp                        ! mm^3.mmHg/mmol/K
      real(dp) :: Wbl = 0.81_dp                          ! fractional water content of blood
+     real(dp) :: kappa_o2 = 3.85_dp                     ! mol(O2)/mol(blood); O2 carrying capacity of haemoglobin [pg.26]
+     real(dp) :: kc_O2 = 4.4e8_dp                       ! mm^3/mmol/s; forward reaction velocity for O2 with Hb (Weibel 1997)
+     real(dp) :: sigma_o2 = 1.4e-9_dp                   ! mmol/mm^3/mmHg; solubility of O2 in blood (Hill et al., 1973a)
+     real(dp) :: K = 5.5e-8_dp                          ! mm^2/s/mmHg. Krogh's permeation coefficient for O2. (==3.3e-8 cm2/min/mmHg); Weibel 1993
+     real(dp) :: K_CO = 4.47e-8_dp                      ! mm^2/s/mmHg. Krogh's permeation coefficient for CO. (==2.68e-8 cm2/min/mmHg)
   end type fundamental_constants
   
   type :: lung_parameters
@@ -70,14 +76,16 @@ module parameter_types
      real(dp) :: shunt_fraction = 0.02_dp    !proportion of cardiac output that is shunt
   end type cardiac_parameters
 
-  type :: solve_parameters
-     ! parameters to control solution and solver
+  type :: solve_gx_parameters
+     ! parameters to control gas exchange and gas mixing solutions and solver
      integer  :: num_breaths = 20                       ! max # breaths to solve for
      integer  :: out_itr_max = 200                      ! max # (outer) iterations using GMRES solver.
      integer  :: inr_itr_max = 100                      ! max # (inner) iterations using GMRES solver.
+     real(dp) :: theta = 2.0_dp/3.0_dp                  ! weighting for matrices in reduced system: A = M+K*dt*theta; B = -K*c^(n)*dt
      real(dp) :: solve_tolerance = 1.0e-8_dp            ! tolerance for comparing residuals
      real(dp) :: dt = 0.025_dp                          ! time step for PDE solution
-  end type solve_parameters
+     real(dp) :: dt_gx = 0.0025_dp                      ! time step for gas exchange model solution
+  end type solve_gx_parameters
     
   type :: species_parameters
      ! define species-specific parameters (non-geometric or functional)
@@ -96,7 +104,7 @@ module parameter_types
   type(gasexchange_parameters) :: gx_params
   type(ventilation_parameters) :: V_params
   type(cardiac_parameters)     :: Q_params
-  type(solve_parameters)       :: solve_params
+  type(solve_gx_parameters)    :: solve_gx_params
   type(species_parameters)     :: species_params
 
   
@@ -192,6 +200,10 @@ module parameter_types
          Q_params%cardiac_output = param_value
       case ('shunt_fraction')
          Q_params%shunt_fraction = param_value
+      case ('help')
+         write(*,'('' Current values for update_cardiac:'')') 
+         write(*,'(''    -  cardiac_output = '', f8.1, '' mm^3/s'')')  Q_params%cardiac_output
+         write(*,'(''    -  shunt_fraction = '', f6.3)')  Q_params%shunt_fraction
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
@@ -206,15 +218,17 @@ module parameter_types
 
       select case (trim(param_name))
       case ('number_of_breaths')
-         solve_params%num_breaths = param_value
+         solve_gx_params%num_breaths = param_value
       case ('max_outer_iterations')
-         solve_params%out_itr_max = param_value
+         solve_gx_params%out_itr_max = param_value
       case ('max_inner_iterations')
-         solve_params%inr_itr_max = param_value
+         solve_gx_params%inr_itr_max = param_value
       case ('solver_tolerance')
-         solve_params%solve_tolerance = param_value
-      case ('dt')
-         solve_params%dt = param_value
+         solve_gx_params%solve_tolerance = param_value
+      case ('dt_solve')
+         solve_gx_params%dt = param_value
+      case ('dt_gx')
+         solve_gx_params%dt_gx = param_value
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'

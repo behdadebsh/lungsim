@@ -939,10 +939,16 @@ contains
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
     real(dp) :: content
     logical :: FIRST_NODE
+    character(len=MAX_FILENAME_LEN) :: writefile
 
     len_end=len_trim(name)
     if(num_units.GT.0) THEN
-       open(10, file=EXNODEFILE, status='replace')
+       if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
+          writefile = EXNODEFILE
+       else ! need to append the correct filename extension
+          writefile = trim(EXNODEFILE)//'.exnode'
+       endif
+       open(10, file=writefile, status='replace')
        !**     write the group name
        write(10,'( '' Group name: '',A)') name(:len_end)
        FIRST_NODE=.TRUE.

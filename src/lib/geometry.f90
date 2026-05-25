@@ -3197,7 +3197,7 @@ contains
        end do read_a_node
 
     else ! for element_based field file
-
+       
        ne = 0
        ne_counter = 0
 
