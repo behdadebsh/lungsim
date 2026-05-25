@@ -145,6 +145,12 @@ module arrays
 
      real(dp), allocatable :: ph_cap(:)
      real(dp), allocatable :: sat_cap(:)
+
+     real(dp), allocatable :: V_cap(:)
+     real(dp), allocatable :: S_area(:)
+     real(dp), allocatable :: volume(:)
+     real(dp), allocatable :: t_time(:)
+     real(dp), allocatable :: t_in_transit(:)
      
   end type gx_units
 
