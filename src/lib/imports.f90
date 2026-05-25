@@ -48,12 +48,16 @@ contains
    sub_name = 'import_ventilation'
    call enter_exit(sub_name,1)
 
+   if(.not.allocated(gasex%Vdot)) allocate(gasex%Vdot(num_units))
+   gasex%Vdot = 0.0_dp
+   
    print *, 'Reading in ventilation results'
    call import_exelemfield(FLOWFILE,ne_Vdot)
    do nunit = 1,num_units
      ne = units(nunit)
      if(elem_field(ne_Vdot,ne).lt.0.0_dp) elem_field(ne_Vdot,ne) = zero_tol
      unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne)
+     gasex%Vdot(nunit) = elem_field(ne_Vdot,ne)
    enddo
 
 !!! sum the fields up the tree
@@ -83,12 +87,16 @@ contains
    sub_name = 'import_perfusion'
    call enter_exit(sub_name,1)
 
+   if(.not.allocated(gasex%Qdot)) allocate(gasex%Qdot(num_units))
+   gasex%Qdot = 0.0_dp
+   
    print *, 'Reading in perfusion results'
    call import_exelemfield(FLOWFILE,ne_Qdot)
    do nunit = 1,num_units
      ne = units(nunit)
      if(elem_field(ne_Qdot,ne).lt.0.0_dp) elem_field(ne_Qdot,ne) = zero_tol
      unit_field(nu_perf,nunit) = elem_field(ne_Qdot,ne)
+     gasex%Qdot(nunit) = elem_field(ne_Qdot,ne)
    enddo
 
 !!! sum the fields up the tree
