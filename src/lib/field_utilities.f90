@@ -48,15 +48,17 @@ contains
       if(abs(elem_field(ne_Vdot,1)).gt.zero_tol)then
          ratio = inlet_flow/elem_field(ne_Vdot,1)
          unit_field(nu_Vdot0,1:num_units) = unit_field(nu_Vdot0,1:num_units)*ratio
+         gasex%Vdot = gasex%Vdot * ratio
          elem_field(ne_Vdot,1:num_elems) = elem_field(ne_Vdot,1:num_elems)*ratio
          elem_field(ne_dvdt,1:num_elems) = elem_field(ne_dvdt,1:num_elems)*ratio
       else
          write(*,'('' Cannot scale to zero flow'')')
       endif
-    elseif(VorQ.eq.'Q')then
+   elseif(VorQ.eq.'Q')then
       if(abs(elem_field(ne_Qdot,1)).gt.zero_tol)then
         ratio = inlet_flow/elem_field(ne_Qdot,1)
         unit_field(nu_perf,1:num_units) = unit_field(nu_perf,1:num_units)*ratio
+        gasex%Qdot = gasex%Qdot * ratio
         elem_field(ne_Qdot,1:num_elems) = elem_field(ne_Qdot,1:num_elems)*ratio
       else
         write(*,'('' Cannot scale to zero flow'')')
