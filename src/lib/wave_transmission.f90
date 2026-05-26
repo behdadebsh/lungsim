@@ -1944,6 +1944,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     open(200, file = 'WSS_arterial.txt', action='write')
     open(210, file = 'radii.txt', action='write')
     open(220, file = 'flows.txt', action='write')
+    open(230, file = 'pressures.txt', action='write')
     do nu =1,num_units
         ne=units(nu)  ! terminal elements
         ne_previous=elem_cnct(-1,1,ne)
@@ -2096,9 +2097,10 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     write(200,fmt=*) ne, WSS ! WSS for element 1 to be added to WSS_arterial.txt
     write(210,fmt=*) ne, elem_rad ! radius for element 1 to be added to radii.txt
     write(220,fmt=*) ne, forward_flow - reflected_flow + elem_field(ne_Qdot,ne) ! Flow for element 1 to be added to flows.txt
+    write(230,fmt=*) ne, forward_pressure + reflected_pressure + node_field(nj_bv_press,np_previous)
 
 
-    do ne =2,min_ven-1  ! reporting time-dependent radius and WSS for all the arteries
+    do ne =2,num_elems  ! reporting time-dependent radius and WSS for all the vessels
       ne_previous=elem_cnct(-1,1,ne)
       forward_pressure=0.0_dp
       reflected_pressure=0.0_dp
@@ -2166,6 +2168,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       write(200,fmt=*) ne, WSS ! elements wall shear stress in cardiac cycle
       write(210,fmt=*) ne, elem_rad ! elements radii in cardiac cycle
       write(220,fmt=*) ne, forward_flow-reflected_flow+elem_field(ne_Qdot,ne) ! elem flows in cardiac cycle
+      write(230,fmt=*) ne, forward_pressure + reflected_pressure + node_field(nj_bv_press,np_previous)
     enddo
 
     do ne = 1, num_elems
@@ -2271,6 +2274,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     close(190)
     close(200)
     close(210)
+    close(220)
+    close(230)
 
 
   !!DEALLOCATE MEMORY
