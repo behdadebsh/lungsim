@@ -553,9 +553,6 @@ contains
             *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
             *(lambda**2+1.0_dp)/lambda**4)
        unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-       ! add the chest wall (proportionately) in parallel
-       unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-            +1.0_dp/(chest_wall_compliance/dble(num_units)))
        !estimate an elastic recoil pressure for the unit
        unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
