@@ -5,7 +5,7 @@ set(ADDITIONAL_GENERATED_FILES)
 # SWIG has already been found at this point.
 include(${SWIG_USE_FILE})
 
-if(${Python_VERSION_MAJOR} STREQUAL "3")
+if("${SWIG_VERSION}" VERSION_LESS "4.1.0")
   set(PYTHONLIBS_SWIG_FLAGS -py3 -relativeimport)
 endif()
 
@@ -87,7 +87,7 @@ foreach(SWIG_INTERFACE ${INTERFACE_SRCS})
   # so we add the release libraries here for all platforms.  This probably means that
   # when we try and link to the debug version of the Python libraires on OSX and GNU/Linux 
   # we will not succeed.  But as this is rarely done it hopefully won't become an issue.
-  target_link_libraries(${MODULE_TARGET} Python::Python Python::NumPy aether_c)
+  target_link_libraries(${MODULE_TARGET} Python::Module Python::NumPy aether_c)
   set_target_properties(${MODULE_TARGET} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PYTHON_PACKAGE_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${PYTHON_PACKAGE_DIR}
@@ -161,11 +161,3 @@ add_custom_command(TARGET ${SWIG_PYTHON_BINDINGS_TARGETS} POST_BUILD
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py ${AETHER_README_FILE} ${SETUP_PRE_GEN_PY_FILE}
   COMMENT "Finalise preparation of Aether Python bindings."
 )
-
-if (NOT IS_MULTI_CONFIG AND AETHER_BUILD_TYPE)
-  string(TOLOWER ${AETHER_BUILD_TYPE} LOWER_AETHER_BUILD_TYPE)
-  set(_BUILD_TYPE_PART ${LOWER_AETHER_BUILD_TYPE}_)
-endif()
-
-find_program(VIRTUALENV_EXECUTABLE NAMES ${VIRTUALENV_PREFERRED_NAMES} virtualenv)
-message(STATUS "${VIRTUALENV_EXECUTABLE} -p ${Python_EXECUTABLE} venv_${_BUILD_TYPE_PART}py${Python_VERSION_MAJOR}${Python_VERSION_MINOR}")
