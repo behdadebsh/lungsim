@@ -21,6 +21,8 @@ module solve
 
   public BICGSTAB_LinSolv
   public pmgmres_ilu_cr
+  public pmgmres_ilu_cr_cached
+  public runge_kutta_4th
 
 contains
 !
@@ -464,6 +466,361 @@ end subroutine BICGSTAB_LinSolv
 
     return
   end subroutine pmgmres_ilu_cr
+
+!!!######################################################################
+
+!!! Runge-Kutta, based on Numerical Recipes
+! h	- Stepsize
+! y(x)	- Function y of variable x
+! yo(xo)- Initial/Boundary condition
+! dydx	- Derivative (defined in subroutine 'derive')
+!
+! Given an initial value for the variable y and the derivative dydx
+! known at x, use the fourth-order Runge-Kutta method to advance the 
+! solution over an interval h and return the incremented variables as 
+! yout, which need not be a distinct array from y. The user supplies 
+! the subroutine derivs(x,y,dydx), which returns derivatives dydx at x.
+
+ subroutine runge_kutta_4th(type,tbeg,tend,yo,RPAR)
+   use arrays,only: dp
+   implicit none
+   integer,intent(in) :: type
+   real(dp) :: tbeg,tend,rpar(*)
+   real(dp) :: yo,x,y,dydx,h,yout
+   
+   h = tend - tbeg
+   y = yo
+   x = tbeg
+
+   select case(type)
+   case(1)
+      call dpo2dt(y,dydx,rpar)
+   case(2)
+      call dpco2dt(y,dydx,rpar)
+   end select
+   call rk4mod(type,y,dydx,x,h,yout,rpar)
+
+   yo = yout
+
+ end subroutine runge_kutta_4th
+
+!!!#########################################################################
+  
+ subroutine rk4mod(type,y,dydx,x,h,yout,rpar)
+
+! Modified Numerical Recipes subroutine for fourth order Runge-Kutta 
+! integration with only one differential equation (n=1).
+
+   use arrays,only: dp
+   implicit none
+   integer :: type
+   real(dp) :: h,x,dydx,y,yout,rpar(*)
+   real(dp) :: h6,hh,xh,dym,dyt,yt
+
+   hh = h*0.5_dp
+   h6 = h/6.0_dp
+   xh = x+hh
+   yt = y + hh*dydx
+   select case(type)
+   case(1)
+      call dpo2dt(yt,dyt,rpar)
+      yt = y + hh*dyt
+      call dpo2dt(yt,dym,rpar)
+      yt = y + h*dym
+      dym = dyt + dym
+      call dpo2dt(yt,dyt,rpar)
+      yout = y + h6*(dydx+dyt+2.0_dp*dym)
+   case(2)
+      call dpco2dt(yt,dyt,rpar)
+      yt = y + hh*dyt
+      call dpco2dt(yt,dym,rpar)
+      yt = y + h*dym
+      dym = dyt + dym
+      call dpco2dt(yt,dyt,rpar)
+      yout = y + h6*(dydx+dyt+2.0_dp*dym)
+   end select
+   return
+ end subroutine rk4mod
+
+  subroutine DPO2DT(Y,F,RPAR)
+   
+!###    ODE for rate of change of blood PO2, based on the Ben-Tal 2006 
+!###    gas exchange model. This is called from RADAU5.f (ode solver). 
+!###    Y = po (PO2 in capillary blood)
+
+    use arrays,only: dp
+    use parameter_types, only: constants
+  implicit none
+        
+!!! Parameter List
+   real(dp) :: F,RPAR(0:5),Y
+!!! Local Variables
+   real(dp) :: Doxy,dfdp,alveolar_o2,PA,Th,Vc
+   real(dp),parameter :: sigma_o = 1.4e-6_dp      ! mol/L/mmHg
+  real(dp),parameter :: Kr = 3.6e+6_dp !L/mol
+  real(dp),parameter :: Kt = 10.0e+3_dp !L/mol
+  real(dp),parameter :: L = 171.2e+6_dp
+   
+!!! Get parameters
+   PA = RPAR(1)                       ! atmospheric pressure, mmHg
+   Vc = RPAR(2)                       ! capillary blood volume (remains in mm3)
+   Doxy = RPAR(3)                     ! oxygen diffusing capacity (remains in mm3/s/mmHg)
+   alveolar_o2 = rpar(4)              ! alveolar partial pressure, mmHg
+   Th = RPAR(5)                       ! concentration of haemoglobin, mol/L
+
+   if(abs(Vc).le.zero_tol.or.abs(Doxy).le.zero_tol)then
+      F = 0.0_dp
+   else 
+!!! Derivative function
+      dfdp = ((L*(1+kt*sigma_o*Y)**4+(1+kr*sigma_o*Y)**4)* &
+           (3*L*kt**2*sigma_o**2*Y*(1+kt*sigma_o*Y)**2+ &
+           L*kt*sigma_o*(1+kt*sigma_o*Y)**3+3*kr**2*sigma_o**2*Y &
+           *(1+kr*sigma_o*Y)**2+kr*sigma_o*(1+kr*sigma_o*Y)**3) &
+           -(L*kt*sigma_o*Y*(1+kt*sigma_o*Y)**3+kr*sigma_o*Y &
+           *(1+kr*sigma_o*Y)**3)*(4*L*kt*sigma_o*(1+kt*sigma_o &
+           *Y)**3+4*kr*sigma_o*(1+kr*sigma_o*Y)**3))/  &
+           ((L*(1+kt*sigma_o*Y)**4+(1+kr*sigma_o*Y)**4)**2)
+
+      F = Doxy/(constants%o2molvol_37deg*1.0e-3_dp)/(sigma_o*Vc)*(1/(1+(4*Th/sigma_o)* &
+           dfdp))*(alveolar_o2 - Y)
+   endif ! Vc or Doxy or Dc = 0
+
+ end subroutine DPO2DT
+
+
+ subroutine DPCO2DT(Y,F,RPAR)
+   
+   !###    System of equations for the Ben-Tal 2006 gas exchange model. 
+   !###    This is called from RADAU5.f (ode solver). The code assumes
+   !###    a breath-hold (i.e. q=0) over the timestep.
+   
+   use arrays,only: dp
+   implicit none
+   
+!!! Parameter List
+   real(dp) :: F,RPAR(0:5),Y
+!!! Local Variables
+   real(dp) :: alveolar_co2,Dco2,PA,Th,Vc
+   real(dp),parameter :: o2molvol = 25.44_dp     ! L/mol
+   real(dp),parameter :: sigma_c = 3.3e-5_dp     ! CO2 solubiltity in the membrane, mol/L/mmHg
+   
+!!! Get parameters
+   PA=RPAR(1)                          ! mmHg
+   Vc=RPAR(2) *1.0e-6_dp               ! mm^3
+   Dco2=RPAR(3)*1.0e-6_dp              ! CO2 diffusing capacity, in l/s/mmHg
+   alveolar_co2 = RPAR(4)              ! mmHg
+   Th=RPAR(5)                          ! concentration of haemoglobin, mol/L
+   
+   if(abs(Vc).le.zero_tol.or.abs(Dco2).le.zero_tol)then
+      F=0.d0
+   else
+      F = Dco2/(o2molvol*sigma_c*Vc)*(alveolar_co2 - Y)
+   endif
+   
+ end subroutine DPCO2DT
+
+  subroutine pmgmres_ilu_cr_cached ( n, nz_num, ia, ja, a, x, rhs, pattern_changed )
+
+    integer, intent(in)    :: n, nz_num
+    integer, intent(inout) :: ia(*), ja(*)
+    real(dp), intent(inout):: a(*)
+    real(dp), intent(inout):: x(*)
+    real(dp), intent(in)   :: rhs(*)
+    logical, intent(in)    :: pattern_changed
+    
+    integer,parameter  :: itr_max = 200      ! max # (outer) iterations using GMRES solver.
+    integer,parameter  :: mr = 100      ! max # (inner) iterations using GMRES solver.
+    real(dp),parameter :: tol_abs = 1.0e-8_dp        ! tolerance for comparing residuals
+    real(dp),parameter :: tol_rel = 1.0e-8_dp        ! tolerance for comparing residuals
+    
+    ! Cached/persistent data
+    integer,  allocatable, save :: ua(:)
+    integer,  save :: n_cached = 0
+    logical,  save :: have_pattern = .false.
+    
+    ! Work arrays (reuse across calls)
+    real(dp), allocatable, save :: r(:), v(:,:), h(:,:), c(:), s(:), g(:), y(:), l(:), tmp(:)
+    integer,  save :: mr_cached = 0, l_cached = 0
+    
+    ! Locals
+    integer :: i, j, k, itr, k_used
+    real(dp) :: rho, rho_tol, mu, htmp
+    real(dp), parameter :: delta = 1.0e-3_dp
+    logical, parameter :: verbose = .false.
+    
+    ! ---- allocate/reallocate arrays if needed ----
+    if (n_cached /= n .or. mr_cached /= mr .or. l_cached /= ia(n+1)+1) then
+       if (allocated(ua)) deallocate(ua)
+       if (allocated(r))  deallocate(r, v, h, c, s, g, y, l, tmp)
+       
+       allocate(ua(n))
+       allocate(r(n), tmp(n))
+       allocate(v(n, mr+1))
+       allocate(h(mr+1, mr))
+       allocate(c(mr), s(mr))
+       allocate(g(mr+1), y(mr+1))
+       allocate(l(ia(n+1)+1))
+       
+       n_cached  = n
+       mr_cached = mr
+       l_cached  = ia(n+1)+1
+       have_pattern = .false.
+    end if
+    
+    ! ---- pattern-dependent setup (rare) ----
+    if (.not. have_pattern .or. pattern_changed) then
+       call rearrange_cr ( n, ia, ja, a )
+       call diagonal_pointer_cr ( n, ia, ja, ua )
+       have_pattern = .true.
+    end if
+    
+    ! ---- value-dependent preconditioner build (every call) ----
+    call ilu_cr ( n, nz_num, ia, ja, a, ua, l )
+    
+    ! ---- GMRES(m) with left preconditioning ----
+    do itr = 1, itr_max
+       
+       ! tmp = A*x
+       call ax_cr ( n, ia, ja, a, x, tmp )
+       
+       ! r = rhs - tmp
+       do i = 1, n
+          r(i) = rhs(i) - tmp(i)
+       end do
+       
+       ! r = M^{-1} r
+       call lus_cr ( n, ia, ja, l, ua, r, r )
+       
+       ! rho = ||r||
+       rho = 0.0_dp
+       do i = 1, n
+          rho = rho + r(i)*r(i)
+       end do
+       rho = sqrt(rho)
+       
+       if (verbose) write(*,'(a,i6,a,es14.6)') '  ITR = ', itr, '  Residual = ', rho
+       
+       if (itr == 1) rho_tol = rho * tol_rel
+       if (rho <= rho_tol .and. rho <= tol_abs) exit
+       
+       ! v(:,1) = r / rho
+       mu = 1.0_dp / rho
+       do i = 1, n
+          v(i,1) = r(i) * mu
+       end do
+       
+       g(1) = rho
+       do i = 2, mr+1
+          g(i) = 0.0_dp
+       end do
+       
+       k_used = 0
+       
+       do k = 1, mr
+          k_used = k
+          
+          ! w = A*v(:,k)  -> store in v(:,k+1)
+          call ax_cr ( n, ia, ja, a, v(1:n,k), v(1:n,k+1) )
+          
+          ! w = M^{-1} w
+          call lus_cr ( n, ia, ja, l, ua, v(1:n,k+1), v(1:n,k+1) )
+          
+          ! Modified Gram-Schmidt
+          do j = 1, k
+             htmp = 0.0_dp
+             do i = 1, n
+                htmp = htmp + v(i,j) * v(i,k+1)
+             end do
+             h(j,k) = htmp
+             do i = 1, n
+                v(i,k+1) = v(i,k+1) - htmp * v(i,j)
+             end do
+          end do
+          
+          ! h(k+1,k) = ||w||
+          htmp = 0.0_dp
+          do i = 1, n
+             htmp = htmp + v(i,k+1)*v(i,k+1)
+          end do
+          h(k+1,k) = sqrt(htmp)
+          
+          ! Optional reorth (kept)
+          if (abs(sqrt(htmp) + delta*h(k+1,k)) <= sqrt(htmp)) then
+             do j = 1, k
+                mu = 0.0_dp
+                do i = 1, n
+                   mu = mu + v(i,j) * v(i,k+1)
+                end do
+                h(j,k) = h(j,k) + mu
+                do i = 1, n
+                   v(i,k+1) = v(i,k+1) - mu * v(i,j)
+                end do
+             end do
+             htmp = 0.0_dp
+             do i = 1, n
+                htmp = htmp + v(i,k+1)*v(i,k+1)
+             end do
+             h(k+1,k) = sqrt(htmp)
+          end if
+          
+          if (abs(h(k+1,k)) > zero_tol) then
+             mu = 1.0_dp / h(k+1,k)
+             do i = 1, n
+                v(i,k+1) = v(i,k+1) * mu
+             end do
+          end if
+          
+          ! Apply previous Givens to column k
+          if (k > 1) then
+             y(1:k+1) = h(1:k+1,k)
+             do j = 1, k-1
+                call mult_givens(c(j), s(j), j, y)
+             end do
+             h(1:k+1,k) = y(1:k+1)
+          end if
+          
+          ! New Givens
+          mu = sqrt(h(k,k)*h(k,k) + h(k+1,k)*h(k+1,k))
+          if (mu == 0.0_dp) then
+             c(k) = 1.0_dp
+             s(k) = 0.0_dp
+          else
+             c(k) =  h(k,k)   / mu
+             s(k) = -h(k+1,k) / mu
+          end if
+          
+          h(k,k)   = c(k)*h(k,k) - s(k)*h(k+1,k)
+          h(k+1,k) = 0.0_dp
+          call mult_givens(c(k), s(k), k, g)
+          
+          rho = abs(g(k+1))
+          if (rho <= rho_tol .and. rho <= tol_abs) exit
+       end do
+       
+       ! Back-substitute for y(1:k_used)
+       do i = k_used, 1, -1
+          mu = g(i)
+          do j = i+1, k_used
+             mu = mu - h(i,j) * y(j)
+          end do
+          y(i) = mu / h(i,i)
+       end do
+       
+       ! x += V(:,1:k_used)*y(1:k_used)
+       do i = 1, n
+          mu = 0.0_dp
+          do j = 1, k_used
+             mu = mu + v(i,j) * y(j)
+          end do
+          x(i) = x(i) + mu
+       end do
+       
+       if (rho <= rho_tol .and. rho <= tol_abs) exit
+    end do
+    
+  end subroutine pmgmres_ilu_cr_cached
+  
+
 
 
 

@@ -41,6 +41,7 @@ module arrays
   integer,allocatable :: elems_at_node_2d(:,:)
   integer,allocatable :: triangle(:,:)
   integer,allocatable :: units(:)
+  integer,allocatable :: units_effective(:)
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -126,18 +127,35 @@ module arrays
      real(dp) :: air_viscosity = 1.8e-5_dp        ! Pa.s
      real(dp) :: air_density = 1.146e-6_dp        ! g.mm^-3
   end type fluid_properties
-
-  type default_lymphatic_properties
-     ! default values for lymphatic model parameters
-     real(dp) :: lymphatic_density = 1.0_dp !to be calculated from CT??
-     real(dp) :: lymphatic_integrity = 1.0_dp ! a measure of how 'leaky' the lymphatic vessels are and prone to backflow
-     real(dp) :: reflection_coefficient = 0.0_dp
-     real(dp) :: test_time = 86400.0_dp !number of seconds for test to be run
-  end type default_lymphatic_properties
-
-!!! arrays that start with default values, updated during simulations/by user
-  type(default_lymphatic_properties) :: lymphatic_properties
   
+  type :: gx_units
+     
+     real(dp), allocatable :: Vdot(:)
+     real(dp), allocatable :: Qdot(:)
+     
+     real(dp), allocatable :: p_alv_o2(:)
+     real(dp), allocatable :: p_cap_o2(:)
+     real(dp), allocatable :: c_cap_o2(:)
+     real(dp), allocatable :: conc_o2(:)
+     
+     real(dp), allocatable :: p_alv_co2(:)
+     real(dp), allocatable :: p_cap_co2(:)
+     real(dp), allocatable :: c_cap_co2(:)
+     real(dp), allocatable :: conc_co2(:)
+
+     real(dp), allocatable :: ph_cap(:)
+     real(dp), allocatable :: sat_cap(:)
+
+     real(dp), allocatable :: V_cap(:)
+     real(dp), allocatable :: S_area(:)
+     real(dp), allocatable :: volume(:)
+     real(dp), allocatable :: t_time(:)
+     real(dp), allocatable :: t_in_transit(:)
+     
+  end type gx_units
+
+  type(gx_units) :: gasex
+
 ! temporary, for debugging:
   real(dp) :: unit_before
 
@@ -146,17 +164,17 @@ module arrays
   public set_node_field_value, elem_field, num_elems, num_elems_2d, num_groups, elem_nodes, node_xyz, &
        nodes,nodes_2d, elems, num_nodes, num_nodes_2d, num_data, num_triangles, num_vertices, &
        data_field, data_xyz, data_weight, &
-       node_xyz_2d, node_versn_2d, units, num_units, unit_field, node_field, dp, &
+       node_xyz_2d, node_versn_2d, units, units_effective, num_units, unit_field, node_field, dp, &
        data_group_names, elem_group_names, ndata_groups, nelem_groups, &
        elem_cnct, elem_ordrs, elem_direction, elems_at_node, elem_symmetry, expansile, &
        elem_units_below, maxgen,capillary_bf_parameters, zero_tol,loose_tol,gasex_field, &
        num_lines_2d, lines_2d, line_versn_2d, lines_in_elem, nodes_in_line, elems_2d, &
        elem_cnct_2d, elem_nodes_2d, elem_versn_2d, elem_lines_2d, elems_at_node_2d, arclength, &
-       scale_factors_2d, fluid_properties, lymphatic_properties, elasticity_vessels, admittance_param, &
-       elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, update_parameter, &
+       scale_factors_2d, fluid_properties, elasticity_vessels, admittance_param, &
+       elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX
+       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex
 
 contains
   subroutine set_node_field_value(row, col, value)
@@ -168,27 +186,5 @@ contains
     node_field(row, col) = value
 
   end subroutine set_node_field_value
-
-  subroutine update_parameter(parameter_name, parameter_value)
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_UPDATE_PARAMETER" :: UPDATE_PARAMETER
-    implicit none
-    real(dp), intent(in) :: parameter_value
-    character(len=*), intent(in) :: parameter_name
-    
-    select case(parameter_name)
-       
-!!! lymphatic_properties
-    case('lymphatic_density')
-       lymphatic_properties%lymphatic_density = parameter_value
-    case('lymphatic_integrity')
-       lymphatic_properties%lymphatic_integrity = parameter_value
-    case('reflection_coefficient')
-       lymphatic_properties%reflection_coefficient = parameter_value
-    case('test_time')
-       lymphatic_properties%test_time = parameter_value
-
-    end select
-    
-  end subroutine update_parameter
 
 end module arrays

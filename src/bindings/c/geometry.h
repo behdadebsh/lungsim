@@ -20,12 +20,15 @@ SHO_PUBLIC void list_tree_statistics(const char *filename);
 SHO_PUBLIC void make_data_grid(int elemlist_len, int elemlist[], int num_target, double offset, double spacing);
 SHO_PUBLIC void make_2d_vessel_from_1d(int elemlist_len, int elemlist[]);
 SHO_PUBLIC void define_rad_from_file(const char *FIELDFILE, const char *radius_type);
+SHO_PUBLIC double get_airway_deadspace();
 SHO_PUBLIC int get_local_node_f(const char *ndimenstion, const char *np_global);
 SHO_PUBLIC void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM,
                                      double START_RAD, const char *GROUP_TYPE, const char *GROUP_OPTIONS);
 SHO_PUBLIC void occlude_vessel(int VESSEL_NUMBER, double RATIO);
 SHO_PUBLIC void element_connectivity_1d();
 SHO_PUBLIC void evaluate_ordering();
+SHO_PUBLIC void scale_airways(double scale_factor);
+SHO_PUBLIC void set_initial_volume(int Gdirn, double COV, double total_volume, double Rmax, double Rmin);
 SHO_PUBLIC void volume_of_mesh(double *volume_model, double *volume_tree);
 SHO_PUBLIC void write_elem_geometry_2d(const char *ELEMFILE);
 SHO_PUBLIC void write_geo_file(int ntype, const char *GEOFILE);
