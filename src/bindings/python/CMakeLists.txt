@@ -108,7 +108,7 @@ foreach(interface ${INTERFACE_SRCS})
 endforeach()
 
 add_custom_command(TARGET ${_last_swig_module} POST_BUILD
-  COMMENT "Copying aehter_c to Python package dir"
+  COMMENT "Copying aether_c to Python package dir"
   COMMAND ${CMAKE_COMMAND} -E make_directory ${SWIG_OUT_DIR}
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:aether_c>
