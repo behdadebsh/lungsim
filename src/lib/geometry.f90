@@ -1122,7 +1122,6 @@ contains
 
   subroutine import_node_geometry_2d(NODEFILE)
     !*define_node_geometry_2d:* Reads in an exnode file to define surface nodes
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_DEFINE_NODE_GEOMETRY_2D" :: DEFINE_NODE_GEOMETRY_2D
 
     character(len=*),intent(in) :: NODEFILE
     !     Local Variables

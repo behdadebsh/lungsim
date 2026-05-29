@@ -1,7 +1,7 @@
 
 add_subdirectory(c)
 
-find_package(SWIG QUIET)
+find_package(SWIG)
 mark_as_advanced(SWIG_EXECUTABLE)
 
 if(SWIG_FOUND)

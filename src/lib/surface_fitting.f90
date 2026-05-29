@@ -588,10 +588,10 @@ contains
     
     if(num_data_infit.GT.1) then
        write(*,'('' Number of data points in fit ='',I8)') num_data_infit
-       write(*,'('' Average absolute error  : '',D12.6,'' +/- '',D12.6)') &
+       write(*,'('' Average absolute error  : '',D14.6,'' +/- '',D14.6)') &
             SAED/real(num_data_infit),sqrt((SQED-SAED**2/real(num_data_infit))/ &
             real(num_data_infit-1))
-       write(*,'('' Root mean squared error : '',D12.6)') &
+       write(*,'('' Root mean squared error : '',D14.6)') &
             sqrt(SQED/DBLE(num_data_infit))
     else
        WRITE(*,'('' No data points in any elements'')')

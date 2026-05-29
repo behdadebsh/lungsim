@@ -1,15 +1,6 @@
 
-
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 project(Aether VERSION 0.1.0 LANGUAGES Fortran C CXX)
-
-# Policy settings
-if (POLICY CMP0078)
-  cmake_policy(SET CMP0078 NEW)
-endif ()
-if(POLICY CMP0086)
-  cmake_policy(SET CMP0086 NEW)
-endif()
 
 get_property(IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
