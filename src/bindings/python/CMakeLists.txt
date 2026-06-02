@@ -1,12 +1,5 @@
 
-cmake_minimum_required(VERSION 3.21)
-
-project(AetherPythonBindings LANGUAGES C)
-
-find_package(SWIG REQUIRED QUIET)
 include(UseSWIG)
-
-find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy QUIET)
 
 if (match_python_deployment)
   execute_process(
@@ -90,7 +83,7 @@ foreach(interface ${INTERFACE_SRCS})
 
   target_link_libraries(${module}
     PRIVATE
-      Python::Python
+      Python::Module
       Python::NumPy
       aether_c
   )
