@@ -14,13 +14,13 @@
 %include "numpy.i"
 
 %init %{
-  import_array1(-1);
+  import_array();
 %}
 
 %apply (int DIM1, double* IN_ARRAY1) {(int len1, double* vec1),
                                       (int len2, double* vec2),
                                       (int len3, double* vec3),
-									  (int len4, double* vec4)}
+                                      (int len4, double* vec4)}
 
 
 %rename (evaluate_wave_transmission) my_evaluate_wave_transmission;

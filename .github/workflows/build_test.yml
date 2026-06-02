@@ -1,6 +1,7 @@
 name: Build and Test Matrix
 
 on:
+  push:
   pull_request:
   workflow_dispatch:
     inputs:
@@ -138,21 +139,34 @@ jobs:
     - name: Install Python
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ inputs.python_version || '3.10' }}
+        python-version: ${{ inputs.python_version || '3.11' }}
 
     - name: Install numpy
       run: |
-        pip install numpy
+        pip install "numpy"
 
     - name: Install SuperLU
       if: matrix.config.super_lu
       shell: bash
       run: sudo apt-get install libsuperlu-dev
 
+    - name: Install SWIG 4.2.1
+      if: runner.os == 'macOSOFF'
+      run: |
+        brew install automake autoconf libtool pkg-config pcre2 bison
+        curl -L https://github.com/swig/swig/archive/refs/tags/v4.2.1.tar.gz | tar xz
+        cd swig-4.2.1
+        ./autogen.sh
+        ./configure
+        make -j$(sysctl -n hw.ncpu)
+        sudo make install
+
     - name: Install SWIG
       if: runner.os == 'macOS'
       shell: bash
-      run: brew install swig
+      run: |
+        brew install swig
+        swig -version
 
     - name: Install CMake and Ninja
       if: runner.os == 'Windows'
