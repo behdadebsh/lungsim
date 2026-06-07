@@ -62,7 +62,6 @@ Subroutine contents:
 ::
 
     subroutine subname(things,you,pass)
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_SUBNAME: SUBNAME
       use module1,only: stuff,from,module1 
       use module2
       use diagnostics, only: enter_exit

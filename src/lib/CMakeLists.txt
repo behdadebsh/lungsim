@@ -33,7 +33,7 @@ if (SUPERLU_FOUND)
   endif()
 endif ()
 
-if (NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+if (NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel AND NOT CMAKE_Fortran_COMPILER_ID STREQUAL IntelLLVM)
   set_source_files_properties(capillaryflow.f90 PROPERTIES COMPILE_FLAGS -cpp)
 endif ()
 

@@ -150,11 +150,9 @@ contains
     write(20,'(''   q.Lagrange*q.Lagrange, #Scale factors= 9'')')
     write(20,'('' #Nodes=   9'')')
     write(20,'('' #Fields=1'')')
-    write(20,'('' 1) coordinates, coordinate, rectangular '' &
-         ''cartesian, #Components=3'')')
+    write(20,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
     do nj = 1,3
-       write(20,'(3x, a,''.  q.Lagrange*q.Lagrange, no modify,'' &
-            '' standard node based.'')') direction(nj)
+       write(20,'(3x, a,''.  q.Lagrange*q.Lagrange, no modify, standard node based.'')') direction(nj)
        write(20,'(5x,''#Nodes= 9'')')
        do ni = 1,9
           write(20,'(6x, i1,''.#Values=1'')') ni
