@@ -43,6 +43,7 @@ jobs:
             os: macos-14,
             gfortran: gfortran-14,
           }
+
     steps:
 # Useful for debugging dll load issues.
 #    - name: Download Dependencies
@@ -123,9 +124,9 @@ jobs:
 
     - name: Setup MSVC environment
       if: runner.os == 'Windows'
-      shell: cmd
-      run: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
 
     - name: Checkout lungsim
       uses: actions/checkout@v6
