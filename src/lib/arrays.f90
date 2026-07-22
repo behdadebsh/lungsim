@@ -127,7 +127,19 @@ module arrays
      real(dp) :: air_viscosity = 1.8e-5_dp        ! Pa.s
      real(dp) :: air_density = 1.146e-6_dp        ! g.mm^-3
   end type fluid_properties
-  
+
+  type :: tree_nodes
+     real(dp), allocatable :: xyz(:,:)
+  end type tree_nodes
+
+  type(tree_nodes) :: airway_nodes  
+     
+  type :: tree_elems
+     real(dp), allocatable :: seed_xyz(:,:)
+  end type tree_elems
+
+  type(tree_elems) :: airway_elems
+     
   type :: gx_units
      
      real(dp), allocatable :: Vdot(:)
@@ -174,7 +186,7 @@ module arrays
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex
+       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex, airway_elems, airway_nodes
 
 contains
   subroutine set_node_field_value(row, col, value)
