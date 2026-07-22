@@ -19,6 +19,7 @@ void list_tree_statistics_c(const char *filename, int *filename_len);
 extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target, double *offset, double *spacing);
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
+double get_airway_deadspace_c();
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
                             const char *start_from, int *start_from_len, double *start_rad,
@@ -26,6 +27,8 @@ void define_rad_from_geom_c(const char *order_system, int *order_system_len, dou
 void occlude_vessel_c(int *VESSEL_NUMBER, double *RATIO);
 void element_connectivity_1d_c(void);
 void evaluate_ordering_c(void);
+void scale_airways_c(double *scale_factor);
+void set_initial_volume_c(int *Gdirn, double *COV, double *total_volume, double *Rmax, double *Rmin);
 void volume_of_mesh_c(double *volume_model, double *volume_tree);
 void write_elem_geometry_2d_c(const char *ELEMFILE, int *filename_len);
 void write_geo_file_c(int *ntype, const char *GEOFILE, int *filename_len);
@@ -123,6 +126,11 @@ void define_rad_from_file(const char *FIELDFILE, const char *radius_type)
   define_rad_from_file_c(FIELDFILE, &filename_len, radius_type, &radius_type_len);
 }
 
+double get_airway_deadspace()
+{
+  return get_airway_deadspace_c();
+}
+
 int get_local_node_f(const char *ndimension, const char *np_global)
 {
   int dimension_len = (int)strlen(ndimension);
@@ -158,6 +166,17 @@ void evaluate_ordering()
 {
   evaluate_ordering_c();
 }
+
+void scale_airways(double scale_factor)
+{
+  scale_airways_c(&scale_factor);
+}
+  
+void set_initial_volume(int Gdirn, double COV, double total_volume, double Rmax, double Rmin)
+{
+  set_initial_volume_c(&Gdirn, &COV, &total_volume, &Rmax, &Rmin);
+}
+  
 
 void volume_of_mesh(double *volume_model, double *volume_tree)
 {

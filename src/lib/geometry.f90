@@ -41,6 +41,7 @@ module geometry
   public element_connectivity_1d
   public element_connectivity_2d
   public evaluate_ordering
+  public get_airway_deadspace
   public get_final_real
   public get_local_elem_1d
   public get_local_node_f
@@ -52,6 +53,7 @@ module geometry
   public make_data_grid
   public make_2d_vessel_from_1d
   public reallocate_node_elem_arrays
+  public scale_airways
   public set_initial_volume
   public triangles_from_surface
   public volume_of_mesh
@@ -393,7 +395,7 @@ contains
     !*append_units:* Appends terminal units at the end of a tree structure
 
     ! Local parameters
-    integer :: ne,ne0,nu
+    integer :: ne, ne0, nunit, nu, n_double
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -411,22 +413,21 @@ contains
     if(allocated(units))then !increasing the array size; just overwrite
        deallocate(units)
        deallocate(unit_field)
+       deallocate(units_effective)
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
+    allocate(units_effective(num_units))
 
     unit_field=0.0_dp
     units=0
     elem_units_below(1:num_elems) = 0 !initialise the number of terminal units below a branch
-    elem_field(ne_unit,:) = 0.0_dp
-    
     nu=0
     do ne=1,num_elems
        if(elem_cnct(1,0,ne).eq.0)THEN
           nu=nu+1
           units(nu)=ne     !Set up units array containing terminals
           elem_units_below(ne)=1
-          elem_field(ne_unit,ne) = real(nu)
        endif
     enddo
 
@@ -436,6 +437,18 @@ contains
        elem_units_below(ne0) = elem_units_below(ne0) &
             + elem_units_below(ne)*elem_symmetry(ne)
     enddo !ne
+
+!!! for each unit, find out its 'effective' replacement number. i.e. how many proximal 
+!!! branches are symmetric? This doubles the effective number each time.
+    do nunit = 1,num_units
+       ne = units(nunit)
+       n_double = elem_symmetry(ne)
+       do while (elem_cnct(-1,0,ne).ne.0)
+          ne = elem_cnct(-1,1,ne)
+          n_double = n_double * elem_symmetry(ne)
+       enddo
+       units_effective(nunit) = n_double
+    enddo
 
     call enter_exit(sub_name,2)
 
@@ -827,7 +840,7 @@ contains
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
+    
     sub_name = 'define_node_geometry'
     call enter_exit(sub_name,1)
 
@@ -1109,7 +1122,6 @@ contains
 
   subroutine import_node_geometry_2d(NODEFILE)
     !*define_node_geometry_2d:* Reads in an exnode file to define surface nodes
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_DEFINE_NODE_GEOMETRY_2D" :: DEFINE_NODE_GEOMETRY_2D
 
     character(len=*),intent(in) :: NODEFILE
     !     Local Variables
@@ -3183,7 +3195,7 @@ contains
        end do read_a_node
 
     else ! for element_based field file
-
+       
        ne = 0
        ne_counter = 0
 
@@ -3872,6 +3884,20 @@ contains
 
   end subroutine evaluate_ordering
 
+!!!###############################################################
+
+  subroutine scale_airways(scale_factor)
+
+    real(dp),intent(in) :: scale_factor
+    integer :: ne
+
+    do ne = 1,num_elems
+       elem_field(ne_radius,ne) = elem_field(ne_radius,ne)*scale_factor
+       elem_field(ne_vol,ne) = elem_field(ne_vol,ne)*scale_factor**2
+    enddo
+
+  end subroutine scale_airways
+
 !!!#############################################################################
 
   subroutine set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
@@ -4507,6 +4533,17 @@ contains
 
   end subroutine reallocate_node_elem_arrays
 
+!!!#############################################################################
+
+  function get_airway_deadspace() result(airway_deadspace)
+
+    ! Local variables
+    real(dp) :: airway_deadspace, volume_model
+    
+    call volume_of_mesh(volume_model, airway_deadspace)
+
+  end function get_airway_deadspace
+  
 !!!#############################################################################
 
   function get_local_node_f(ndimension,np_global) result(get_local_node)

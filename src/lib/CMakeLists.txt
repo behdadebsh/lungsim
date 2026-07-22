@@ -13,10 +13,10 @@ set(LIB_SRCS
   growtree.f90
   indices.f90
   imports.f90
-  lymphatics.f90
   math_utilities.f90
   mesh_utilities.f90
   other_consts.f90
+  parameter_types.f90
   precision.f90
   pressure_resistance_flow.f90
   solve.f90
@@ -33,7 +33,7 @@ if (SUPERLU_FOUND)
   endif()
 endif ()
 
-if (NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+if (NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel AND NOT CMAKE_Fortran_COMPILER_ID STREQUAL IntelLLVM)
   set_source_files_properties(capillaryflow.f90 PROPERTIES COMPILE_FLAGS -cpp)
 endif ()
 
@@ -44,6 +44,9 @@ add_library(aether STATIC ${LIB_SRCS})
 set_target_properties(aether PROPERTIES
   Fortran_MODULE_DIRECTORY "${AETHER_MODULE_DIRECTORY}"
   POSITION_INDEPENDENT_CODE TRUE)
+
+target_include_directories(aether PUBLIC "${AETHER_MODULE_DIRECTORY}")
+
 if (MSVC)
   target_compile_options(aether PRIVATE /heap-arrays0)
 endif ()

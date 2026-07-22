@@ -1,7 +1,7 @@
 
 add_subdirectory(c)
 
-find_package(SWIG QUIET)
+find_package(SWIG)
 mark_as_advanced(SWIG_EXECUTABLE)
 
 if(SWIG_FOUND)
@@ -12,7 +12,11 @@ if(SWIG_FOUND)
     add_project_config_parameter(Python_ROOT_DIR "" PATH "Define the root directory of a Python installation.")
     set(Python_ROOT_DIR ${AETHER_Python_ROOT_DIR})
 
-    find_package(Python ${AETHER_PREFERRED_PYTHON_VERSION} COMPONENTS Interpreter Development NumPy)
+    find_package(Python ${AETHER_PREFERRED_PYTHON_VERSION} COMPONENTS Interpreter Development.Module NumPy)
+    if(NOT DEFINED _NUMPY_VERSION_REPORTED)
+      set(_NUMPY_VERSION_REPORTED TRUE CACHE INTERNAL "Track reporting of numpy version.")
+      message(STATUS "Python_NumPy_VERSION: ${Python_NumPy_VERSION}")
+    endif()
     if(Python_FOUND)
       add_subdirectory(python)
     else()

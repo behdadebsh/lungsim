@@ -13,7 +13,7 @@ set(C_FORTRAN_LIB_SRCS
     growtree.f90
     indices.f90
     imports.f90
-    lymphatics.f90
+    parameter_types.f90
     pressure_resistance_flow.f90
     species_transport.f90
     surface_fitting.f90
@@ -34,7 +34,7 @@ set(C_C_LIB_SRCS
     growtree.c
     indices.c
     imports.c
-    lymphatics.c
+    parameter_types.c
     pressure_resistance_flow.c
     species_transport.c
     surface_fitting.c
@@ -56,7 +56,7 @@ set(C_LIB_HDRS
   growtree.h
   indices.h
   imports.h
-  lymphatics.h
+  parameter_types.h
   pressure_resistance_flow.h
   species_transport.h
   surface_fitting.h
@@ -72,8 +72,8 @@ set_target_properties(aether_c_fortran PROPERTIES
     Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Modules"
     FOLDER bindings/c)
 target_include_directories(aether_c_fortran PRIVATE $<TARGET_PROPERTY:aether,Fortran_MODULE_DIRECTORY>)
-add_library(aether_c SHARED ${C_C_LIB_SRCS} ${C_LIB_HDRS})
 
+add_library(aether_c SHARED ${C_C_LIB_SRCS} ${C_LIB_HDRS})
 set_target_properties(aether_c PROPERTIES
     FOLDER bindings/c
     C_VISIBILITY_PRESET hidden
@@ -83,6 +83,8 @@ set_target_properties(aether_c PROPERTIES
 if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
     set_source_files_properties(${C_FORTRAN_LIB_SRCS} PROPERTIES COMPILE_FLAGS -cpp)
 endif ()
+
+target_include_directories(aether_c PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(aether_c PUBLIC aether_c_fortran)
 if (SUPERLU_FOUND)

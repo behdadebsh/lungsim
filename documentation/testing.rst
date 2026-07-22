@@ -15,48 +15,118 @@ The pFUnit testing framework uses Python to manage some of the test generation, 
 How to add a test
 =================
 
-All tests live under the *tests* tree and mirror what is in the source tree.
-In the following example we are going to add a new testing module for the *diagnostics* module in the *lib* directory from the *src* tree.
+All tests live under the *tests* directory.
+In the following example we are going to add a new testing module for the *diagnostics* module which resides in the *src/lib* directory.
 
 Write test
 ----------
 
-To start we are first going to make sure we have the correct structure that matches the *src* tree.
-Starting from the root directory of the lungsim repository we need to make sure that the directory::
-
-   tests/lib
-
-exists and if not create it, from the command line on UNIX based oses this can be done with the *mkdir* command::
-
-   mkdir tests/lib
-
-Once the directory structure is correct we then create the testing module.
-Because we want to test the diagnostics module from the library we will create a test file named *test_diagnostics.pf* in the *tests/lib* directory.
-The *pf* extension indicates that this file is a hybrid Python fortran file, this file is a preprocessor input file which is Fortran free format file with preprocessor directives added.
-To create the test a Python script will generate a valid Fortran file from directives written into this file.
-With your favourite text editor create a file named *test_diagnostics.pf*.
+To start we create the testing module.
+Because we want to test the diagnostics module from the library we will create a test file named *test_diagnostics.f90* in the *tests* directory.
+With your favourite text editor create a file named *test_diagnostics.f90*.
 We could choose *vi* for this task as shown below but any text editor will work::
 
-   vi tests/lib/test_diagnostics.pf
+   vi tests/test_diagnostics.f90
 
-Into this file we will write our first test for the module.
-This test will check that the diagnositcs flag has been set when using the *set_diagnostics_on* subroutine::
+Into this file we will write our test for the module.
+First, we are going to add declare a module called *test_diagnostics*::
 
-   @test
-   subroutine testSetDiagnostics()
-      use pfunit_mod
-      use diagnostics, only: get_diagnostics_on, set_diagnostics_on
-      implicit none
+  module test_diagnostics
 
-      logical :: state
+  !> We will add framework declarations and code here.
 
-      call get_diagnostics_on(state)
-      @assertFalse(state)
-      call set_diagnostics_on(.true.)
-      call get_diagnostics_on(state)
-      @assertTrue(state)
+  !> Then we will write our test(s) here.
 
-   end subroutine testSetDiagnostics
+  end module test_diagnostics
+
+Into this module, we have to add some boiler plate code to declare our test to the framework and make it findable::
+
+  use testdrive, only : new_unittest, unittest_type, error_type, check
+  implicit none
+  private
+
+In this chunk of code we can see that we are using the *new_unittest, unittest_type, error_type, check* subroutines from the *testdrive* module.
+We will also declare a helper subroutine to provide a list of test names to the framework::
+
+  public :: collect_diagnostics
+
+Now we can start with defining the *collect_diagnostics* subroutine and our test(s).
+We are going to call our test *test_set_and_get*, and this is what our *collect_diagnostics* subroutine will report to the framework::
+
+  !> Collect all exported unit tests
+  subroutine collect_diagnostics(testsuite)
+    !> Collection of tests
+    type(unittest_type), allocatable, intent(out) :: testsuite(:)
+
+    testsuite = [ &
+      new_unittest("test_set_and_get", test_set_and_get) &
+      ]
+
+  end subroutine collect_diagnostics
+
+Next we define the *test_set_and_get* test::
+
+  subroutine test_set_and_get(error)
+    use diagnostics, only: get_diagnostics_on, set_diagnostics_on
+    implicit none
+
+    type(error_type), allocatable, intent(out) :: error
+
+    logical :: level
+
+    call get_diagnostics_on(level)
+    call check(error, .false., level)
+    if (allocated(error)) return
+
+    call set_diagnostics_on(.true.)
+    call get_diagnostics_on(level)
+    call check(error, .true., level)
+    if (allocated(error)) return
+
+  end subroutine test_set_and_get
+
+The complete *tests_diagnostics.f90* file looks like this::
+
+  module test_diagnostics
+    use testdrive, only : new_unittest, unittest_type, error_type, check
+    implicit none
+    private
+
+    public :: collect_diagnostics
+
+  contains
+
+  !> Collect all exported unit tests
+  subroutine collect_diagnostics(testsuite)
+    !> Collection of tests
+    type(unittest_type), allocatable, intent(out) :: testsuite(:)
+
+    testsuite = [ &
+      new_unittest("test_set_and_get", test_set_and_get) &
+      ]
+
+  end subroutine collect_diagnostics
+
+  subroutine test_set_and_get(error)
+    use diagnostics, only: get_diagnostics_on, set_diagnostics_on
+    implicit none
+
+    type(error_type), allocatable, intent(out) :: error
+
+    logical :: level
+
+    call get_diagnostics_on(level)
+    call check(error, .false., level)
+    if (allocated(error)) return
+
+    call set_diagnostics_on(.true.)
+    call get_diagnostics_on(level)
+    call check(error, .true., level)
+    if (allocated(error)) return
+
+  end subroutine test_set_and_get
+
+  end module test_diagnostics
 
 With our test written we now need to add this into the CMake build generation system.
 
@@ -64,59 +134,41 @@ With our test written we now need to add this into the CMake build generation sy
 Add test to CMake
 -----------------
 
-The first task to do when adding a test to the CMake files is to check that a CMake file exists.
-When adding a test to a new directory, as we are doing here, there won't be a CMake file for us to use.
-To fix this we first need to tell CMake that a new subdirectory is available.
-We do this by adding a *sub_directory* command into an existing *CMakeLists.txt* file in a parent directory of the directory we have just added a test to.
-In our example we would edit the file (any text editor will do, don't feel you need to use *vi*)::
+In the file *tests/CMakeLists.txt* we need to add the name of our new test, which is *diagnostics* in this case, to the list of tests.
+At the top of this file there is a statement to define a variable named *TESTS*, looking something like this::
 
-   vi tests/CMakeLists.txt
+  set(
+    TESTS
+    # Other tests may already be present, if so they will appear here separated by white-space.
+  )
 
-and add the line at the bottom of the file::
+When we add the *diagnostics* test the variable definition should look like this::
 
-   add_subdirectory(lib)
 
-Then we need to create a new *CMakeLists.txt* (the capitalisation of this file is important) file in the *tests/lib* directory (any text editor will do, don't feel you need to use *vi*)::
+  set(
+    TESTS
+    # Other tests may already be present, if so they will appear here separated by white-space.
+    "diagnostics"
+  )
 
-   vi tests/lib/CMakeLists.txt
+That is all we need to do to add our test into the testing framework.
 
-and add the following to create an executable test that will work with CTest (we will also be able to execute this test directly)::
-
-   # Add all the files that make a single test, we could have multiple files testing
-   # the same module.  Don't add test files into the same test that test different modules.
-   # These are all .pf files.
-   set(DIAGNOSTICS_TEST_SRCS
-       test_diagnostics.pf)
-
-   # Make use of the pFUnit helper function to create a test.
-   # Arguments    : - test_package_name: Name of the test package
-   #                - test_sources     : List of pf-files to be compiled
-   #                - extra_sources    : List of extra Fortran source code used for testing (if none, input empty string "")
-   #                - extra_sources_c  : List of extra C/C++ source code used for testing (if none, input empty string "")
-   add_pfunit_test(diagnostics_test ${DIAGNOSTICS_TEST_SRCS} "" "")
-   # Link the test to the aether library target.
-   target_link_libraries (diagnostics_test aether)
-   target_include_directories(diagnostics_test PRIVATE $<TARGET_PROPERTY:aether,Fortran_MODULE_DIRECTORY>)
-
-With our test added to the test framework we can now build and run our test.
 
 Build and run test
 ------------------
 
 The test we have just completed will be built when we build the configuration from the build directory by default.
 That is if we execute the *BUILD_ALL* build target for IDEs like Visual Studio or on *Makefile* generation builds we would simple issue the command *make* in the build directory.
-We can also build our test directly be building the target *diagnostics_test*, for *Makefile* generation builds we would issue the command::
-
-   make diagnostics_test
 
 To run the test we can execute the ctest command from the command line in the build directory with the following arguments::
 
-   ctest -R diagnostics_test
+  ctest -R diagnostics_test
 
 we will also execute all tests if we execute the command::
 
-   ctest
+  ctest
 
 A handy flag to add to both of these commands is the *--verbose* flag.
-This gives us the details output from each test and not just the summary statement.
+This gives us the detailed output from each test and not just the summary statement::
 
+  ctest -V
