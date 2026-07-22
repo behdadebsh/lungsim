@@ -34,7 +34,9 @@ module growtree
 
   !Interfaces
   private
-  public grow_tree,smooth_1d_tree
+  public align_terminals_with_seeds
+  public grow_tree
+  public smooth_1d_tree
 
 contains
 
@@ -199,6 +201,7 @@ contains
           nd = NCLOSEST(N)
           map_seed_to_elem(nd) = 0
           map_seed_to_space(nd) = nen ! recording element number
+          airway_elems%seed_xyz(:,nen) = data_xyz(:,nd)
        enddo
     endif !NOT.make_branch
 
@@ -255,7 +258,7 @@ contains
   !
   subroutine check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,&
        ne_grnd_parent,ne_parent,local_parent_temp,num_next_parents,&
-       np,np1,np2,np3,num_terminal,rotation_limit,to_export)
+       np,np1,np2,np3,num_terminal,rotation_limit)
 
     use mesh_utilities,only: distance_between_points
     use other_consts
@@ -265,7 +268,6 @@ contains
     ! np == end node; np1 == np_start; np2 == np_prnt_start; np3 == np_grnd_start
     integer :: local_parent_temp(*)
     real(dp),intent(in) :: rotation_limit
-    logical :: to_export
 
     !Local variables
     integer :: COUNT,nd_min,ne_other,nes,np4,offset
@@ -321,10 +323,8 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       airway_elems%seed_xyz(:,ne-1) = data_xyz(:,nd_min)
        map_seed_to_space(nd_min) = ne-1
-       if(to_export) then
-         write(40,*) nd_min,ne-1
-       endif
 
     endif
 
@@ -357,10 +357,8 @@ contains
        nd_min = closest_seed_to_node(map_seed_to_elem,np-1)
 
        map_seed_to_elem(nd_min)=0
+       airway_elems%seed_xyz(:,ne) = data_xyz(:,nd_min)
        map_seed_to_space(nd_min) = ne ! recording element number
-       if(to_export) then
-         write(40,*) nd_min,ne
-       endif
 
     endif
 
@@ -622,7 +620,7 @@ contains
   ! to the closest ending of branches in the current generation.
   !
   subroutine group_seeds_with_branch(map_array,num_next_parents,num_seeds_from_elem, &
-       num_terminal,local_parent,DISTANCE_LIMIT,to_export)
+       num_terminal,local_parent,DISTANCE_LIMIT)
 
     use indices
     use math_utilities,only: sort_integer_list
@@ -631,10 +629,9 @@ contains
     integer :: num_next_parents,local_parent(:),map_array(:),num_seeds_from_elem(*),&
          num_terminal
     real(dp),intent(in) :: DISTANCE_LIMIT
-    logical :: to_export
 
     !Local variables
-    integer :: i,n,m,nd,nd_min,ne,n_elm_temp,ne_min,noelem,np,np_temp
+    integer :: i,n,m,nd, nd_min = 0,ne,n_elm_temp,ne_min,noelem,np,np_temp
     integer :: size_map
     integer,allocatable :: map_array_copy(:),my_closest(:)
     real(dp) :: dist,min_dist
@@ -665,6 +662,7 @@ contains
        my_closest(N) = nd_min
        map_array(nd_min) = ne_min
     enddo
+    if(nd_min == 0) stop "nd_min never assigned"
 
     do nd = 1,num_data            ! for all seed/data points
        if(map_array(nd).ne.0)then ! the data point is still in use
@@ -710,9 +708,7 @@ contains
           N_ELM_TEMP=N_ELM_TEMP-1
           local_parent(N)=0
           num_terminal=num_terminal+1
-          if(to_export) then
-            write(40,*) nd_min,ne_min
-          endif
+          airway_elems%seed_xyz(:,ne_min) = data_xyz(:,nd_min)
 
        else if(num_seeds_from_elem(ne_min).eq.1)then
           do nd=1,num_data
@@ -721,14 +717,11 @@ contains
                 local_parent(N)=0
                 N_ELM_TEMP=N_ELM_TEMP-1
                 num_terminal=num_terminal+1
-                if(to_export) then
-                  write(40,*) nd,ne_min
-                endif
+                airway_elems%seed_xyz(:,ne_min) = data_xyz(:,nd)
              endif
           enddo !nd
 
        endif !num_seeds_from_elem
-!       write(*,'('' '',i6,'','')', advance = "no") num_seeds_from_elem(ne_min)
     enddo !N
 
     do N=1,num_next_parents
@@ -821,79 +814,43 @@ contains
 
 !!!#############################################################################
 
-  subroutine grow_tree(surface_elems,global_parent_ne,supernumerary_ne,angle_max,angle_min,&
-       branch_fraction,length_limit,shortest_length,rotation_limit,to_export,filename,grouping)
+  subroutine grow_tree(parent_elems, angle_max, angle_min, branch_fraction, &
+       length_limit, shortest_length, rotation_limit, grouping)
     !interface to the grow_recursive_tree subroutine
 
     use geometry,only: element_connectivity_1d,evaluate_ordering,get_local_elem_1d, &
          group_elem_parent_term,reallocate_node_elem_arrays,triangles_from_surface
     use mesh_utilities,only: get_local_elem_2d
 
-    integer,intent(in)  :: surface_elems(:)         ! list of surface elements defining the host region
-    integer,intent(in)  :: global_parent_ne         ! stem branch that supplies 'parents' to grow from
-    integer,intent(in)  :: supernumerary_ne         ! additional parent branch (if required)
+    integer,intent(in)  :: parent_elems(:)          ! list of parent elements to grow from
     real(dp),intent(in) :: angle_max                ! maximum branch angle with parent; in degrees
     real(dp),intent(in) :: angle_min                ! minimum branch angle with parent; in degrees
     real(dp),intent(in) :: branch_fraction          ! fraction of distance (to COFM) to branch
     real(dp),intent(in) :: length_limit             ! minimum length of a generated branch (shorter == terminal)
     real(dp),intent(in) :: shortest_length          ! length that short branches are reset to (shortest in model)
     real(dp),intent(in) :: rotation_limit           ! maximum angle of rotation of branching plane
-    logical,intent(in) :: to_export                 ! option to export terminal element mapping to datapoints
-    character(len=*),intent(in) :: filename
     character(len=*), intent(in) :: grouping
 
-    integer :: i, nparents, num_elems_new,num_nodes_new, parent_ne, super_parent_ne
-    integer,allocatable :: elem_list(:), parent_list(:), super_list(:)
-    character(len=100) :: writefile
-    character(len=60) :: sub_name
+    integer :: i, global_ne, j, nparents, num_elems_new, num_nodes_new, parent_ne
+    integer,allocatable :: parent_list(:), super_list(:)
 
-    sub_name = 'grow_tree'
-    call enter_exit(sub_name,1)
-
-
-    if(to_export)then
-       !!! export vertices as nodes
-       writefile = trim(filename)//'.txt'
-       open(40, file = writefile, status='replace')
-       write(40,'('' Data point number          Terminal element number'')')
-    endif
-
-
-!!! get the local element number (parent_ne) for global element number (global_parent_ne), then
-!!! allocate memory and initialise to zero the list of terminal elements that subtend 'parent_ne'.
-!!! get the list of current terminal elements that subtend parent_ne (initial branches for growing).
-    parent_ne = get_local_elem_1d(global_parent_ne)
-    allocate(parent_list(num_elems))
+    ! set up for growing from 1 or more parents
+    allocate(parent_list(num_elems)) ! store all terminal element parents
     parent_list = 0
-    call group_elem_parent_term(parent_list,parent_ne)
-    nparents = count(parent_list.ne.0) ! the number of non-zeros in parent_list
-
-!!! repeat for the supernumerary parent (if applicable)
-    if(supernumerary_ne.ne.0) then
-       if(grouping(1:5).eq.'split')then
-          write(*,*) 'Use the CLOSEST option to grow from two stem branches'
-          read(*,*)
-       endif
-       super_parent_ne = get_local_elem_1d(supernumerary_ne)
+    nparents = 0
+    do i = 1, count(parent_elems.ne.0)
+       global_ne = parent_elems(i) ! global parent element number
+       parent_ne = get_local_elem_1d(global_ne) ! local element number
        allocate(super_list(num_elems))
        super_list = 0
-       call group_elem_parent_term(super_list,super_parent_ne)
-       do i = 1, count(super_list.ne.0)
-          parent_list(nparents+i) = super_list(i)
+       call group_elem_parent_term(super_list,parent_ne)
+       do j = 1, count(super_list.ne.0)
+          parent_list(nparents+j) = super_list(j)
        enddo
-    endif
-
-    if(count(surface_elems.ne.0).gt.0)then ! a surface element list is given for converting to
-       !                                a temporary triangulated surface mesh
-       allocate(elem_list(count(surface_elems.ne.0)))
-!!! get the list of local surface element numbers from the global list
-       do i = 1,count(surface_elems.ne.0)
-          elem_list(i) = get_local_elem_2d(surface_elems(i))
-       enddo
-!!! make a linear triangulated mesh over the surface elements
-       call triangles_from_surface(elem_list)
-    endif
-
+       nparents = count(parent_list.ne.0) ! the number of non-zeros in parent_list
+       deallocate(super_list)
+    enddo
+       
 !!! estimate the number of elements in the generated model based on the
 !!! number of data (seed) points. i.e. N = 2*N_data - 1.
     num_elems_new = num_elems + 2*num_data + 100
@@ -903,10 +860,9 @@ contains
     call reallocate_node_elem_arrays(num_elems_new,num_nodes_new)
 
 !!! generate a branching tree inside the triangulated mesh
-    call grow_recursive_tree(num_elems_new,num_vertices,elem_list,parent_list, &
-         parent_ne,triangle,angle_max,angle_min, &
-         branch_fraction,length_limit,shortest_length,rotation_limit,vertex_xyz,&
-         to_export,grouping)
+    call grow_recursive_tree(num_elems_new, parent_list, &
+         parent_ne, angle_max, angle_min, branch_fraction, &
+         length_limit, shortest_length, rotation_limit, grouping)
 
 !!! update the tree connectivity
     call element_connectivity_1d
@@ -914,14 +870,8 @@ contains
 !!! calculate branch generations and orders
     call evaluate_ordering
 
-    if(to_export)then
-      close(40)
-    endif
 !!! deallocate temporary arrays
-    if(allocated(elem_list)) deallocate(elem_list)
     deallocate(parent_list)
-    if(allocated(super_list)) deallocate(super_list)
-    call enter_exit(sub_name,2)
 
   end subroutine grow_tree
 
@@ -930,27 +880,22 @@ contains
   !*grow_recursive_tree:* the main growing subroutine (public). Genertes a volume-filling
   ! tree into a closed surface.
   !
-  subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_list, &
-       parent_ne,triangle,angle_max,angle_min,branch_fraction,length_limit,shortest_length, &
-       rotation_limit,vertex_xyz,to_export,grouping)
+  subroutine grow_recursive_tree(num_elems_new, parent_list, parent_ne, angle_max, &
+       angle_min, branch_fraction, length_limit, shortest_length, rotation_limit, grouping)
 
     use indices
     use mesh_utilities,only: calc_branch_direction,distance_between_points, &
          get_local_elem_2d,inlist,point_internal_to_surface
 
-    integer,intent(in)  :: num_vertices,num_elems_new
+    integer,intent(in)  :: num_elems_new
     integer,intent(in)  :: parent_list(:)           ! list of end branch elements to grow from
     integer,intent(in)  :: parent_ne                ! the stem branch element (e.g. lobar) that subtends the list
-    integer,intent(in)  :: surface_elems(:)         ! list of surface elements defining the host region
-    integer,intent(in)  :: triangle(:,:)
     real(dp),intent(in) :: angle_max                ! maximum branch angle with parent; in degrees
     real(dp),intent(in) :: angle_min                ! minimum branch angle with parent; in degrees
     real(dp),intent(in) :: branch_fraction          ! fraction of distance (to COFM) to branch
     real(dp),intent(in) :: length_limit             ! minimum length of a generated branch (shorter == terminal)
     real(dp),intent(in) :: shortest_length          ! length that short branches are reset to (shortest in model)
     real(dp),intent(in) :: rotation_limit           ! maximum angle of rotation of branching plane
-    real(dp),intent(in) :: vertex_xyz(:,:)
-    logical,intent(in) :: to_export                 ! option to export terminal element mapping to datapoints
     character(len=*), intent(in) :: grouping
 
     !Local variables
@@ -970,11 +915,6 @@ contains
     logical :: make_branch,enough_points(2),internal, &
          limit_branching_angle = .true., &  ! option to restrict branch angle
          limit_branching_plane = .false.    ! option to restrict angle between branching planes
-
-    character(len=60) :: sub_name
-
-    sub_name = 'grow_recursive_tree'
-    call enter_exit(sub_name,1)
 
 !!! Allocate memory for temporary arrays (need a more intelligent way of estimating size!)
     allocate(local_parent_temp(num_elems_new))
@@ -1010,8 +950,6 @@ contains
           call split_seed_points_initial(map_seed_to_space,parent_ne)
        endif
     endif !parent_list.gt.1
-
-    WRITE(*,'(''  parent  #seeds  #terminal'')')
 
     ! Set initial values for local and global nodes and elements
     ne = num_elems !initialise mesh global element #
@@ -1097,25 +1035,21 @@ contains
                         np_prnt_start,np_start,angle_max,angle_min)
                    if(diagnostics_on) write(*,'('' After limit branch angle:'',3(f12.5))') node_xyz(1:3,np)
 
-                   internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                        vertex_xyz)
+                   internal = point_internal_to_surface(node_xyz(1:3,np))
                    if(.not.internal)then ! halve the length, and make terminal
                       elem_field(ne_length,ne) = 0.5_dp*distance_between_points&
                            (node_xyz(1,np_start),node_xyz(1,np))
                       node_xyz(1:3,np) = node_xyz(1:3,np_start) + 0.5_dp*&
                            elem_field(ne_length,ne)*elem_direction(1:3,ne)
-                      internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                           vertex_xyz)
+                      internal = point_internal_to_surface(node_xyz(1:3,np))
                       kount = 0
                       do while(.not.internal)
                          kount = kount+1
                          call shorten_branch_and_children(ne_parent)
-                         internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                              vertex_xyz)
+                         internal = point_internal_to_surface(node_xyz(1:3,np))
                          if(kount.ge.3)then
                             call shorten_branch_and_children(elem_cnct(-1,1,ne_parent))
-                            internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                                 vertex_xyz)
+                            internal = point_internal_to_surface(node_xyz(1:3,np))
                          endif
                          if(kount.gt.5.and.(.not.internal))then
                             write(*,'('' WARNING: element'',i6,'' not internal'')') ne
@@ -1129,32 +1063,25 @@ contains
                          nd_min = closest_seed_to_node_in_group(map_seed_to_elem,ne,np) ! closest seed point
                          map_seed_to_elem(nd_min) = 0 ! remove seed point from list
                          map_seed_to_space(nd_min) = ne ! recording element number
-
-                         if(to_export) then
-                           write(40,*) nd_min,ne
-                         endif
+                         airway_elems%seed_xyz(:,ne) = data_xyz(:,nd_min)
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np)
                    endif !.not.internal
 
-                   internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np-1),&
-                        vertex_xyz)
+                   internal = point_internal_to_surface(node_xyz(1:3,np-1))
                    if(.not.internal)then ! halve the length, and halve the angle from parent
                       elem_field(ne_length,ne-1) = 0.5_dp*distance_between_points&
                            (node_xyz(1,np_start),node_xyz(1,np-1))
                       node_xyz(1:3,np-1) = node_xyz(1:3,np_start) + 0.5_dp*&
                            elem_field(ne_length,ne-1)*elem_direction(1:3,ne-1)
-                      internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np-1),&
-                           vertex_xyz)
+                      internal = point_internal_to_surface(node_xyz(1:3,np-1))
                       do while(.not.internal)
                          kount = kount+1
                          call shorten_branch_and_children(ne_parent)
-                         internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                              vertex_xyz)
+                         internal = point_internal_to_surface(node_xyz(1:3,np))
                          if(kount.ge.3)then
                             call shorten_branch_and_children(elem_cnct(-1,1,ne_parent))
-                            internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),&
-                                 vertex_xyz)
+                            internal = point_internal_to_surface(node_xyz(1:3,np))
                          endif
                          if(kount.gt.4.and.(.not.internal))then
                             write(*,'('' WARNING: element'',i6,'' not internal'')') ne-1
@@ -1174,10 +1101,7 @@ contains
                          nd_min = closest_seed_to_node_in_group(map_seed_to_elem,ne-1,np-1) ! closest seed point
                          map_seed_to_elem(nd_min) = 0 ! remove seed point from list
                          map_seed_to_space(nd_min) = ne ! recording element number
-
-                         if(to_export) then
-                           write(40,*) nd_min,ne
-                         endif
+                         airway_elems%seed_xyz(:,ne) = data_xyz(:,nd_min)
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np-1)
                    endif ! .not.internal
@@ -1190,19 +1114,20 @@ contains
                    ! the limit value. This is used for making sure that the CFD geometry turns out ok.
                    call check_branch_rotation_plane(map_seed_to_elem,map_seed_to_space,ne,ne_grnd_parent,ne_parent, &
                         local_parent_temp,num_next_parents, &
-                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit,to_export)
-                   internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
+                        np,np_start,np_prnt_start,np_grnd_start,num_terminal,rotation_limit)
+                   internal = point_internal_to_surface(node_xyz(1:3,np))
                 endif
 
              else
                 write(*,*) 'terminal, not enough points',ne !!! never happens!!!
-                read(*,*)
+                !read(*,*)
                 ! Not enough seed points in the set during the split.
                 ! Find the closest seed point to node np_start, and remove from seeds
                 num_terminal = num_terminal+1 ! increment number of terminal branches
                 nd_min = closest_seed_to_node(map_seed_to_elem,np_start) ! closest seed point
                 map_seed_to_elem(nd_min) = 0 ! remove seed point from list
                 map_seed_to_space(nd_min) = ne ! record the element to data point mapping
+                airway_elems%seed_xyz(:,ne) = nd_min
              endif
           enddo ! for all current parent branches
           ! Copy the temporary list of branches to local_parent. These become the
@@ -1211,12 +1136,9 @@ contains
           if(num_next_parents.ne.0)then
              ! Regroup the seed points with the closest current parent
              call group_seeds_with_branch(map_seed_to_elem,num_next_parents,num_seeds_from_elem,&
-                  num_terminal,local_parent,DISTANCE_LIMIT,to_export)
+                  num_terminal,local_parent,DISTANCE_LIMIT)
           endif
        enddo ! while still parent branches
-
-       write(*,'(I7,I8,I9)') ne_stem,num_seeds_in_space,num_terminal
-
     enddo ! for each initial parent
 
 !!! set new total numbers of nodes and elements
@@ -1229,10 +1151,6 @@ contains
     deallocate(map_seed_to_elem)
     deallocate(map_seed_to_space)
     deallocate(num_seeds_from_elem)
-
-!    call smooth_1d_tree(ne_start,length_limit)
-
-    call enter_exit(sub_name,2)
 
   end subroutine grow_recursive_tree
 
@@ -1280,7 +1198,7 @@ contains
        nrml = cross_product(u,v) ! calculate normal
        if(abs(nrml(1))+abs(nrml(2))+abs(nrml(3)).lt.1.0e-4)then !co-linear points
           write(*,*) 'warning: both branches co-linear with parent'
-          read(*,*)
+          !read(*,*)
        else
           elem_check = ne
           node_check = np
@@ -1405,23 +1323,59 @@ contains
 
   !###############################################################
   !
+  !*align_terminals_with_seeds:* shift the end node of terminal elements
+  ! towards the associated seed point location. seed_dist is the
+  ! maximum acceptable distance from the seed.
+  !
+  subroutine align_terminals_with_seeds(seed_dist)
+
+    use indices
+    use mesh_utilities,only: distance_between_points, unit_vector, vector_length
+    
+!!! Inputs
+    real(dp),intent(in) :: seed_dist
+!!! Locals
+    integer :: nd, ne, np1, np2
+    real(dp) :: direction(3), LU, U(3)
+    
+    do ne = 1,num_elems
+       if (any(abs(airway_elems%seed_xyz(:,ne)) > 1.0e-12_dp)) then
+          np1 = elem_nodes(1,ne)
+          np2 = elem_nodes(2,ne)
+          direction(:) = airway_elems%seed_xyz(:,ne) - node_xyz(:,np1)  ! direction to the seed
+          LU = vector_length(direction)
+          U = unit_vector(direction)
+          node_xyz(:,np2) = node_xyz(:,np1) + U(:) * (LU - seed_dist)
+          elem_field(ne_length,ne) = distance_between_points(node_xyz(1,np1),node_xyz(1,np2))
+       endif
+    enddo
+       
+  end subroutine align_terminals_with_seeds
+
+  
+  !###############################################################
+  !
   !*smooth_1d_tree:* smooth a tree geometry by placing the end of a parent branch
   ! at the average of the parent end and child end coordinates. This is used to
   ! improve the topology of generated trees, minimising the impact of 'odd' branching
   !
-  subroutine smooth_1d_tree(num_elem_start,length_limit)
+  subroutine smooth_1d_tree(num_elem_start, n_smoothing_steps)
 
     use indices
+    use mesh_utilities,only: distance_between_points
 
-    integer,intent(in) :: num_elem_start
-    real(dp),intent(in) :: length_limit
+!!! Inputs
+    integer,intent(in) :: num_elem_start, n_smoothing_steps
+!!! Locals
+    integer :: n,ne,ne1,ne2,np,np0,np1,np2
+    real(dp) :: new_pt_xyz(3)
 
-    integer :: n,ne,ne1,ne2,np,np0,np1,np2,n_smoothing_steps = 2
+    real(dp), parameter :: alpha = 3.0_dp
     real(dp) :: new_xyz(3)
-    character(len=60) :: sub_name
-
-    sub_name = 'smooth_1d_tree'
-    call enter_exit(sub_name,1)
+    integer :: i, b, parent, child1, child2, a,c,d, n_below1, n_below2
+    real(dp) :: cA(3),cB(3),cC(3),cD(3), AC(3),AD(3), normal(3), norm, dist, Bproj(3), total, w1, w2
+    real(dp) :: xyz_0(3), xyz_c(3), xyz_maj(3), xyz_min(3), xyz_new(3)
+    real(dp),parameter :: theta_maj_target = 60.0_dp, theta_min_target = 20.0_dp
 
     do n = 1,n_smoothing_steps
        do ne = num_elems,num_elem_start,-1
@@ -1432,31 +1386,66 @@ contains
              np  = elem_nodes(2,ne)
              np1 = elem_nodes(2,ne1)
              np2 = elem_nodes(2,ne2)
-             new_xyz(:) = node_xyz(:,np0)*0.5_dp + node_xyz(:,np1)*0.25_dp + node_xyz(:,np2)*0.25_dp
-             node_xyz(:,np) = new_xyz(:)
+             ! set up weightings to generate appropriate branch angles
+             n_below1 = count_elements_below(ne1)
+             n_below2 = count_elements_below(ne2)
+             w1 = real(n_below1, dp)**alpha
+             w2 = real(n_below2, dp)**alpha
+             total = w1 + w2
+             w1 = w1/total
+             w2 = w2/total
+             new_pt_xyz(:) = 0.5_dp * node_xyz(:,np0) + 0.5_dp * &
+                  (w1 * node_xyz(:,np1) + w2 * node_xyz(:,np2))
+             node_xyz(:,np) = new_pt_xyz(:)
+             elem_field(ne_length,ne) = distance_between_points(node_xyz(1,np0),node_xyz(1,np))
+             elem_field(ne_length,ne1) = distance_between_points(node_xyz(1,np),node_xyz(1,np1))
+             elem_field(ne_length,ne2) = distance_between_points(node_xyz(1,np),node_xyz(1,np2))
           endif
        enddo
     enddo
-    do ne = num_elems,num_elem_start,-1
-       if(elem_cnct(1,0,ne).eq.0)then ! terminal, check branch length
-          if(elem_field(ne_length,ne).lt.0.75_dp*length_limit)then
-             elem_field(ne_length,ne) = 0.75_dp*length_limit
-             np1 = elem_nodes(1,ne) ! the start node
-             np2 = elem_nodes(2,ne) ! the end node
-             node_xyz(:,np2) = node_xyz(:,np1) + elem_direction(:,ne)*0.75_dp*length_limit
-          else if(elem_field(ne_length,ne).gt.1.5_dp*length_limit)then
-             elem_field(ne_length,ne) = 1.5_dp*length_limit
-             np1 = elem_nodes(1,ne) ! the start node
-             np2 = elem_nodes(2,ne) ! the end node
-             node_xyz(:,np2) = node_xyz(:,np1) + elem_direction(:,ne)*1.5_dp*length_limit
-          endif
-       endif
-    enddo
-
-    call enter_exit(sub_name,2)
-
+    
   end subroutine smooth_1d_tree
 
+
+  !###############################################################
+  !
+  !*count_elements_below:* count number of subtended elements. Used to determine
+  ! weightings for daughter branches, e.g. radii
+  !
+  integer function count_elements_below(ne_parent) result(n_below)
+
+!!! Inputs
+    integer, intent(in)  :: ne_parent
+!!! Locals
+    integer :: m, n, ne0, nt_bns, num_nodes
+    integer, allocatable :: ne_old(:), ne_temp(:)
+    
+    allocate(ne_old(num_elems))
+    allocate(ne_temp(num_elems))
+    
+    nt_bns = 1
+    ne_old(1) = ne_parent
+    n_below = 0
+    
+    do while (nt_bns /= 0)
+       num_nodes = nt_bns
+       nt_bns = 0
+       do m = 1, num_nodes
+          ne0 = ne_old(m)
+          n_below = n_below + 1
+          do n = 1, elem_cnct(1,0,ne0)
+             nt_bns = nt_bns + 1
+             ne_temp(nt_bns) = elem_cnct(1,n,ne0)
+          enddo
+       enddo
+       
+       ne_old(1:nt_bns) = ne_temp(1:nt_bns)
+    enddo
+    
+    deallocate(ne_old)
+    deallocate(ne_temp)
+
+  end function count_elements_below
 
   !###############################################################
   !
@@ -1520,7 +1509,7 @@ contains
     if(dat1.eq.0.and.dat2.eq.0)then
        enough_points(1:2) = .false.
        write(*,'('' Zero seed points associated with parent'',I6)') ne1
-       read(*,*)
+       !read(*,*)
     else
        if(dat1.eq.0)then
           map_seed_to_elem(nd2_1st) = ne+1
@@ -1671,7 +1660,7 @@ contains
 
     !Local variables
     integer :: nd
-    integer :: closest_seed_to_node
+    integer :: closest_seed_to_node, cstn = 0
     real(dp) :: distance,min_distance
 
     min_distance = 1.0e+10_dp
@@ -1679,11 +1668,12 @@ contains
        if(map_seed_to_elem(nd).ne.0)then
           distance = distance_between_points(data_xyz(1,nd),node_xyz(1,np))
           if(distance.lt.min_distance)then
-             closest_seed_to_node = nd
+             cstn = nd
              min_distance = distance
           endif !DIST
        endif !map_seed_to_elem
     enddo !nd
+    closest_seed_to_node = cstn
 
   end function closest_seed_to_node
 
@@ -1701,7 +1691,7 @@ contains
 
     !Local variables
     integer :: nd
-    integer :: closest_seed_to_node_in_group
+    integer :: closest_seed_to_node_in_group, cstnig = 0
     real(dp) :: distance,min_distance
 
     min_distance = 1.0e+10_dp
@@ -1709,11 +1699,12 @@ contains
        if(map_seed_to_elem(nd).eq.ne)then
           distance = distance_between_points(data_xyz(1,nd),node_xyz(1,np))
           if(distance.lt.min_distance)then
-             closest_seed_to_node_in_group = nd
+             cstnig = nd
              min_distance = distance
           endif !DIST
        endif !map_seed_to_elem
     enddo !nd
+    closest_seed_to_node_in_group = cstnig
 
   end function closest_seed_to_node_in_group
 
@@ -1773,8 +1764,6 @@ contains
 
   end function vector_for_angle_limit
 
-
-  !###############################################################
 
 end module growtree
 

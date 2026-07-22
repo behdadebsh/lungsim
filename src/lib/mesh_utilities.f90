@@ -862,13 +862,13 @@ contains
 
 !!!###############################################################
 
-  function point_internal_to_surface(num_vertices,triangles,point_xyz,vertex_xyz)
+  function point_internal_to_surface(point_xyz)
 !!! Cast a line in positive x-direction from each data point and 
 !!! then work out how many triangular elements it crosses. If even it is in the 
 !!! shape and if odd it is outside the shape
 
-    integer,intent(in) :: num_vertices,triangles(:,:)
-    real(dp),intent(in) :: point_xyz(3),vertex_xyz(:,:)
+!!! num_vertices, triangle, vertex_xyz from arrays module
+    real(dp),intent(in) :: point_xyz(3)
     logical :: point_internal_to_surface
 
 !!! Local Variables
@@ -878,7 +878,7 @@ contains
     real(dp),parameter :: dist_tol = 1.0e-5_dp, user_tol = 1.0e-14_dp
     logical :: cross_any
 
-    num_triangles = count(triangles(:,:).ne.0)/3.0_dp
+    num_triangles = count(triangle(:,:).ne.0)/3.0_dp
 
     forall (i=1:3) cofm_surfaces(i) = sum(vertex_xyz(i,1:num_vertices))/ &
          real(num_vertices,kind=dp)
@@ -891,9 +891,9 @@ contains
     ncrossed = 0
 
     do ntri = 1,num_triangles
-       P1(1:3) = vertex_xyz(1:3,triangles(1,ntri))
-       P2(1:3) = vertex_xyz(1:3,triangles(2,ntri))
-       P3(1:3) = vertex_xyz(1:3,triangles(3,ntri))
+       P1(1:3) = vertex_xyz(1:3,triangle(1,ntri))
+       P2(1:3) = vertex_xyz(1:3,triangle(2,ntri))
+       P3(1:3) = vertex_xyz(1:3,triangle(3,ntri))
        norm_v = unit_norm_to_three_points(P1,P2,P3) ! unit normal to triangle plane
        ! u = (a*x1+b*y1+c*z1+d)/(a*(x1-x2)+b*(y1-y2)+c*(z1-z2))
        denominator = norm_v(1)*(point_xyz(1)-cofm_surfaces(1)) + &
