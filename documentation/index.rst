@@ -29,7 +29,7 @@ Quick start instructions for GNU/Linux and macOS (bash)::
   cmake -S lungsim -B build-lungsim -D Python_EXECUTABLE=$here/venv-aether/bin/python
   cd build-lungsim
   make
-  pip install -e src/bindings/python
+  pip install -e src/bindings/python/package
   
 Quick start instructions for Windows (cmd)::
 
