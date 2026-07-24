@@ -57,6 +57,7 @@ module geometry
   public set_initial_volume
   public triangles_from_surface
   public volume_of_mesh
+  public write_data_file
   public write_geo_file
   public get_final_integer
   public get_four_nodes
@@ -83,6 +84,7 @@ contains
     if(.not.allocated(node_xyz)) allocate (node_xyz(3,num_nodes))
     if(.not.allocated(node_field)) allocate (node_field(num_nj,num_nodes))
     if(.not.allocated(elems_at_node)) allocate(elems_at_node(num_nodes,0:3))
+    if(.not.allocated(airway_nodes%xyz)) allocate(airway_nodes%xyz(3,num_nodes))
     nodes = 0 !initialise node index values
     node_xyz = 0.0_dp !initialise
     node_field = 0.0_dp !initialise
@@ -636,8 +638,15 @@ contains
     ne = 0
 
     read_an_element : do
+
        !.......read element number
        read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+       if (ierror < 0) exit read_an_element      ! End of file
+       if (ierror > 0) then
+          print *, "Error reading file."
+          stop
+       endif
+
        if(index(ctemp1, "Element")> 0) then
           ne_global = get_final_integer(ctemp1) !return the final integer
           ne = ne + 1
@@ -645,15 +654,24 @@ contains
 
           read_element_nodes : do
              read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+             if (ierror < 0) exit read_an_element      ! End of file
+             if (ierror > 0) then
+                print *, "Error reading file."
+                stop
+             endif
              if(index(ctemp1, "global")> 0) then !found the correct line
                 call get_four_nodes(ne,ctemp1) !number of versions for node np
                 ! note that only the ne'th data of elem_nodes_2d is passed to 'get_four_nodes'
                 do nn=1,4
                    np=elem_nodes_2d(nn,ne)
                    if(node_versn_2d(np).gt.1)then
+                      if (ierror /= 0) exit read_an_element 
                       read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !contains version# for njj=1
+                      if (ierror /= 0) exit read_an_element 
                       read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !contains version# for njj=1
+                      if (ierror /= 0) exit read_an_element 
                       read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !contains version# for njj=1
+                      if (ierror /= 0) exit read_an_element 
                       elem_versn_2d(nn,ne) = get_final_integer(ctemp1) !return the final integer
                    else
                       elem_versn_2d(nn,ne)= 1
@@ -859,7 +877,7 @@ contains
     !.....at the end of the line
     read_number_of_nodes : do !define a do loop name
        read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !read a line into ctemp1
-       if(index(ctemp1, "nodes")> 0) then !keyword "nodes" is found in ctemp1
+       if(index(ctemp1, "number of nodes")> 0) then !keyword "nodes" is found in ctemp1
           num_nodes_temp = get_final_integer(ctemp1) !return the final integer
           exit read_number_of_nodes !exit the named do loop
        endif
@@ -1444,14 +1462,21 @@ contains
           ne2 = elem_cnct(1,2,ne) !second child
 
 !!!....   Summary statistics
-          if(stats(6,ne1).ge.0.0_dp.and.stats(6,ne2).ge.0.0_dp)then
-             if(stats(6,ne1).ge.stats(6,ne2))then !diameter classification
-                ne_major = ne1
-                ne_minor = ne2
-             else
-                ne_major = ne2
-                ne_minor = ne1
-             endif
+          !if(stats(6,ne1).ge.0.0_dp.and.stats(6,ne2).ge.0.0_dp)then
+             !if(stats(6,ne1).ge.stats(6,ne2))then !diameter classification
+             !   ne_major = ne1
+             !   ne_minor = ne2
+             !else
+             !   ne_major = ne2
+             !   ne_minor = ne1
+             !endif
+          if(stats(2,ne1) > stats(2,ne2))then ! angle classification
+             ne_minor = ne1
+             ne_major = ne2
+          else
+             ne_minor = ne2
+             ne_major = ne1
+          endif
              if(stats(2,ne_minor).ge.0.0_dp.and.stats(2,ne_major).ge.0.0_dp)then
                 stats(11,ne) = stats(2,ne_minor)*180.0_dp/pi
                 stats(12,ne) = stats(2,ne_major)*180.0_dp/pi
@@ -1465,7 +1490,7 @@ contains
                 stats(18,ne) = diameters(ne_major)/diameters(ne) !major D / D parent
              endif
              stats(20,ne) = stats(5,ne_major)/stats(5,ne_minor)
-          endif
+          !endif
        endif ! elem_cnct
     enddo ! ne
 
@@ -2015,15 +2040,24 @@ contains
     sub_name = 'make_data_grid'
     call enter_exit(sub_name,1)
 
-    if(count(surface_elems.ne.0).gt.0)then ! a surface element list is given for converting to
-       !                                a temporary triangulated surface mesh
-       allocate(elem_list(count(surface_elems.ne.0)))
-       do i = 1,count(surface_elems.ne.0)
-          elem_list(i) = get_local_elem_2d(surface_elems(i))
-       enddo
+    if(num_elems_2d > 0)then
+       ! only if a high order surface mesh is read in
+       if(count(surface_elems /= 0) > 0)then 
+          ! surface element list given for converting to temporary triangulated surface mesh
+          allocate(elem_list(count(surface_elems.ne.0)))
+          do i = 1,count(surface_elems.ne.0)
+             elem_list(i) = get_local_elem_2d(surface_elems(i))
+          enddo
+       else
+          ! default to all surface elements
+          allocate(elem_list(num_elems_2d))
+          do i = 1, num_elems_2d
+             elem_list(i) = i
+          enddo
+       endif
        call triangles_from_surface(elem_list)
     endif
-
+    
     volume = volume_internal_to_surface(triangle, vertex_xyz)
     scale_mesh = 1.0_dp-(offset/100.0_dp)
     cofm1 = sum(vertex_xyz,dim=2)/num_vertices
@@ -2117,8 +2151,7 @@ contains
           internal = .true.
           do while(point_xyz(1).le.max_bound(1)) ! for x direction
              k=k+1
-             internal = point_internal_to_surface(num_vertices,triangle, &
-                  point_xyz,vertex_xyz)
+             internal = point_internal_to_surface(point_xyz)
              if(internal)then
                 num_data = num_data+1
                 if(num_data.le.num_data_estimate)then
@@ -3877,7 +3910,7 @@ contains
 
     if(problem)then
        write(*,'('' (continue at your own peril.....) '')')
-       read(*,*)
+       !read(*,*)
     endif
 
     call enter_exit(sub_name,2)
@@ -4015,6 +4048,28 @@ contains
 
   end subroutine volume_of_mesh
 
+!!!#############################################################################
+
+  subroutine write_data_file(filename)
+
+!!! Inputs
+    character(len=*),intent(in) :: filename
+!!! Locals
+    integer,parameter :: ofile = 10
+    integer :: nd
+    character(len=200) :: opfile
+    
+    opfile = trim(filename)//'.ipdata'
+    open(ofile, file=opfile, status='replace')
+
+    do nd = 1, num_data
+       write(ofile,'( i8, 3(f10.4) )') nd, data_xyz(1:3, nd)
+    enddo
+
+    close(ofile)
+
+  end subroutine write_data_file
+    
 !!!#############################################################################
 
   subroutine write_geo_file(type, filename)
@@ -4432,6 +4487,17 @@ contains
     allocate(node_xyz(3,num_nodes_new))
     node_xyz = 0.0_dp
     node_xyz(1:3,1:num_nodes)=xyz_temp(1:3,1:num_nodes)
+    deallocate(xyz_temp)
+
+    if(allocated(airway_nodes%xyz))then
+       allocate(xyz_temp(3,num_nodes))
+       xyz_temp = airway_nodes%xyz
+       deallocate(airway_nodes%xyz)
+       allocate(airway_nodes%xyz(3,num_nodes_new))
+       airway_nodes%xyz = 0.0_dp
+       airway_nodes%xyz(1:3,1:num_nodes) = xyz_temp(1:3,1:num_nodes)
+       deallocate(xyz_temp)
+    endif
 
     allocate(nodelem_temp(num_elems))
     nodelem_temp = elems ! copy to temporary array
@@ -4441,6 +4507,19 @@ contains
     elems(1:num_elems)=nodelem_temp(1:num_elems)
     deallocate(nodelem_temp) !deallocate the temporary array
 
+    if(allocated(airway_elems%seed_xyz))then
+       allocate(xyz_temp(3,num_elems))
+       xyz_temp = airway_elems%seed_xyz ! copy to temporary array
+       deallocate(airway_elems%seed_xyz) !deallocate initially allocated memory
+       allocate(airway_elems%seed_xyz(3,num_elems_new))
+       airway_elems%seed_xyz = 0
+       airway_elems%seed_xyz(:,1:num_elems) = xyz_temp(:,1:num_elems)
+       deallocate(xyz_temp) !deallocate the temporary array
+    else
+       allocate(airway_elems%seed_xyz(3,num_elems_new))
+       airway_elems%seed_xyz = 0.0_dp
+    endif
+    
     allocate(enodes_temp(2,num_elems))
     enodes_temp=elem_nodes
     deallocate(elem_nodes)
