@@ -32,7 +32,7 @@ module lymphatics
   real(dp),protected :: lung_mass,capillary_volume_raw
 
   ! Capillary parameters
-  real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp! 5.98e-6!uL/s/mmHg/mm²   4.41335e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
+  real(dp),parameter :: capillary_conductivity = 4.41335e-8_dp*2.0_dp!*0.753!*2.0_dp! 0.753!5.98e-6!uL/s/mmHg/mm²   4.41335e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
   !real(dp),parameter :: capillary_conductivity = 9.26e-8 !mL.s-1.mmHg-1  obtained from Parker (6e-8 cm H2O)
 
   real(dp),parameter :: open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model?
@@ -113,7 +113,7 @@ module lymphatics
 ! ============================================
   !PROTEIN PARAMETERS
   ! ============================================
-  real(dp),parameter :: sigma = 0.6_dp !"Rat lung venules Lp=4.4×10⁻⁷; matches Safdar exactly" /Pulmonary σ=0.62 total protein; lung most consistent with lymph data"/Safdar/JCI (2003)/Parker/AJPLung (2006)
+  real(dp),parameter :: sigma = 0.6_dp*0.4!0.7!*0.4!0.2_dp !"Rat lung venules Lp=4.4×10⁻⁷; matches Safdar exactly" /Pulmonary σ=0.62 total protein; lung most consistent with lymph data"/Safdar/JCI (2003)/Parker/AJPLung (2006)
   real(dp),parameter :: Gp = 4.5e-7_dp!ul/s/mm2 with diameter 0.008 mm  1.13e-11_dp mu L/ms/mm
   real(dp),parameter :: R_contamination = 0.01555_dp
   real(dp),parameter :: c_plasma_baseline = 70.0_dp ! mg/ml = ug/ul
@@ -556,7 +556,7 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 
 !    print*,'printcount:', printcount
 
-     if (printcount.eq.4000)then ! one breath cycle(4s) has 80 printcount, 4000 × 0.05s = 200s
+     if (printcount.eq. 1333)then ! one breath cycle(4s) has 80 printcount, 4000 × 0.05s = 200s
     do nunit = 1, num_units
         ! Only update sats for units that are STILL RUNNING
 !        if ((lym_condition(nunit) > 0.000005_dp .or. &
@@ -610,7 +610,7 @@ Q_plasma(nu_osmflux,nunit) = max(0.0_dp, Q_plasma(nu_osmflux,nunit))
 
     sub_name = 'lymphatic_transport'
     call enter_exit(sub_name,1)
-    call set_lymph_factors(1,213.00_dp) ! mass, breathing rate, capillary volume raw (not used), number of timesteps
+    call set_lymph_factors(0,213.00_dp) ! mass, breathing rate, capillary volume raw (not used), number of timesteps
 
     if(index(filename, ".oplymph")> 0) then !full filename is given
        writefile = filename
