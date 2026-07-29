@@ -120,7 +120,7 @@ contains
          field_label(n_fields) = 0
 
          select case(label)
-!         case('flow')
+         case('flow')
          case('pressure')
             field_label(n_fields) = nu_blood_press
          case('transit_time')
