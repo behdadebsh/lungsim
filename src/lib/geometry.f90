@@ -417,7 +417,7 @@ contains
     units=0
     elem_units_below(1:num_elems) = 0 !initialise the number of terminal units below a branch
     elem_field(ne_unit,:) = 0.0_dp
-    
+
     nu=0
     do ne=1,num_elems
        if(elem_cnct(1,0,ne).eq.0)THEN
