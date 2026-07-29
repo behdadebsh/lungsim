@@ -1,13 +1,12 @@
 module surfactant
 !*Brief Description:* This module handles all code specific to
 ! simulating surfactant in the acinus.
-!
+!Outputs: surfactant concentration, surface tension, collapse pressure, compliance associated with P_c
 !*LICENSE:*
 !
 !
 !
 !*Full Description:*
-!This module handles all code specific to simulating surfactant in the acinus.
 
 !  use ventilation
 !  use geometry
@@ -25,9 +24,9 @@ module surfactant
 
 
   !Module parameters
-  real(dp), parameter :: gamma_star = (3e-7_dp)!g/cm^2 0.90520493_ * 0.061636_dp 1.327915519_   * 1.274464457_dp
-  real(dp), parameter :: m2 = 140_dp   !140.0_dp !slope
-  real(dp), parameter :: surface_tension_hat = (22.0_dp)!22.02_dp !dyn/cm  *0.005278_dp 0.12509917_dp *0.12509911_dp)*1.15
+  real(dp), parameter :: gamma_star = (3e-7_dp)!g/cm^2
+  real(dp), parameter :: m2 = 140_dp   ! slope
+  real(dp), parameter :: surface_tension_hat = (22.0_dp)!dyn/cm
   real(dp), parameter :: surface_tension_min= 1.0_dp  !1.0_dpdyn/cm *0.85_dp
   real(dp), parameter :: gamma_max =  gamma_star*(1+(surface_tension_hat-surface_tension_min)/m2)! 0.345e-6_dp !g/cm^2
 !  real(dp), parameter :: bulk_c = 10e-3_dp
