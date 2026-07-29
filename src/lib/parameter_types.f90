@@ -14,10 +14,12 @@ module parameter_types
 
   ! make the 'update' subroutines accessible via python bindings
   public :: update_lung
+  public :: update_mechs
   public :: update_gasexchange
   public :: update_ventilation
   public :: update_cardiac
-  public :: update_solve
+  public :: update_solve_gx
+  public :: update_solve_V
   public :: update_species
 
   type :: fundamental_constants
@@ -39,14 +41,26 @@ module parameter_types
   end type fundamental_constants
   
   type :: lung_parameters
-     ! parameters for species, lung orientation, and sizing
+     ! parameters for lung orientation and sizing
      integer  :: gravity_dirn = 3                       ! gravity direction, 1== on side, 2==supine, 3==upright          
      real(dp) :: surface_area = 3.0e3_dp * 32.0e3_dp    ! mm^2, gas exchange surface area == 30 mm^2/acinus * 32K acini
      real(dp) :: capillary_volume = 80.0e3_dp           ! mm^3, capillary blood volume
      real(dp) :: FRC = 3.0e6_dp                         ! mm^3, functional residual capacity
      real(dp) :: TLC = 6.0e6_dp                         ! mm^3, total lung capacity
      real(dp) :: anatomical_deadspace = 150.0e3_dp      ! mm^3, volume of airways
+     real(dp) :: chest_wall_compliance = 2039.4324_dp   ! mm^3/Pa, == 0.2 L/cmH2O * 1e6 mm^3/L / (98.0665_dp Pa/cmH2O)
+     real(dp) :: cov = 0.1_dp                           ! dim, COV for 'randomness' in distal unit sizing
+     real(dp) :: Rmax = 1.29_dp                         ! dim, ratio of maximum to average distal unit volume
+     real(dp) :: Rmin = 0.79_dp                         ! dim, ratio of minimum to average distal unit volume
   end type lung_parameters
+
+  type :: mechanics_parameters
+     ! parameters for 3D soft tissue mechanics and elastic tissue units
+     real(dp) :: ref_vol_ratio = 0.5_dp                 ! dim, ratio of the reference volume to the initialised volume (e.g. 0.5 of FRC)
+     real(dp) :: a = 0.433_dp                           ! dim, coefficient 'a' in Fung SEDF
+     real(dp) :: b = -0.611_dp                          ! dim, coefficient 'b' in Fung SEDF
+     real(dp) :: cc = 2500.0_dp                         ! dim, coefficient 'c' in Fung SEDF
+  end type mechanics_parameters
 
   type :: gasexchange_parameters
      ! parameters related to gas properties and gas exchange
@@ -68,6 +82,11 @@ module parameter_types
   type :: ventilation_parameters
      integer  :: breaths_per_minute = 15                ! breaths per minute
      real(dp) :: tidal_volume = 400.0e3_dp              ! mm^3, tidal volume
+     real(dp) :: i_to_e_ratio = 1.0_dp                  ! dim, ratio of inspiration to expiration time
+     real(dp) :: T_interval = 4.0_dp                    ! s, the total length of the breath
+     real(dp) :: press_in = 0.0_dp                      ! Pa, constant pressure applied at the model inlet
+     real(dp) :: insp_press_muscle = -196.133_dp        ! Pa, total driving pressure over an insp, == 2 cmH2O * 98.0665 Pa/cmH2O
+     character(len=8) :: expiration_type = 'active'     ! type, either active or passive or pressure
   end type ventilation_parameters
   
   type :: cardiac_parameters
@@ -87,6 +106,14 @@ module parameter_types
      real(dp) :: dt_gx = 0.0025_dp                      ! time step for gas exchange model solution
   end type solve_gx_parameters
     
+  type :: solve_vent_parameters
+     ! parameters to control ventilation solutions and solver
+     integer  :: num_breaths = 10                       ! max # breaths to solve for
+     integer  :: max_iterations = 200                   ! max # iterations using GMRES solver.
+     real(dp) :: err_tolerance = 1.0e-8_dp              ! tolerance for comparing residuals
+     real(dp) :: dt = 0.05_dp                           ! time step for ventilation model solution
+  end type solve_vent_parameters
+    
   type :: species_parameters
      ! define species-specific parameters (non-geometric or functional)
 
@@ -101,10 +128,12 @@ module parameter_types
   ! retain between modules
   type(fundamental_constants)  :: constants
   type(lung_parameters)        :: lung_params
+  type(mechanics_parameters)   :: mech_params
   type(gasexchange_parameters) :: gx_params
   type(ventilation_parameters) :: V_params
   type(cardiac_parameters)     :: Q_params
   type(solve_gx_parameters)    :: solve_gx_params
+  type(solve_vent_parameters)  :: solve_V_params
   type(species_parameters)     :: species_params
 
   
@@ -129,12 +158,57 @@ module parameter_types
          lung_params%TLC = param_value
       case('anatomical_deadspace')
          lung_params%anatomical_deadspace = param_value
+      case('chest_wall_compliance')
+         lung_params%chest_wall_compliance = param_value
+      case('cov')
+         lung_params%cov = param_value
+      case('rmax')
+         lung_params%Rmax = param_value
+      case('rmin')
+         lung_params%Rmin = param_value
+      case ('help')
+         write(*,'('' Current values for update_lung:'')') 
+         write(*,'(''    - gravity_dirn  = '', i6)') lung_params%gravity_dirn
+         write(*,'(''    - surface_area  = '', d8.3, '' mm2'')') lung_params%surface_area
+         write(*,'(''    - capillary_volume  = '', d8.3, '' mm3'')') lung_params%capillary_volume
+         write(*,'(''    - FRC  = '', d8.2, '' mm3'')') lung_params%FRC
+         write(*,'(''    - TLC  = '', d8.2, '' mm3'')') lung_params%TLC
+         write(*,'(''    - anatomical_deadspace  = '', d8.2, '' mm3'')') lung_params%anatomical_deadspace
+         write(*,'(''    - chest_wall_compliance  = '', d8.2, '' mm3/Pa'')') lung_params%chest_wall_compliance
+         write(*,'(''    - cov  = '', f8.2)') lung_params%cov
+         write(*,'(''    - Rmax  = '', f8.2)') lung_params%Rmax
+         write(*,'(''    - Rmin  = '', f8.2)') lung_params%Rmin
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
 
     end subroutine update_lung
+
+    subroutine update_mechs(param_name, param_value)
+      character(len=*), intent(in) :: param_name
+      real(dp), intent(in) :: param_value
+
+      select case (trim(param_name))
+      case('ref_vol_ratio')
+         mech_params%ref_vol_ratio = param_value
+      case('a')
+         mech_params%a = param_value
+      case('b')
+         mech_params%b = param_value
+      case('c')
+         mech_params%cc = param_value
+      case ('help')
+         write(*,'('' Current values for update_mechs:'')') 
+         write(*,'(''    -  ref_vol_ratio = '', f8.2)') mech_params%ref_vol_ratio
+         write(*,'(''    -  a = '', f8.2)') mech_params%a
+         write(*,'(''    -  b = '', f8.2)') mech_params%b
+         write(*,'(''    -  c = '', f8.2)') mech_params%cc
+      case default
+         write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
+      end select
+    end subroutine update_mechs
 
     subroutine update_gasexchange(param_name, param_value)
       
@@ -166,6 +240,20 @@ module parameter_types
          gx_params%pHa = param_value
       case ('body_temp')
          gx_params%body_temp = param_value
+      case ('help')
+         write(*,'('' Current values for update_gasexchange:'')') 
+         write(*,'(''    -  press_atm = '', f8.1, '' mmHg'')') gx_params%press_atm
+         write(*,'(''    -  press_h2o = '', f8.1, '' mmHg'')') gx_params%press_H2O
+         write(*,'(''    -  diffusion_coefficient = '', f8.2, '' mm2/s'')') gx_params%diffusion_coeff
+         write(*,'(''    -  fio2 = '', f8.2)') gx_params%FiO2
+         write(*,'(''    -  init_p_alv_o2 = '', f8.1, '' mmHg'')') gx_params%init_p_alv_o2
+         write(*,'(''    -  target_p_art_co2 = '', f8.1, '' mmHg'')') gx_params%target_p_art_co2
+         write(*,'(''    -  target_p_ven_o2 = '', f8.1, '' mmHg'')') gx_params%target_p_ven_o2
+         write(*,'(''    -  vo2 = '', f8.2, '' mm3/s'')') gx_params%VO2
+         write(*,'(''    -  vco2 = '', f8.2, '' mm3/s'')') gx_params%VCO2
+         write(*,'(''    -  hb = '', f8.2, '' g/dL'')') gx_params%Hb
+         write(*,'(''    -  pha = '', f8.2)') gx_params%pHa
+         write(*,'(''    -  body_temp = '', f8.2, '' degC'')') gx_params%body_temp
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
@@ -183,6 +271,22 @@ module parameter_types
          V_params%breaths_per_minute = param_value
       case ('tidal_volume')
          V_params%tidal_volume = param_value
+      case ('i_to_e_ratio')
+         V_params%i_to_e_ratio = param_value
+      case ('t_interval')
+         V_params%t_interval = param_value
+      case ('press_in')
+         V_params%press_in = param_value
+      case ('insp_press_muscle')
+         V_params%insp_press_muscle = param_value
+      case ('help')
+         write(*,'('' Current values for update_ventilation:'')') 
+         write(*,'(''    -  breaths_per_min = '', i6)')  V_params%breaths_per_minute
+         write(*,'(''    -  tidal_volume = '', f8.1, '' mm3/s'')')  V_params%tidal_volume
+         write(*,'(''    -  i_to_e_ratio = '', f6.2)')  V_params%i_to_e_ratio
+         write(*,'(''    -  t_interval = '', f6.2, '' s'')')  V_params%t_interval
+         write(*,'(''    -  press_in = '', f6.2, '' Pa'')')  V_params%press_in
+         write(*,'(''    -  insp_press_muscle = '', f8.3, '' Pa'')')  V_params%insp_press_muscle
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
@@ -211,7 +315,7 @@ module parameter_types
     end subroutine update_cardiac
     
 
-    subroutine update_solve(param_name, param_value)
+    subroutine update_solve_gx(param_name, param_value)
       
       character(len=*), intent(in) :: param_name
       real(dp), intent(in) :: param_value
@@ -229,12 +333,45 @@ module parameter_types
          solve_gx_params%dt = param_value
       case ('dt_gx')
          solve_gx_params%dt_gx = param_value
+      case ('help')
+         write(*,'('' Current values for update_solve_gx:'')') 
+         write(*,'(''    - number_of_breaths  = '', i6, '' '')')  solve_gx_params%num_breaths
+         write(*,'(''    - max_outer_iterations  = '', i6, '' '')')  solve_gx_params%out_itr_max
+         write(*,'(''    - max_inner_iterations  = '', i6, '' '')')  solve_gx_params%inr_itr_max
+         write(*,'(''    - solver_tolerance  = '', d8.3, '' '')')  solve_gx_params%solve_tolerance
+         write(*,'(''    - dt_solve  = '', d8.3, '' '')')  solve_gx_params%dt
+         write(*,'(''    - dt_gx  = '', d8.3, '' '')')  solve_gx_params%dt_gx
       case default
          write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
          write(*,*) '         parameters are case sensitive: use all lowercase'
       end select
-    end subroutine update_solve
+    end subroutine update_solve_gx
 
+    subroutine update_solve_V(param_name, param_value)
+      
+      character(len=*), intent(in) :: param_name
+      real(dp), intent(in) :: param_value
+
+      select case (trim(param_name))
+      case ('number_of_breaths')
+         solve_V_params%num_breaths = param_value
+      case ('max_iterations')
+         solve_V_params%max_iterations = param_value
+      case ('err_tolerance')
+         solve_V_params%err_tolerance = param_value
+      case ('dt')
+         solve_V_params%dt = param_value
+      case ('help')
+         write(*,'('' Current values for update_solve_V:'')') 
+         write(*,'(''    - number_of_breaths  = '', i6, '' '')')  solve_V_params%num_breaths
+         write(*,'(''    - max_iterations  = '', i6, '' '')')  solve_V_params%max_iterations
+         write(*,'(''    - err_tolerance  = '', d8.3, '' '')')  solve_V_params%err_tolerance
+         write(*,'(''    - dt  = '', d8.3, '' '')')  solve_V_params%dt
+       case default
+         write(*,*) 'WARNING: unknown parameter name: ', trim(param_name)
+         write(*,*) '         parameters are case sensitive: use all lowercase'
+      end select
+    end subroutine update_solve_V
     
     subroutine update_species(param_name)
       

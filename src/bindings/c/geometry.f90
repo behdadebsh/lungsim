@@ -391,16 +391,15 @@ contains
 !
   !*set_initial_volume:* set the volume of elastic units, with gravitational gradient
   ! and heterogeneity
-  subroutine set_initial_volume_c(Gdirn,COV,total_volume,Rmax,Rmin) &
+  subroutine set_initial_volume_c(total_volume) &
        bind(C, name="set_initial_volume_c")
     use geometry, only: set_initial_volume
     use precision, only: dp
     implicit none
 
-    integer, intent(in) :: Gdirn
-    real(dp), intent(in) :: COV, total_volume, Rmax, Rmin
+    real(dp), intent(in) :: total_volume
     
-    call set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
+    call set_initial_volume(total_volume)
 
   end subroutine set_initial_volume_c
 
