@@ -81,6 +81,9 @@ contains
        writefile = trim(filename)//'.exflow'
     endif
     open(10, file=writefile, status='replace')
+    
+    write(10,'(A)') '   Time   Inflow    V_t     Raw     Comp    Ppl     Ptp     VolL    Pmus    Pcw  Pmus-Pcw'
+    write(10,'(A)') '   (s)    (mL/s)   (mL) (cmH/L.s) (L/cmH) (...cmH2O...)    (L)     (......cmH2O.......)'
 
     ! control the formatting of output to suit size of model
     if(lung_params%FRC < 1e+5_dp)then
