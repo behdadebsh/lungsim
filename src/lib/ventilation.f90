@@ -74,6 +74,9 @@ contains
     logical :: CONTINUE,converged, op_litres
 
     ! --------------------------------------------------------------------------
+    
+    sub_name = 'evaluate_vent'
+    call enter_exit(sub_name,1)
 
     if(index(filename, ".exflow")> 0) then !full filename is given
        writefile = filename
@@ -218,6 +221,8 @@ contains
 
     close(10)
     
+    call enter_exit(sub_name,2)
+    
   end subroutine evaluate_vent
 
 !!!#############################################################################
@@ -242,6 +247,8 @@ contains
     logical :: converged
 
     ! --------------------------------------------------------------------------
+    
+    
 
 !!! Solve for a new flow and pressure field
 !!! We will estimate the flow into each terminal lumped
