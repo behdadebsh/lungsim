@@ -72,6 +72,7 @@ contains
          WOBe_insp,WOBr_insp,WOB_insp
     character(len=300) :: writefile
     logical :: CONTINUE,converged, op_litres
+    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
     
