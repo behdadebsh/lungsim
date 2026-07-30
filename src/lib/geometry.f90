@@ -3945,8 +3945,12 @@ contains
     integer :: g_idx, ne, np2, nunit
     real(dp) ::  factor_adjust, max_z, min_z, random_number, range_z,&
          volume_estimate, volume_of_tree, Vmax, Vmin, Xi
-
+    character(len=60) :: sub_name
+    
     ! --------------------------------------------------------------------------
+    sub_name = 'set_initial_volume'
+    call enter_exit(sub_name,1)
+    
 
     volume_estimate = 1.0_dp
     volume_of_tree = 0.0_dp
@@ -4005,6 +4009,8 @@ contains
     do nunit = 1,num_units
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit) * factor_adjust
     enddo
+    
+    call enter_exit(sub_name,2)
 
   end subroutine set_initial_volume
 
