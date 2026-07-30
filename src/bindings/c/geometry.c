@@ -28,7 +28,7 @@ void occlude_vessel_c(int *VESSEL_NUMBER, double *RATIO);
 void element_connectivity_1d_c(void);
 void evaluate_ordering_c(void);
 void scale_airways_c(double *scale_factor);
-void set_initial_volume_c(int *Gdirn, double *COV, double *total_volume, double *Rmax, double *Rmin);
+void set_initial_volume_c(double *total_volume);
 void volume_of_mesh_c(double *volume_model, double *volume_tree);
 void write_elem_geometry_2d_c(const char *ELEMFILE, int *filename_len);
 void write_geo_file_c(int *ntype, const char *GEOFILE, int *filename_len);
@@ -172,9 +172,9 @@ void scale_airways(double scale_factor)
   scale_airways_c(&scale_factor);
 }
   
-void set_initial_volume(int Gdirn, double COV, double total_volume, double Rmax, double Rmin)
+void set_initial_volume(double total_volume)
 {
-  set_initial_volume_c(&Gdirn, &COV, &total_volume, &Rmax, &Rmin);
+  set_initial_volume_c(&total_volume);
 }
   
 

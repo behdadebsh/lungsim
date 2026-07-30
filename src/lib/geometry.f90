@@ -3933,70 +3933,83 @@ contains
 
 !!!#############################################################################
 
-  subroutine set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
+  subroutine set_initial_volume(total_volume)
     !*set_initial_volume:* assigns a volume to terminal units appended on a
     ! tree structure based on an assumption of a linear gradient in the
     ! gravitational direction with max, min, and COV values defined.
 
-    integer,intent(in) :: Gdirn
-    real(dp),intent(in) :: COV,total_volume,Rmax,Rmin
+    use parameter_types, only: lung_params
+    
+    real(dp),intent(in) :: total_volume
     !     Local parameters
-    integer :: ne,np2,nunit
-    real(dp) ::  factor_adjust,max_z,min_z,random_number,range_z,&
-         volume_estimate,volume_of_tree,Vmax,Vmin,Xi
+    integer :: g_idx, ne, np2, nunit
+    real(dp) ::  factor_adjust, max_z, min_z, random_number, range_z,&
+         volume_estimate, volume_of_tree, Vmax, Vmin, Xi
     character(len=60) :: sub_name
-
+    
     ! --------------------------------------------------------------------------
-
     sub_name = 'set_initial_volume'
     call enter_exit(sub_name,1)
+    
 
     volume_estimate = 1.0_dp
     volume_of_tree = 0.0_dp
 
-    call volume_of_mesh(volume_estimate,volume_of_tree)
+    call volume_of_mesh(volume_estimate, volume_of_tree)
 
-    random_number=-1.1_dp
+    random_number = -1.1_dp
 
-    Vmax = Rmax * (total_volume-volume_estimate)/elem_units_below(1)
-    Vmin = Rmin * (total_volume-volume_estimate)/elem_units_below(1)
+    Vmax = lung_params%Rmax * (total_volume - volume_estimate) / elem_units_below(1)
+    Vmin = lung_params%Rmin * (total_volume - volume_estimate) / elem_units_below(1)
 
+    ! set up the gravity indexing
+    select case (lung_params%gravity_dirn)
+    case(1) ! lateral (never used but could be)
+       g_idx = 1
+    case(2) ! supine
+       g_idx = 2
+       ! invert to get quick way of allocating a supine gradient
+       Vmax = lung_params%Rmin * (total_volume - volume_estimate) / elem_units_below(1)
+       Vmin = lung_params%Rmax * (total_volume - volume_estimate) / elem_units_below(1)
+    case(-2) ! prone
+       g_idx = 2
+    case(3) ! upright
+       g_idx = 3
+    end select
+    
 !!! for each elastic unit find the maximum and minimum coordinates in the Gdirn direction
-    max_z=-1.0e+6_dp
-    min_z=1.0e+6_dp
-    do nunit=1,num_units
-       ne=units(nunit)
-       np2=elem_nodes(2,ne)
-       max_z=MAX(max_z,node_xyz(Gdirn,np2))
-       min_z=MIN(min_z,node_xyz(Gdirn,np2))
+    max_z = -1.0e+6_dp
+    min_z = 1.0e+6_dp
+    do nunit = 1,num_units
+       ne = units(nunit)
+       np2 = elem_nodes(2,ne)
+       max_z = MAX(max_z,node_xyz(g_idx,np2))
+       min_z = MIN(min_z,node_xyz(g_idx,np2))
     enddo !nunit
 
-    range_z=abs(max_z-min_z)
-    if(abs(range_z).le.1.0e-5_dp) range_z=1.0_dp
+    range_z = abs(max_z-min_z)
+    if(abs(range_z).le.1.0e-5_dp) range_z = 1.0_dp
 
 !!! for each elastic unit allocate a size based on a gradient in the Gdirn direction, and
 !!! perturb by a user-defined COV. This should be calling a random number generator.
-    do nunit=1,num_units
-       ne=units(nunit)
-       np2=elem_nodes(2,ne) !end node
-       Xi=(node_xyz(Gdirn,np2)-min_z)/range_z
-       random_number=random_number+0.1_dp
-       if(random_number.GT.1.0_dp) random_number=-1.1_dp
-       unit_field(nu_vol,nunit)=(Vmax*Xi+Vmin*(1.0_dp-Xi))*(1.0_dp+COV*random_number)
-       unit_field(nu_vt,nunit)=0.0_dp !initialise the tidal volume to a unit
+    do nunit = 1,num_units
+       ne = units(nunit)
+       np2 = elem_nodes(2,ne) !end node
+       Xi = (node_xyz(g_idx,np2) - min_z) / range_z
+       random_number = random_number + 0.1_dp
+       if(random_number > 1.0_dp) random_number = -1.1_dp
+       unit_field(nu_vol,nunit) = (Vmax * Xi + Vmin * (1.0_dp - Xi)) * &
+            (1.0_dp + lung_params%cov * random_number)
+       unit_field(nu_vt,nunit) = 0.0_dp !initialise the tidal volume to a unit
     enddo !nunit
 
     ! correct unit volumes such that total volume is exactly as specified
-    call volume_of_mesh(volume_estimate,volume_of_tree)
-    factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
-    do nunit=1,num_units
-       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
+    call volume_of_mesh(volume_estimate, volume_of_tree)
+    factor_adjust = (total_volume - volume_of_tree) / (volume_estimate - volume_of_tree)
+    do nunit = 1,num_units
+       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit) * factor_adjust
     enddo
-
-    write(*,'('' Number of elements is '',I5)') num_elems
-    write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
-    write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
-
+    
     call enter_exit(sub_name,2)
 
   end subroutine set_initial_volume

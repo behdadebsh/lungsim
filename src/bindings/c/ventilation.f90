@@ -6,13 +6,20 @@ contains
 
 !!!###################################################################################
 
-  subroutine evaluate_vent_c() bind(C, name="evaluate_vent_c")
+  subroutine evaluate_vent_c(filename, filename_len) bind(C, name="evaluate_vent_c")
 
     use arrays,only: dp
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
     use ventilation, only: evaluate_vent
+    use other_consts, only: MAX_STRING_LEN, MAX_FILENAME_LEN
     implicit none
+    integer,intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: filename
+    character(len=MAX_FILENAME_LEN) :: filename_f
 
-    call evaluate_vent()
+    call strncpy(filename_f, filename, filename_len)
+    call evaluate_vent(filename_f)
 
   end subroutine evaluate_vent_c
 
@@ -28,16 +35,6 @@ contains
 
   end subroutine evaluate_uniform_flow_c
 
-
-!###################################################################################
-
-  subroutine two_unit_test_c() bind(C, name="two_unit_test_c")
-    use ventilation, only: two_unit_test
-    implicit none
-
-    call two_unit_test
-
-  end subroutine two_unit_test_c
 
 !###################################################################################
 end module ventilation_c

@@ -56,10 +56,9 @@ contains
     real(dp),allocatable :: xyz(:,:)
     real(dp) :: xi_lines(2,4),xi(2)
     character(len=1) :: direction(3)
-    character(len=60) :: sub_name = 'export_cubic_lagrange_2d'
     character(len=300) :: writefile
 
-    call enter_exit(sub_name,1)
+    ! --------------------------------------------------------------------------
 
     ! overallocating the minimum required memory, just to make indexing of nodes easy
     allocate(nodes_on_lines(num_nodes_2d+num_lines_2d))
@@ -182,8 +181,6 @@ contains
     deallocate(nodes_cl_elems)
     deallocate(xyz)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_cubic_lagrange_2d
 
 !
@@ -199,12 +196,8 @@ contains
     integer :: ne,nj,nline,nn
     character(len=1) :: char1
     character(len=100) :: writefile
-    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
-    sub_name = 'export_triangle_elements'
-    call enter_exit(sub_name,1)
 
     if(index(EXELEMFILE, ".exelem")> 0) then !full filename is given
        writefile = EXELEMFILE(1:100)
@@ -263,8 +256,6 @@ contains
     enddo
     close(10)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_triangle_elements
 
 !
@@ -280,12 +271,8 @@ contains
 !!! Local Variables
     integer :: i,nj
     character(len=100) :: writefile
-    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
-    sub_name = 'export_triangle_nodes'
-    call enter_exit(sub_name,1)
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE(1:100)
@@ -315,8 +302,6 @@ contains
     enddo
     close(10)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_triangle_nodes
 
 !
@@ -335,12 +320,8 @@ contains
     integer :: len_end,ne
     logical :: CHANGED
     character(len=300) :: writefile
-    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
-    sub_name = 'export_1d_elem_field'
-    call enter_exit(sub_name,1)
 
     if(index(EXELEMFILE, ".exelem")> 0) then !full filename is given
        writefile = EXELEMFILE
@@ -395,12 +376,8 @@ contains
     character(len=1) :: char1
     logical :: CHANGED
     character(len=300) :: writefile
-    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
-    sub_name = 'export_1d_elem_geometry'
-    call enter_exit(sub_name,1)
 
     if(index(EXELEMFILE, ".exelem")> 0) then !full filename is given
        writefile = EXELEMFILE
@@ -447,8 +424,6 @@ contains
     enddo !no_nelist (ne)
     close(10)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_1d_elem_geometry
 
 !
@@ -467,9 +442,8 @@ contains
     character(len=1) :: char1
     character(len=300) :: writefile
     logical :: CHANGED
-    character(len=60) :: sub_name = 'export_elem_geometry_2d'
 
-    call enter_exit(sub_name,1)
+    ! --------------------------------------------------------------------------
 
     if(index(EXELEMFILE, ".exelem")> 0) then !full filename is given
        writefile = EXELEMFILE
@@ -568,7 +542,6 @@ contains
        WRITE(10,'(4X,4(1X,E12.5))') (scale_factors_2d(nk,ne),nk=13,16) !node 4
     enddo
     close(10)
-    call enter_exit(sub_name,2)
 
   end subroutine export_elem_geometry_2d
 
@@ -586,12 +559,8 @@ contains
     integer :: len_end,nj,np,np_last,VALUE_INDEX
     logical :: FIRST_NODE
     character(len=300) :: writefile
-    character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-
-    sub_name = 'export_node_geometry'
-    call enter_exit(sub_name,1)
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE
@@ -633,8 +602,6 @@ contains
     endif !num_nodes
     close(10)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_node_geometry
 
 !
@@ -646,15 +613,13 @@ contains
     integer :: offset
     character(len=*) :: EXNODEFILE
     character(len=*) :: name
-    character(len=60) :: sub_name = 'export_node_geometry_2d'
-
 
     !     Local Variables
     integer :: nderiv,nversions,nj,nk,np,np_last,nv,VALUE_INDEX
     logical :: FIRST_NODE
     character(len=300) :: writefile
 
-    call enter_exit(sub_name,1)
+    ! --------------------------------------------------------------------------
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE
@@ -723,8 +688,6 @@ contains
     endif
     CLOSE(10)
 
-    call enter_exit(sub_name,2)
-
   end subroutine export_node_geometry_2d
 
 !
@@ -741,9 +704,8 @@ contains
     integer,parameter :: num_coords = 3
     integer nd,nj
     character(len=200) :: exfile
-    character(len=60) :: sub_name = 'export_data_geometry'
 
-    call enter_exit(sub_name,1)
+    ! --------------------------------------------------------------------------
 
     exfile = trim(exdatafile)//'.exdata'
     open(10, file = exfile, status = 'replace')
@@ -760,7 +722,6 @@ contains
        write(10,'(1X,3E13.5)')  (data_xyz(nj,nd),nj=1,num_coords)
     enddo !NOLIST
     close(10)
-    call enter_exit(sub_name,2)
 
   end subroutine export_data_geometry
 
@@ -778,6 +739,8 @@ contains
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
     character(len=300) :: writefile
     logical :: FIRST_NODE
+
+    ! --------------------------------------------------------------------------
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE
@@ -814,7 +777,7 @@ contains
              write(10,'('' 2) flow, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
-             !VALUE_INDEX=VALUE_INDEX+1
+             VALUE_INDEX=VALUE_INDEX+1
              !Volume
              !write(10,'('' 3) volume, field, rectangular cartesian, #Components=1'')')
              !write(10,'(2X,''1.  '')',advance="no")
@@ -825,17 +788,17 @@ contains
              !write(10,'(2X,''1.  '')',advance="no")
              !write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              !Compliance
-             write(10,'('' 5) compliance, field, rectangular cartesian, #Components=1'')')
+             write(10,'('' 3) compliance, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              VALUE_INDEX=VALUE_INDEX+1
              !Pleural pressure
-             write(10,'('' 6) pleural pressure, field, rectangular cartesian, #Components=1'')')
+             write(10,'('' 4) pleural pressure, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              VALUE_INDEX=VALUE_INDEX+1
              !Tidal volume
-             write(10,'('' 7) tidal volume, field, rectangular cartesian, #Components=1'')')
+             write(10,'('' 5) tidal volume, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
@@ -871,6 +834,8 @@ contains
 !!! Local Variables
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
     logical :: FIRST_NODE
+
+    ! --------------------------------------------------------------------------
 
     len_end=len_trim(name)
     if(num_units.GT.0) THEN
@@ -938,6 +903,8 @@ contains
     real(dp) :: content
     logical :: FIRST_NODE
     character(len=MAX_FILENAME_LEN) :: writefile
+
+    ! --------------------------------------------------------------------------
 
     len_end=len_trim(name)
     if(num_units.GT.0) THEN
@@ -1028,6 +995,8 @@ contains
     integer :: len_end,np
     logical :: FIRST_NODE
 
+    ! --------------------------------------------------------------------------
+
     open(10, file=EXNODEFIELD, status='replace')
     !**     write the group name
     len_end=len_trim(name)
@@ -1067,6 +1036,8 @@ contains
 !!! Local Variables
     integer :: len_end,ne,nn
     logical :: CHANGED
+
+    ! --------------------------------------------------------------------------
 
     open(10, file=EXELEMFIELD, status='replace')
     len_end=len_trim(name)

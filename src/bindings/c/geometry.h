@@ -28,7 +28,7 @@ SHO_PUBLIC void occlude_vessel(int VESSEL_NUMBER, double RATIO);
 SHO_PUBLIC void element_connectivity_1d();
 SHO_PUBLIC void evaluate_ordering();
 SHO_PUBLIC void scale_airways(double scale_factor);
-SHO_PUBLIC void set_initial_volume(int Gdirn, double COV, double total_volume, double Rmax, double Rmin);
+SHO_PUBLIC void set_initial_volume(double total_volume);
 SHO_PUBLIC void volume_of_mesh(double *volume_model, double *volume_tree);
 SHO_PUBLIC void write_elem_geometry_2d(const char *ELEMFILE);
 SHO_PUBLIC void write_geo_file(int ntype, const char *GEOFILE);
