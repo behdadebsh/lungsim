@@ -557,6 +557,21 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
   end subroutine clear_perfusion_flows
 
 !###################################################################################
+  logical function is_perfusion_flow(ne)
+    integer,intent(in) :: ne
+    integer :: no
+
+    is_perfusion_flow=.FALSE.
+    if(.not.allocated(perfusion_flow_elements))return
+    do no=1,size(perfusion_flow_elements)
+      if(perfusion_flow_elements(no).eq.ne)then
+        is_perfusion_flow=.TRUE.
+        return
+      endif
+    enddo
+  end function is_perfusion_flow
+
+!###################################################################################
   subroutine apply_perfusion_flow_bcs(FIX,depvar_at_elem,prq_solution,mesh_dof)
     integer,intent(in) :: mesh_dof
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
@@ -833,11 +848,18 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     FlowBalancedNodes = .FALSE. !.TRUE. for nodes which have had a conservation of flow equation done
     NodePressureDone = .FALSE.  !.TRUE. for nodes which have been processed
     ElementPressureEquationDone = .FALSE.
+    if(allocated(perfusion_flow_elements))then
+      do ne2=1,size(perfusion_flow_elements)
+        ElementPressureEquationDone(perfusion_flow_elements(ne2))=.TRUE.
+      enddo
+    endif
     offset=0!variable position offset
 
-    ! Keep the established variable-driven equation ordering.  This is the
-    ! same strategy used by the coupling boundary condition to keep the
-    ! reduced matrix structurally aligned with the ILU diagonal.
+    ! Prescribing an internal element flow makes that element a flow boundary.
+    ! Its pressure-drop equation is replaced by the prescribed-flow condition;
+    ! conservation equations remain active on both sides of the boundary.
+    ! Keep the coupling-style variable-driven equation ordering so the reduced
+    ! matrix stays structurally aligned with the ILU diagonal.
     do ne=1,num_elems
       !look at pressure variables at each node
       do nn=1,2 !2 nodes in 1D element
@@ -846,24 +868,24 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
         if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then
             ne2=0
             if(nn.EQ.1)then
-                ne2=ne
+                if((.not.allocated(perfusion_flow_elements)).or. &
+                  (.not.ElementPressureEquationDone(ne)))ne2=ne
             elseif(nn.EQ.2)then
                 if((bc_type.EQ.'pressure').OR.(.NOT.ElementPressureEquationDone(ne)))then
                     ne2=ne
-                else
-                    if (elems_at_node(np,0).GT.1)then
-                        elem_found=.FALSE.
-                        noelem2 = 1
-                        do while ((.NOT.elem_found).AND.(noelem2.LE.elems_at_node(np,0)))
-                            ne3=elems_at_node(np,noelem2)
-                            if((ne3.NE.ne).AND.(.NOT.ElementPressureEquationDone(ne3)))then
-                                ne2 = ne3
-                                elem_found=.TRUE.
-                            endif
-                            noelem2 = noelem2 + 1
-                        enddo
-                    endif
                 endif
+            endif
+            if((ne2.EQ.0).AND.(elems_at_node(np,0).GT.1))then
+                elem_found=.FALSE.
+                noelem2=1
+                do while ((.NOT.elem_found).AND.(noelem2.LE.elems_at_node(np,0)))
+                    ne3=elems_at_node(np,noelem2)
+                    if((ne3.NE.ne).AND.(.NOT.ElementPressureEquationDone(ne3)))then
+                        ne2=ne3
+                        elem_found=.TRUE.
+                    endif
+                    noelem2=noelem2+1
+                enddo
             endif
             if(ne2.GT.0)then
                 np1=elem_nodes(1,ne2)
@@ -987,6 +1009,20 @@ subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_e
     enddo
 
     NonZeros=nzz-1
+    if(allocated(perfusion_flow_elements))then
+      do np=1,num_nodes
+        if((elems_at_node(np,0).gt.1).and.(.not.FlowBalancedNodes(np)))then
+          print *, 'ERROR: prescribed-flow assembly omitted conservation at node:',np
+          call exit(1)
+        endif
+      enddo
+      do ne=1,num_elems
+        if((.not.is_perfusion_flow(ne)).and.(.not.ElementPressureEquationDone(ne)))then
+          print *, 'ERROR: prescribed-flow assembly omitted pressure equation for element:',ne
+          call exit(1)
+        endif
+      enddo
+    endif
     if(nzz_row-1.ne.MatrixSize)then
       print *, 'ERROR: sparse PRQ assembly row mismatch:',nzz_row-1,MatrixSize
       call exit(1)

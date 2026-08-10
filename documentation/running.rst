@@ -104,10 +104,12 @@ one-based element identifiers and flow values before calling ``evaluate_prq``::
   )
 
 Each selected element flow is fixed to the supplied value while the solver computes
-the remaining flows and pressures.  The element pressure-drop equations and nodal
-flow conservation are retained.  Fixed-flow terms are moved to the right-hand side,
-and the solver keeps its topology-aware equation ordering so the reduced matrix has
-the structural diagonal required by the ILU preconditioner.
+the remaining flows and pressures.  Nodal flow conservation is retained, so fixing
+the flow in the unique element entering a subtree fixes the total flow delivered to
+that subtree.  The prescribed-flow condition replaces that element's pressure-drop
+equation, allowing the pressure jump required to impose the flow to be determined by
+the rest of the network.  The solver keeps its topology-aware equation ordering so
+the reduced matrix has the structural diagonal required by the ILU preconditioner.
 
 The setting persists for later PRQ solves in the same process.  Clear it to restore
 the original solver behaviour::
