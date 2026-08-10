@@ -50,7 +50,7 @@ contains
     real(dp), allocatable :: fixed_flow_rhs_base(:)
     real(dp), allocatable :: SparseVal(:)
     real(dp), allocatable :: RHS(:)
-    integer :: num_vars,NonZeros,MatrixSize
+    integer :: num_vars,NonZeros,MaxNonZeros,MatrixSize
     integer :: AllocateStatus
 
     real(dp), intent(in) :: remodeling_grade ! Remodeling if applicable, 0 stands for healthy and anything from 10 to 100 is hypertension
@@ -193,12 +193,12 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 
 !! Calculate sparsity structure for solution matrices
     !Determine size of and allocate solution vectors/matrices
-    call calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize)
-    allocate (SparseCol(NonZeros), STAT = AllocateStatus)!Note we should be able to calculate the nonzeros and matrix size analtyically then we wont need this.
+    call calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,MaxNonZeros,MatrixSize)
+    allocate (SparseCol(MaxNonZeros), STAT = AllocateStatus)
     if (AllocateStatus /= 0) STOP "*** Not enough memory for SparseCol array ***"
     allocate (SparseRow(MatrixSize+1), STAT = AllocateStatus)
     if (AllocateStatus /= 0) STOP "*** Not enough memory for SparseRow array ***"
-    allocate (SparseVal(NonZeros), STAT = AllocateStatus)
+    allocate (SparseVal(MaxNonZeros), STAT = AllocateStatus)
     if (AllocateStatus /= 0) STOP "*** Not enough memory for SparseVal array ***"
     allocate (RHS(MatrixSize), STAT = AllocateStatus)
     if (AllocateStatus /= 0) STOP "*** Not enough memory for RHS array ***"
@@ -212,9 +212,10 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
     update_fixed_flow_rhs_rows = 0
     fixed_flow_rhs_base = 0.0_dp
     !calculate the sparsity structure
-    call calc_sparse_1dtree(density,FIX,grav_vect,mesh_dof,depvar_at_elem, &
-        depvar_at_node,NonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS, &
-        prq_solution,update_resistance_entries,update_fixed_flow_rhs_rows,fixed_flow_rhs_base)
+    call calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_elem, &
+        depvar_at_node,MaxNonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS, &
+        prq_solution,update_resistance_entries,update_fixed_flow_rhs_rows, &
+        fixed_flow_rhs_base,NonZeros)
 !!! --ITERATIVE LOOP--
     MIN_ERR=1.d10
     N_MIN_ERR=0
@@ -556,21 +557,6 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
   end subroutine clear_perfusion_flows
 
 !###################################################################################
-  logical function is_perfusion_flow(ne)
-    integer,intent(in) :: ne
-    integer :: no
-
-    is_perfusion_flow=.FALSE.
-    if(.not.allocated(perfusion_flow_elements))return
-    do no=1,size(perfusion_flow_elements)
-      if(perfusion_flow_elements(no).eq.ne)then
-        is_perfusion_flow=.TRUE.
-        return
-      endif
-    enddo
-  end function is_perfusion_flow
-
-!###################################################################################
   subroutine apply_perfusion_flow_bcs(FIX,depvar_at_elem,prq_solution,mesh_dof)
     integer,intent(in) :: mesh_dof
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
@@ -799,10 +785,12 @@ subroutine initialise_solution(pressure_in,pressure_out,cardiac_output,mesh_dof,
 !
 !*calc_sparse_1d_tree:* Calculates sparsity structure for 1d tree problems
 
-subroutine calc_sparse_1dtree(density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
-        depvar_at_node,NonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS,&
-        prq_solution,update_resistance_entries,update_fixed_flow_rhs_rows,fixed_flow_rhs_base)
+subroutine calc_sparse_1dtree(bc_type,density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
+        depvar_at_node,MaxNonZeros,MatrixSize,SparseCol,SparseRow,SparseVal,RHS,&
+        prq_solution,update_resistance_entries,update_fixed_flow_rhs_rows,&
+        fixed_flow_rhs_base,NonZeros)
 
+    character(len=60), intent(in) :: bc_type
     real(dp), intent(in) :: density
     real(dp), intent(in) :: grav_vect(3)
     integer, intent(in) :: mesh_dof
@@ -810,17 +798,23 @@ subroutine calc_sparse_1dtree(density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
 
-    integer, intent(in) :: NonZeros,MatrixSize
-    integer, intent(inout) :: SparseCol(NonZeros)
+    integer, intent(in) :: MaxNonZeros,MatrixSize
+    integer, intent(inout) :: SparseCol(MaxNonZeros)
     integer, intent(inout) :: SparseRow(MatrixSize+1)
-    real(dp), intent(inout) :: SparseVal(NonZeros)
+    real(dp), intent(inout) :: SparseVal(MaxNonZeros)
     real(dp), intent(inout) :: RHS(MatrixSize)
     real(dp), intent(inout) :: prq_solution(mesh_dof,2)
     integer, intent(inout) :: update_resistance_entries(num_elems)
     integer, intent(inout) :: update_fixed_flow_rhs_rows(num_elems)
     real(dp), intent(inout) :: fixed_flow_rhs_base(num_elems)
+    integer, intent(out) :: NonZeros
 !local variables
-    integer :: ne,np,np1,np2,depvar,depvar1,depvar2,depvar3,offset,nzz,nzz_row,noelem2
+    integer :: ne,nn,np,np1,np2,depvar,depvar1,depvar2,depvar3,flow_var,offset,nzz,&
+      nzz_row,ne2,noelem2,ne3,row_nz
+    logical :: FlowBalancedNodes(num_nodes)
+    logical :: NodePressureDone(num_nodes)
+    logical :: ElementPressureEquationDone(num_elems)
+    logical :: elem_found,one_node_balanced,has_diagonal
     real(dp) :: flow_term
     real(dp) :: grav
     integer :: nj
@@ -836,84 +830,184 @@ subroutine calc_sparse_1dtree(density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
 
     nzz=1 !position in SparseCol and SparseVal
     nzz_row=1 !position in SparseRow
+    FlowBalancedNodes = .FALSE. !.TRUE. for nodes which have had a conservation of flow equation done
+    NodePressureDone = .FALSE.  !.TRUE. for nodes which have been processed
+    ElementPressureEquationDone = .FALSE.
     offset=0!variable position offset
-    ! One pressure-drop equation is assembled for every ordinary element.  A
-    ! prescribed perfusion flow replaces the pressure-drop equation for that
-    ! element, keeping the reduced system square while retaining conservation.
-    do ne=1,num_elems
-      if(is_perfusion_flow(ne))cycle
-      np1=elem_nodes(1,ne)
-      np2=elem_nodes(2,ne)
-      depvar1=depvar_at_node(np1,1,1)
-      depvar2=depvar_at_node(np2,1,1)
-      depvar3=depvar_at_elem(0,1,ne)
-      grav=0.0_dp
-      if(elem_field(ne_group,ne).ne.1.0_dp.and.elem_ordrs(no_gen,ne).ne.1)then
-        do nj=1,3
-          grav=grav+density*grav_vect(nj)*9810.0_dp* &
-            (node_xyz(nj,np1)-node_xyz(nj,np2))
-        enddo
-      endif
-      RHS(nzz_row)=grav
-      if(FIX(depvar1))then
-        RHS(nzz_row)=RHS(nzz_row)-prq_solution(depvar1,1)
-      else
-        call get_variable_offset(depvar1,mesh_dof,FIX,offset)
-        SparseCol(nzz)=depvar1-offset
-        SparseVal(nzz)=1.0_dp
-        nzz=nzz+1
-      endif
-      if(FIX(depvar2))then
-        RHS(nzz_row)=RHS(nzz_row)+prq_solution(depvar2,1)
-      else
-        call get_variable_offset(depvar2,mesh_dof,FIX,offset)
-        SparseCol(nzz)=depvar2-offset
-        SparseVal(nzz)=-1.0_dp
-        nzz=nzz+1
-      endif
-      if(FIX(depvar3))then
-        fixed_flow_rhs_base(ne)=RHS(nzz_row)
-        RHS(nzz_row)=RHS(nzz_row)+prq_solution(depvar3,1)*elem_field(ne_resist,ne)
-        update_fixed_flow_rhs_rows(ne)=nzz_row
-      else
-        call get_variable_offset(depvar3,mesh_dof,FIX,offset)
-        SparseCol(nzz)=depvar3-offset
-        SparseVal(nzz)=-elem_field(ne_resist,ne)
-        update_resistance_entries(ne)=nzz
-        nzz=nzz+1
-      endif
-      nzz_row=nzz_row+1
-      SparseRow(nzz_row)=nzz
-    enddo
 
-    ! Apply conservation of flow at every shared node.
-    do np=1,num_nodes
-      if(elems_at_node(np,0).le.1)cycle
-      do noelem2=1,elems_at_node(np,0)
-        ne=elems_at_node(np,noelem2)
-        depvar=depvar_at_elem(1,1,ne)
-        if(np.eq.elem_nodes(2,ne))then
-          flow_term=1.0_dp
-        else
-          flow_term=-1.0_dp
-        endif
-        if(FIX(depvar))then
-          RHS(nzz_row)=RHS(nzz_row)-prq_solution(depvar,1)*flow_term
-        else
-          call get_variable_offset(depvar,mesh_dof,FIX,offset)
-          SparseCol(nzz)=depvar-offset
-          SparseVal(nzz)=flow_term
-          nzz=nzz+1
+    ! Keep the established variable-driven equation ordering.  This is the
+    ! same strategy used by the coupling boundary condition to keep the
+    ! reduced matrix structurally aligned with the ILU diagonal.
+    do ne=1,num_elems
+      !look at pressure variables at each node
+      do nn=1,2 !2 nodes in 1D element
+        np=elem_nodes(nn,ne)
+        depvar = depvar_at_node(np,1,1)
+        if((.NOT.NodePressureDone(np)).AND.(.NOT.FIX(depvar)))then
+            ne2=0
+            if(nn.EQ.1)then
+                ne2=ne
+            elseif(nn.EQ.2)then
+                if((bc_type.EQ.'pressure').OR.(.NOT.ElementPressureEquationDone(ne)))then
+                    ne2=ne
+                else
+                    if (elems_at_node(np,0).GT.1)then
+                        elem_found=.FALSE.
+                        noelem2 = 1
+                        do while ((.NOT.elem_found).AND.(noelem2.LE.elems_at_node(np,0)))
+                            ne3=elems_at_node(np,noelem2)
+                            if((ne3.NE.ne).AND.(.NOT.ElementPressureEquationDone(ne3)))then
+                                ne2 = ne3
+                                elem_found=.TRUE.
+                            endif
+                            noelem2 = noelem2 + 1
+                        enddo
+                    endif
+                endif
+            endif
+            if(ne2.GT.0)then
+                np1=elem_nodes(1,ne2)
+                depvar1=depvar_at_node(np1,1,1)
+                np2=elem_nodes(2,ne2)
+                depvar2=depvar_at_node(np2,1,1)
+                depvar3=depvar_at_elem(0,1,ne2)
+                grav=0.d0
+                if(elem_field(ne_group,ne2).eq.1.0_dp)then
+                elseif(elem_ordrs(no_gen,ne2).eq.1)then
+                else
+                  do nj=1,3
+                    grav=grav+density*grav_vect(nj)*9810.0_dp* &
+                      (node_xyz(nj,elem_nodes(1,ne2))-node_xyz(nj,elem_nodes(2,ne2)))
+                  enddo
+                endif
+                RHS(nzz_row)=grav
+                if(FIX(depvar1))then
+                    RHS(nzz_row)=RHS(nzz_row)-prq_solution(depvar1,1)
+                else
+                    call get_variable_offset(depvar1,mesh_dof,FIX,offset)
+                    SparseCol(nzz)=depvar1-offset
+                    SparseVal(nzz)=1.0_dp
+                    nzz=nzz+1
+                endif
+                if(FIX(depvar2))then
+                    RHS(nzz_row)=RHS(nzz_row)+prq_solution(depvar2,1)
+                else
+                    call get_variable_offset(depvar2,mesh_dof,FIX,offset)
+                    SparseCol(nzz)=depvar2-offset
+                    SparseVal(nzz)=-1.0_dp
+                    nzz=nzz+1
+                endif
+                if(FIX(depvar3))then
+                    fixed_flow_rhs_base(ne2)=RHS(nzz_row)
+                    RHS(nzz_row)=RHS(nzz_row)+ &
+                      prq_solution(depvar3,1)*elem_field(ne_resist,ne2)
+                    update_fixed_flow_rhs_rows(ne2)=nzz_row
+                else
+                    call get_variable_offset(depvar3,mesh_dof,FIX,offset)
+                    SparseCol(nzz)=depvar3-offset
+                    SparseVal(nzz)=-elem_field(ne_resist,ne2)
+                    update_resistance_entries(ne2)=nzz
+                    nzz=nzz+1
+                endif
+                nzz_row=nzz_row+1
+                SparseRow(nzz_row)=nzz
+                NodePressureDone(np)=.TRUE.
+                ElementPressureEquationDone(ne2)=.TRUE.
+            endif
         endif
       enddo
-      nzz_row=nzz_row+1
-      SparseRow(nzz_row)=nzz
+
+      ! Select the equation associated with each remaining flow variable.
+      ! A fixed flow is already represented in pressure and conservation RHS
+      ! terms, so its variable row is omitted from the reduced system.
+      flow_var=depvar_at_elem(0,1,ne)
+      if(.NOT.FIX(flow_var))then
+        one_node_balanced=.FALSE.
+        do nn=1,2
+          np=elem_nodes(nn,ne)
+          if((elems_at_node(np,0).GT.1).AND.(.NOT.FlowBalancedNodes(np)))then
+            if((bc_type.EQ.'pressure').OR.((bc_type.EQ.'flow').AND.(.NOT.one_node_balanced)))then
+                do noelem2=1,elems_at_node(np,0)
+                    ne2=elems_at_node(np,noelem2)
+                    depvar=depvar_at_elem(1,1,ne2)
+                    flow_term=0.0_dp
+                    if(np.EQ.elem_nodes(2,ne2))then
+                        flow_term=1.0_dp
+                    elseif(np.EQ.elem_nodes(1,ne2))then
+                        flow_term=-1.0_dp
+                    endif
+                    if(FIX(depvar))then
+                        RHS(nzz_row)=RHS(nzz_row)-prq_solution(depvar,1)*flow_term
+                    else
+                        call get_variable_offset(depvar,mesh_dof,FIX,offset)
+                        SparseCol(nzz)=depvar-offset
+                        SparseVal(nzz)=flow_term
+                        nzz=nzz+1
+                    endif
+                enddo
+                FlowBalancedNodes(np)=.TRUE.
+                nzz_row=nzz_row+1
+                SparseRow(nzz_row)=nzz
+                one_node_balanced=.TRUE.
+            endif
+          endif
+        enddo
+
+        if((.NOT.one_node_balanced).AND.(.NOT.ElementPressureEquationDone(ne)))then
+            np1=elem_nodes(1,ne)
+            depvar1=depvar_at_node(np1,1,1)
+            np2=elem_nodes(2,ne)
+            depvar2=depvar_at_node(np2,1,1)
+
+            call get_variable_offset(depvar1,mesh_dof,FIX,offset)
+            SparseCol(nzz)=depvar1-offset
+            SparseVal(nzz)=1.0_dp
+            nzz=nzz+1
+
+            if(FIX(depvar2))then
+                RHS(nzz_row)=prq_solution(depvar2,1)
+            else
+                call get_variable_offset(depvar2,mesh_dof,FIX,offset)
+                SparseCol(nzz)=depvar2-offset
+                SparseVal(nzz)=-1.0_dp
+                nzz=nzz+1
+            endif
+
+            call get_variable_offset(flow_var,mesh_dof,FIX,offset)
+            SparseCol(nzz)=flow_var-offset
+            SparseVal(nzz)=-elem_field(ne_resist,ne)
+            update_resistance_entries(ne)=nzz
+            nzz=nzz+1
+
+            nzz_row=nzz_row+1
+            SparseRow(nzz_row)=nzz
+            ElementPressureEquationDone(ne)=.TRUE.
+        endif
+      endif
     enddo
 
-    if(nzz_row-1.ne.MatrixSize.or.nzz-1.ne.NonZeros)then
-      print *, 'ERROR: sparse PRQ assembly size mismatch:',nzz_row-1,MatrixSize,nzz-1,NonZeros
+    NonZeros=nzz-1
+    if(nzz_row-1.ne.MatrixSize)then
+      print *, 'ERROR: sparse PRQ assembly row mismatch:',nzz_row-1,MatrixSize
+      call exit(1)
+    elseif(NonZeros.gt.MaxNonZeros)then
+      print *, 'ERROR: sparse PRQ assembly exceeds allocated storage:',NonZeros,MaxNonZeros
       call exit(1)
     endif
+
+    do np=1,MatrixSize
+      has_diagonal=.FALSE.
+      do row_nz=SparseRow(np),SparseRow(np+1)-1
+        if(SparseCol(row_nz).eq.np)then
+          has_diagonal=.TRUE.
+          exit
+        endif
+      enddo
+      if(.NOT.has_diagonal)then
+        print *, 'ERROR: sparse PRQ assembly has no ILU diagonal entry in row:',np
+        call exit(1)
+      endif
+    enddo
 
     call enter_exit(sub_name,2)
   end subroutine calc_sparse_1dtree
@@ -924,15 +1018,15 @@ subroutine calc_sparse_1dtree(density,FIX,grav_vect,mesh_dof,depvar_at_elem,&
 !
 !*calc_sparse_size:* Calculates sparsity sizes
 
-subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,MatrixSize)
+subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,MaxNonZeros,MatrixSize)
 
   integer, intent(in) :: mesh_dof
     integer,intent(in) :: depvar_at_elem(0:2,2,num_elems)
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
     logical, intent(in) :: FIX(mesh_dof)
-    integer :: NonZeros,MatrixSize
+    integer :: MaxNonZeros,MatrixSize
 !local variables
-    integer :: i,ne,np,noelem,fixed_variables,depvar,equation_count
+    integer :: i,np,fixed_variables
     character(len=60) :: sub_name
     sub_name = 'calc_sparse_size'
     call enter_exit(sub_name,1)
@@ -947,36 +1041,15 @@ subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,NonZeros,
     enddo
     MatrixSize = mesh_dof - fixed_variables
 
-    NonZeros=0
-    equation_count=0
-    ! Pressure-drop equations.  Prescribed perfusion flows replace their
-    ! element equation; all other fixed variables are moved to the RHS.
-    do ne=1,num_elems
-      if(is_perfusion_flow(ne))cycle
-      equation_count=equation_count+1
-      depvar=depvar_at_node(elem_nodes(1,ne),1,1)
-      if(.not.FIX(depvar))NonZeros=NonZeros+1
-      depvar=depvar_at_node(elem_nodes(2,ne),1,1)
-      if(.not.FIX(depvar))NonZeros=NonZeros+1
-      depvar=depvar_at_elem(1,1,ne)
-      if(.not.FIX(depvar))NonZeros=NonZeros+1
+    ! Allocate an upper bound and let calc_sparse_1dtree return the exact
+    ! number used.  Fixed internal flows can remove whole conservation rows,
+    ! so subtracting a fixed count here is not generally exact.
+    MaxNonZeros=num_elems*3
+    do np=1,num_nodes
+      if(elems_at_node(np,0).gt.1)then
+        MaxNonZeros=MaxNonZeros+elems_at_node(np,0)
+      endif
     enddo
-
-    ! Conservation equations at shared nodes.
-    do np=1, num_nodes
-      if(elems_at_node(np,0).le.1)cycle
-      equation_count=equation_count+1
-      do noelem=1,elems_at_node(np,0)
-        ne=elems_at_node(np,noelem)
-        depvar=depvar_at_elem(1,1,ne)
-        if(.not.FIX(depvar))NonZeros=NonZeros+1
-      enddo
-    enddo
-    if(equation_count.ne.MatrixSize)then
-      print *, 'ERROR: prescribed flows do not produce a square PRQ system:', &
-        equation_count,MatrixSize
-      call exit(1)
-    endif
     call enter_exit(sub_name,2)
   end subroutine calc_sparse_size
 
