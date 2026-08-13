@@ -4,6 +4,29 @@ private
 
 contains
 
+  subroutine set_perfusion_flows_c(element_ids_len,element_ids,flow_values_len,flow_values) &
+      bind(C,name="set_perfusion_flows_c")
+    use arrays,only: dp
+    use pressure_resistance_flow,only: set_perfusion_flows
+    implicit none
+    integer,intent(in) :: element_ids_len,flow_values_len
+    integer,intent(in) :: element_ids(element_ids_len)
+    real(dp),intent(in) :: flow_values(flow_values_len)
+
+    if(element_ids_len.ne.flow_values_len)then
+      print *, 'ERROR: prescribed perfusion element and flow lists must have the same length'
+      call exit(1)
+    endif
+    call set_perfusion_flows(element_ids,flow_values)
+  end subroutine set_perfusion_flows_c
+
+  subroutine clear_perfusion_flows_c() bind(C,name="clear_perfusion_flows_c")
+    use pressure_resistance_flow,only: clear_perfusion_flows
+    implicit none
+
+    call clear_perfusion_flows()
+  end subroutine clear_perfusion_flows_c
+
 
 
   !

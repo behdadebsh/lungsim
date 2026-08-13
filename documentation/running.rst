@@ -85,6 +85,41 @@ if all has gone correctly ... nothing should happen! Another command prompt shou
 
 If the above command was successful then the Python applications given above will also run successfully.
 
+Prescribing selected element flows
+----------------------------------
+
+The pressure-resistance-flow solver retains its original behaviour unless prescribed
+perfusion flows are explicitly configured.  From Python, pass matching lists of
+one-based element identifiers and flow values before calling ``evaluate_prq``::
+
+  from aether.pressure_resistance_flow import (
+      clear_perfusion_flows,
+      evaluate_prq,
+      set_perfusion_flows,
+  )
+
+  set_perfusion_flows([12, 19], [125.0, 75.0])
+  evaluate_prq(
+      "simple_tree", "rigid", 3, 1.0, "flow", 200.0, 0.0, 0.0
+  )
+
+Each selected element flow is fixed to the supplied value while the solver computes
+the remaining flows and pressures.  Nodal flow conservation is retained, so fixing
+the flow in the unique element entering a subtree fixes the total flow delivered to
+that subtree.  The prescribed-flow condition replaces that element's pressure-drop
+equation, allowing the pressure jump required to impose the flow to be determined by
+the rest of the network.  The solver keeps its topology-aware equation ordering so
+the reduced matrix has the structural diagonal required by the ILU preconditioner.
+
+The setting persists for later PRQ solves in the same process.  Clear it to restore
+the original solver behaviour::
+
+  clear_perfusion_flows()
+
+Calling ``set_perfusion_flows([], [])`` also clears the setting.  Element identifiers
+must be unique and valid for the current mesh, and a selected element cannot also be
+the inlet element fixed by the standard ``flow`` boundary condition.
+
 Finally
 -------
 
