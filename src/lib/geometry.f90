@@ -11,6 +11,8 @@ module geometry
   use arrays
   use diagnostics
   use indices
+  use math_utilities, only: angle_btwn_vectors, cross_product, inlist, &
+       mesh_a_x_eq_b, scalar_product_3, unit_vector
   use mesh_utilities
   use other_consts ! currently has pi
   use precision ! sets dp for precision
