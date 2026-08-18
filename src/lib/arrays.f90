@@ -128,6 +128,16 @@ module arrays
      real(dp) :: air_density = 1.146e-6_dp        ! g.mm^-3
   end type fluid_properties
 
+  type default_lymphatic_properties
+     ! Default values for the pulmonary lymphatic transport model.
+     real(dp) :: lymphatic_density = 1.0_dp
+     real(dp) :: lymphatic_integrity = 1.0_dp
+     real(dp) :: reflection_coefficient = 0.0_dp
+     real(dp) :: test_time = 86400.0_dp
+  end type default_lymphatic_properties
+
+  type(default_lymphatic_properties) :: lymphatic_properties
+
   type :: tree_nodes
      real(dp), allocatable :: xyz(:,:)
   end type tree_nodes
@@ -182,11 +192,12 @@ module arrays
        elem_units_below, maxgen,capillary_bf_parameters, zero_tol,loose_tol,gasex_field, &
        num_lines_2d, lines_2d, line_versn_2d, lines_in_elem, nodes_in_line, elems_2d, &
        elem_cnct_2d, elem_nodes_2d, elem_versn_2d, elem_lines_2d, elems_at_node_2d, arclength, &
-       scale_factors_2d, fluid_properties, elasticity_vessels, admittance_param, &
+       scale_factors_2d, fluid_properties, lymphatic_properties, elasticity_vessels, admittance_param, &
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex, airway_elems, airway_nodes
+       SparseVal, RHS, prq_solution, solver_solution, FIX, gasex, airway_elems, airway_nodes, &
+       update_parameter
 
 contains
   subroutine set_node_field_value(row, col, value)
@@ -198,5 +209,27 @@ contains
     node_field(row, col) = value
 
   end subroutine set_node_field_value
+
+  subroutine update_parameter(parameter_name, parameter_value)
+    ! Update a user-configurable lymphatic model parameter.
+    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_UPDATE_PARAMETER" :: UPDATE_PARAMETER
+    character(len=*), intent(in) :: parameter_name
+    real(dp), intent(in) :: parameter_value
+
+    select case (trim(parameter_name))
+    case ('lymphatic_density')
+       lymphatic_properties%lymphatic_density = parameter_value
+    case ('lymphatic_integrity')
+       lymphatic_properties%lymphatic_integrity = parameter_value
+    case ('reflection_coefficient')
+       lymphatic_properties%reflection_coefficient = parameter_value
+    case ('test_time')
+       lymphatic_properties%test_time = parameter_value
+    case default
+       write(*,'(''Unknown lymphatic parameter: '',a)') trim(parameter_name)
+       error stop 1
+    end select
+
+  end subroutine update_parameter
 
 end module arrays
