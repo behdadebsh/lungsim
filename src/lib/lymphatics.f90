@@ -84,7 +84,7 @@ contains
     ! get information for the unit fron unit_field
     ! ne is the 'linker' element in the artery-capillary-vein model, so nunit is for the parent element
     nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
-    capillary_pressure = unit_field(nu_blood_press,nunit)/133.32239_dp !converted to mmHg
+    capillary_pressure = unit_field(nu_capillary_press,nunit)/133.32239_dp !converted to mmHg
     transit_time = unit_field(nu_tt,nunit)
     capillary_SA = unit_field(nu_sa,nunit)
     max_Pe = unit_field(nu_Pe_max,nunit)
@@ -366,7 +366,7 @@ contains
           call alveolar_capillary_flux(ne,.false.)
           np = elem_nodes(2,ne)
           write(10,'(i8,11(e14.5))') ne,node_xyz(1:3,np),unit_field(nu_av_flux,nunit),unit_field(nu_intsat,nunit), &
-               unit_field(nu_lymphflow,nunit),unit_field(nu_blood_press,nunit),unit_field(nu_tt,nunit), &
+               unit_field(nu_lymphflow,nunit),unit_field(nu_capillary_press,nunit),unit_field(nu_tt,nunit), &
                unit_field(nu_sa,nunit),unit_field(nu_Pe_max,nunit),unit_field(nu_Pe_min,nunit)
        endif
     enddo

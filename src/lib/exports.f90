@@ -807,7 +807,7 @@ contains
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_av_flux,NOLIST))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_intsat,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_tt,nolist))
-          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_blood_press,nolist))
+          write(10,'(2X,4(1X,e12.6))') (unit_field(nu_capillary_press,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_sa,nolist))
           write(10,'(2X,4(1X,e12.6))') (unit_field(nu_lymphflow,nolist))
 

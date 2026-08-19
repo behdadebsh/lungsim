@@ -33,7 +33,7 @@ module indices
   ! indices for unit_field
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
-       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_sa=0,nu_tt=0,nu_Pe_max=0, &
+       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_capillary_press=0,nu_sa=0,nu_tt=0,nu_Pe_max=0, &
        nu_Pe_min=0,nu_flux=0,nu_intsat=0,nu_av_flux=0,nu_lymphflow=0,nu_time=0
   !indices for gas exchange field
   ! indices for gasex_field
@@ -67,7 +67,7 @@ module indices
   public num_nu,nu_vol,nu_comp, nu_conc2,nu_Vdot0,nu_Vdot1, &
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
        nu_conc1,nu_vent,nu_vd,&
-       nu_perf,nu_blood_press,nu_sa,nu_tt,nu_Pe_max,nu_Pe_min,nu_flux,nu_intsat, &
+       nu_perf,nu_blood_press,nu_capillary_press,nu_sa,nu_tt,nu_Pe_max,nu_Pe_min,nu_flux,nu_intsat, &
        nu_av_flux,nu_lymphflow,nu_time
   
   public num_gx, ng_p_alv_o2,ng_p_alv_co2,ng_p_ven_o2,ng_p_ven_co2, &
@@ -274,18 +274,19 @@ contains
     sub_name = 'lymphatic_indices'
     call enter_exit(sub_name,1)
 
-    num_nu = 11
+    num_nu = 12
     nu_perf = 1
     nu_blood_press = 2
     nu_sa = 3
     nu_tt = 4
-    nu_Pe_max = 5
-    nu_Pe_min = 6
-    nu_flux = 7
-    nu_intsat = 8
-    nu_av_flux = 9
-    nu_lymphflow = 10
-    nu_time = 11
+    nu_capillary_press = 5
+    nu_Pe_max = 6
+    nu_Pe_min = 7
+    nu_flux = 8
+    nu_intsat = 9
+    nu_av_flux = 10
+    nu_lymphflow = 11
+    nu_time = 12
 
     call enter_exit(sub_name,2)
 
@@ -354,11 +355,12 @@ contains
     ne_lymph_flux=11 !averaged lymphatic flux mapped onto the arterial tree
     ne_lymph_intsat=12 !interstitial saturation mapped onto the arterial tree
     !indices for units
-    num_nu=4
+    num_nu=5
     nu_perf=1
     nu_blood_press=2
     nu_sa=3
     nu_tt=4
+    nu_capillary_press=5
     
     call enter_exit(sub_name,2)
   end subroutine perfusion_indices

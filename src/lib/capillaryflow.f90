@@ -338,7 +338,7 @@ contains
           ! Retain the capillary inputs needed by the lymphatic model. The
           ! connector element's arterial parent carries the unit index.
           nunit = int(elem_field(ne_unit,elem_cnct(-1,1,ne)))
-          unit_field(nu_blood_press,nunit) = (Pin+Pout)/2.0_dp
+          unit_field(nu_capillary_press,nunit) = (Pin+Pout)/2.0_dp
           unit_field(nu_tt,nunit) = TT_TOTAL
           unit_field(nu_sa,nunit) = TOTAL_SHEET_SA
         ENDIF
