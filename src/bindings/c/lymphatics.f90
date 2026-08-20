@@ -19,11 +19,7 @@ contains
 
     write_out_f = write_out /= 0
 
-#if defined _WIN32 && defined __INTEL_COMPILER
-    call so_alveolar_capillary_flux(num_nodes,write_out_f)
-#else
     call alveolar_capillary_flux(num_nodes,write_out_f)
-#endif
 
   end subroutine alveolar_capillary_flux_c
 !
@@ -42,11 +38,7 @@ contains
     character(len=MAX_FILENAME_LEN) :: filename_f
 
     call strncpy(filename_f, filename, filename_len)
-#if defined _WIN32 && defined __INTEL_COMPILER
-    call so_lymphatic_transport(filename_f)
-#else
     call lymphatic_transport(filename_f)
-#endif
 
   end subroutine lymphatic_transport_c
 

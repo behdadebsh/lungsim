@@ -34,7 +34,6 @@ contains
 
   subroutine alveolar_capillary_flux(ne,write_out)
     !*alveolar_capillary_flux:* calculate fluid flux from blood to interstitium
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_ALVEOLAR_CAPILLARY_FLUX" :: ALVEOLAR_CAPILLARY_FLUX
 
     use other_consts,only: pi
 
@@ -337,7 +336,6 @@ contains
 
   subroutine lymphatic_transport(filename)
     !*lymphatic_transport:* whole system transport
-    !DEC$ ATTRIBUTES DLLEXPORT,ALIAS:"SO_LYMPHATIC_TRANSPORT" :: LYMPHATIC_TRANSPORT
 
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     ! Local parameters
