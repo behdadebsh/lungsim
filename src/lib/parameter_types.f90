@@ -21,6 +21,7 @@ module parameter_types
   public :: update_solve_gx
   public :: update_solve_V
   public :: update_species
+  public :: update_lymphatics
 
   type :: fundamental_constants
      ! fixed constants; no update option
@@ -138,6 +139,16 @@ module parameter_types
 
   
   contains
+
+    subroutine update_lymphatics(param_name, param_value)
+      use arrays, only: update_parameter
+
+      character(len=*), intent(in) :: param_name
+      real(dp), intent(in) :: param_value
+
+      call update_parameter(param_name, param_value)
+
+    end subroutine update_lymphatics
 
     
     subroutine update_lung(param_name, param_value)
