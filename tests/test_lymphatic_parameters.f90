@@ -17,25 +17,25 @@ subroutine collect_lymphatic_parameters(testsuite)
 end subroutine collect_lymphatic_parameters
 
 subroutine test_update_lymphatics(error)
-  use arrays, only: dp, lymphatic_properties
-  use parameter_types, only: update_lymphatics
+  use precision, only: dp
+  use parameter_types, only: lymphatic_params, update_lymphatics
   implicit none
 
   type(error_type), allocatable, intent(out) :: error
 
-  call check(error, lymphatic_properties%lung_mass_g, 639.0_dp)
+  call check(error, lymphatic_params%lung_mass_g, 639.0_dp)
   if (allocated(error)) return
 
   call update_lymphatics('lung_mass_g', 1.5_dp)
-  call check(error, lymphatic_properties%lung_mass_g, 1.5_dp)
+  call check(error, lymphatic_params%lung_mass_g, 1.5_dp)
   if (allocated(error)) return
 
   call update_lymphatics('lymphatic_surface_area_ratio', 2.0_dp)
-  call check(error, lymphatic_properties%lymphatic_density, 2.0_dp)
+  call check(error, lymphatic_params%lymphatic_density, 2.0_dp)
   if (allocated(error)) return
 
   call update_lymphatics('integration_steps_per_transit', 48.0_dp)
-  call check(error, lymphatic_properties%integration_steps_per_transit, 48)
+  call check(error, lymphatic_params%integration_steps_per_transit, 48)
 
   ! Restore defaults so this test does not alter later model tests.
   call update_lymphatics('lung_mass_g', 639.0_dp)

@@ -14,6 +14,7 @@ module lymphatics
   use diagnostics
   use indices
   use other_consts
+  use parameter_types, only: lymphatic_params
   use precision ! sets dp for precision
 
   implicit none
@@ -86,7 +87,7 @@ contains
     endif
 
     ! Calculated values
-    lung_mass = lymphatic_properties%lung_mass_g
+    lung_mass = lymphatic_params%lung_mass_g
     open_capillaries = 1.0_dp/6.0_dp !based on open capillaries at rest. Should be solved for by perfusion model?
     capillary_volume_raw = 213.00_dp  !Gehr 1978 based on having a body mass of 74 kg - should be unique to each person
     capillary_volume = (capillary_volume_raw*open_capillaries)/real(num_units)
@@ -94,17 +95,17 @@ contains
 
     ! interstitial values
     ! interstitial_capacity == maximal volume before spillover into alveolar in mm^3 - based on 30ml.100g of fluid (Drake 2002)
-    interstitial_capacity = ((lymphatic_properties%interstitial_capacity_ml_per_100g * &
+    interstitial_capacity = ((lymphatic_params%interstitial_capacity_ml_per_100g * &
          (lung_mass/100.0_dp))/real(num_units))*1000.0_dp
-    interstitial_capacity_a = lymphatic_properties%interstitial_compartment_a_fraction * &
+    interstitial_capacity_a = lymphatic_params%interstitial_compartment_a_fraction * &
          interstitial_capacity
-    interstitial_capacity_b = (1.0_dp-lymphatic_properties%interstitial_compartment_a_fraction) * &
+    interstitial_capacity_b = (1.0_dp-lymphatic_params%interstitial_compartment_a_fraction) * &
          interstitial_capacity
     interstitial_volume_a = 0.0_dp
-    interstitial_volume_b = lymphatic_properties%initial_interstitial_saturation * interstitial_capacity
+    interstitial_volume_b = lymphatic_params%initial_interstitial_saturation * interstitial_capacity
     alveolar_volume = 0.0_dp !alveolar volume likely greater at rest, but is lost to respiration - further information needed to put in model
     liflowcount = 0
-    initial_lymphatic_surface_area = lymphatic_properties%lymphatic_density * capillary_SA
+    initial_lymphatic_surface_area = lymphatic_params%lymphatic_density * capillary_SA
     !both initial lymphatic SA and initial lymphatic hydraulic conductivity make up the filtration coefficient and currently it is the
     !hydraulic conductivity that is adjusted to compensate
 
@@ -124,20 +125,20 @@ contains
     printcount = 0
     total_hydro_flux = 0.0_dp
 
-    intPmax = lymphatic_properties%interstitial_pressure_max_mmhg
-    intPmin = lymphatic_properties%interstitial_pressure_min_mmhg
-    lymphPmax = lymphatic_properties%lymphatic_pressure_max_mmhg
-    lymphPmin = lymphatic_properties%lymphatic_pressure_min_mmhg
+    intPmax = lymphatic_params%interstitial_pressure_max_mmhg
+    intPmin = lymphatic_params%interstitial_pressure_min_mmhg
+    lymphPmax = lymphatic_params%lymphatic_pressure_max_mmhg
+    lymphPmin = lymphatic_params%lymphatic_pressure_min_mmhg
     mx_pe = max_Pe/133.32239_dp
     mn_pe = min_Pe/133.32239_dp
     fluctuation = ((mx_pe-mn_pe)/2.0_dp)
 
     if(write_out) write(*,'(''fluctuation '',f8.4)')fluctuation
     ! dt or n_timesteps should be controlled by the user
-    n_timesteps = lymphatic_properties%integration_steps_per_transit
+    n_timesteps = lymphatic_params%integration_steps_per_transit
     dt = transit_time/real(n_timesteps)
 
-    breathing_function = (2.0_dp*pi)/(60.0_dp/lymphatic_properties%breathing_rate_bpm)
+    breathing_function = (2.0_dp*pi)/(60.0_dp/lymphatic_params%breathing_rate_bpm)
 
     continue = .true.
 
@@ -147,7 +148,7 @@ contains
     sat4 = 4.0_dp
     sat5 = 5.0_dp
 
-    !do while(time < lymphatic_properties%test_time)
+    !do while(time < lymphatic_params%test_time)
     do while (continue)
        time_sum = dt
        if(transit_time.le.0.001)then
@@ -173,14 +174,14 @@ contains
           !write(*,'(''Pint: '',f8.4)')interstitial_pressure_b
           ! pressure determined from saturation equation based of literature (currently linear, but likely not)
           if(capillary_pressure > interstitial_pressure_a)then
-             flux_a = 0.5_dp * (lymphatic_properties%capillary_hydraulic_conductivity * &
+             flux_a = 0.5_dp * (lymphatic_params%capillary_hydraulic_conductivity * &
                   capillary_SA * (capillary_pressure - &
                   interstitial_pressure_a)) * dt
           else
              flux_a = 0.0_dp
           endif
           if(capillary_pressure > interstitial_pressure_b)then
-             flux_b = 0.5_dp * (lymphatic_properties%capillary_hydraulic_conductivity * &
+             flux_b = 0.5_dp * (lymphatic_params%capillary_hydraulic_conductivity * &
                   capillary_SA * (capillary_pressure - &
                   interstitial_pressure_b)) * dt
           else
@@ -214,7 +215,7 @@ contains
           ! Osmotic
           int_osm_conc = int_osm_n/interstitial_volume
           interstitial_osmotic = real(i)*int_osm_conc*IGC*T
-          osm_flux = (lymphatic_properties%reflection_coefficient * capillary_SA * &
+          osm_flux = (lymphatic_params%reflection_coefficient * capillary_SA * &
                (capillary_osmotic - interstitial_osmotic))* dt
           cap_osm_conc = capillary_osm_n / capillary_volume
           int_osm_conc = int_osm_n / interstitial_volume
@@ -240,28 +241,28 @@ contains
           total_osm_flux = total_osm_flux + osm_flux
 
           !calculating flux from interstitium to initial lymphatics
-          if(interstitial_volume_b/interstitial_capacity_b < lymphatic_properties%lymphatic_saturation_threshold)then
-             lymphatic_conductivity = lymphatic_properties%lymphatic_baseline_conductivity_ratio * &
-                  lymphatic_properties%capillary_hydraulic_conductivity
+          if(interstitial_volume_b/interstitial_capacity_b < lymphatic_params%lymphatic_saturation_threshold)then
+             lymphatic_conductivity = lymphatic_params%lymphatic_baseline_conductivity_ratio * &
+                  lymphatic_params%capillary_hydraulic_conductivity
           !no information on the size of pores or similar for lympatic conductivity so assumed to be similar to capillary.
           else
 
-             lymphatic_conductivity = ((lymphatic_properties%lymphatic_conductivity_coefficient_1 * &
+             lymphatic_conductivity = ((lymphatic_params%lymphatic_conductivity_coefficient_1 * &
                   (interstitial_volume_b / interstitial_capacity_b)**5.0_dp) + &
-                  (lymphatic_properties%lymphatic_conductivity_coefficient_2 * &
+                  (lymphatic_params%lymphatic_conductivity_coefficient_2 * &
                   (interstitial_volume_b / interstitial_capacity_b)**4.0_dp) + &
-                  (lymphatic_properties%lymphatic_conductivity_coefficient_3 * &
+                  (lymphatic_params%lymphatic_conductivity_coefficient_3 * &
                   (interstitial_volume_b / interstitial_capacity_b)**3.0_dp) + &
-                  (lymphatic_properties%lymphatic_conductivity_coefficient_4 * &
+                  (lymphatic_params%lymphatic_conductivity_coefficient_4 * &
                   (interstitial_volume_b / interstitial_capacity_b)**2.0_dp) + &
-                  (lymphatic_properties%lymphatic_conductivity_coefficient_5 * &
+                  (lymphatic_params%lymphatic_conductivity_coefficient_5 * &
                   (interstitial_volume_b / interstitial_capacity_b)) + &
-                  lymphatic_properties%lymphatic_conductivity_coefficient_6) * &
-                  lymphatic_properties%capillary_hydraulic_conductivity
+                  lymphatic_params%lymphatic_conductivity_coefficient_6) * &
+                  lymphatic_params%capillary_hydraulic_conductivity
           endif
 
           initial_lymphatic_pressure = fluctuation * sin((time_variable * breathing_function) + &
-               lymphatic_properties%pressure_phase_offset_radians) + &
+               lymphatic_params%pressure_phase_offset_radians) + &
                ((((lymphPmax-lymphPmin-(fluctuation*2.0_dp))* ((interstitial_volume_b / interstitial_capacity_b)**2.0_dp)) + &
                (lymphPmin + fluctuation)))
           !arbitrarily defined mathematical relationship to show that lymphatic pressure does not change much at low volumes with a
@@ -315,7 +316,7 @@ contains
           printcount = 0
           if(time.gt.200.0_dp*transit_time)then
              if((abs(((sat1 + sat2 + sat3 + sat4 +sat5)/5.0_dp)-sat1)).le. &
-                  lymphatic_properties%convergence_tolerance)then
+                  lymphatic_params%convergence_tolerance)then
                 continue = .false.
              endif
           endif
