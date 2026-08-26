@@ -3,6 +3,18 @@ module imports_c
   private
 
 contains
+
+  subroutine import_coupled_capillary_c(filename, filename_len) bind(C, name="import_coupled_capillary_c")
+    use iso_c_binding, only: c_ptr, c_int
+    use utils_c, only: strncpy
+    use imports, only: import_coupled_capillary
+    use other_consts, only: MAX_FILENAME_LEN
+    type(c_ptr), value, intent(in) :: filename
+    integer(c_int), intent(in) :: filename_len
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    call strncpy(filename_f,filename,filename_len)
+    call import_coupled_capillary(filename_f)
+  end subroutine import_coupled_capillary_c
 !
 !###################################################################################
 !

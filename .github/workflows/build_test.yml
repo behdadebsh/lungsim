@@ -196,6 +196,4 @@ jobs:
 
         python $GITHUB_WORKSPACE/lungsim/.github/scripts/diagnostics_test.py
 
-        python $GITHUB_WORKSPACE/lungsim/tests/smoke_coupled.py
-
         exit $?

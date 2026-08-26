@@ -12,6 +12,8 @@ SHO_PUBLIC void export_node_field(int nj_field, const char *EXNODEFIELD, const c
 SHO_PUBLIC void export_terminal_lymphatic(const char *EXNODEFILE, const char *name);
 SHO_PUBLIC void export_terminal_lymphatic_inputs(const char *EXNODEFILE, const char *name);
 SHO_PUBLIC void export_terminal_solution(const char *EXNODEFILE, const char *name);
+SHO_PUBLIC void export_terminal_coupled(const char *filename, const char *name);
+SHO_PUBLIC void export_coupled_csv(const char *filename);
 SHO_PUBLIC void export_terminal_perfusion(const char *EXNODEFILE, const char *name);
 SHO_PUBLIC void export_terminal_ssgexch(const char *EXNODEFILE, const char *name);
 SHO_PUBLIC void export_triangle_elements(const char *EXELEMFILE, const char *name);

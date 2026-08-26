@@ -26,11 +26,18 @@ module imports
   !Interfaces
   private
   public import_capillary
+  public import_coupled_capillary
   public import_terminal
   public import_ventilation
   public import_perfusion
 
 contains
+
+ subroutine import_coupled_capillary(filename)
+   use coupled_transport, only: load_coupled_capillary
+   character(len=MAX_FILENAME_LEN), intent(in) :: filename
+   call load_coupled_capillary(filename)
+ end subroutine import_coupled_capillary
 !
 !###########################################################################################
 !

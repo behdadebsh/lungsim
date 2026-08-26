@@ -162,6 +162,13 @@ module parameter_types
      real(dp) :: exchange_resistance = 200.0_dp        ! inferred s/mm^3; empirical
      real(dp) :: minimum_volume = 1.0e-10_dp           ! mm^3
      integer :: fluid_substeps = 2
+     ! Lym_surf stopping protocol (not the published standalone solver).
+     real(dp) :: minimum_transit_times = 200.0_dp
+     real(dp) :: maximum_transit_times = 5000.0_dp
+     real(dp) :: saturation_tolerance = 1.0e-5_dp
+     integer :: convergence_check_steps = 1333
+     integer :: maximum_settling_breaths = 10000
+     integer :: surfactant_equilibration_breaths = 5
   end type coupled_lymphatic_parameters
 
   type :: solve_gx_parameters
@@ -274,6 +281,18 @@ module parameter_types
          coupled_lymphatic_params%minimum_volume = param_value
       case ('fluid_substeps')
          coupled_lymphatic_params%fluid_substeps = nint(param_value)
+      case ('minimum_transit_times')
+         coupled_lymphatic_params%minimum_transit_times = param_value
+      case ('maximum_transit_times')
+         coupled_lymphatic_params%maximum_transit_times = param_value
+      case ('saturation_tolerance')
+         coupled_lymphatic_params%saturation_tolerance = param_value
+      case ('convergence_check_steps')
+         coupled_lymphatic_params%convergence_check_steps = nint(param_value)
+      case ('maximum_settling_breaths')
+         coupled_lymphatic_params%maximum_settling_breaths = nint(param_value)
+      case ('surfactant_equilibration_breaths')
+         coupled_lymphatic_params%surfactant_equilibration_breaths = nint(param_value)
       case default
          error stop 'Unknown coupled lymphatic parameter; see documentation/surfactant.rst'
       end select

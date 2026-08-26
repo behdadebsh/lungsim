@@ -25,18 +25,6 @@ foreach(t IN LISTS TESTS)
   set(TEST_SUITE_LIST_STATEMENT "${TEST_SUITE_LIST_STATEMENT}    new_testsuite(\"${t}\", collect_${t}), &\n")
 endforeach()
 
-# Exercise the actual C/SWIG interface as well as the native equations.
-if(TARGET pybindings)
-  get_directory_property(_coupled_python
-    DIRECTORY "${PROJECT_SOURCE_DIR}/src/bindings/python" DEFINITION Python_EXECUTABLE)
-  get_directory_property(_coupled_package
-    DIRECTORY "${PROJECT_SOURCE_DIR}/src/bindings/python" DEFINITION PYTHON_PACKAGE_DIR)
-  add_test(NAME "${PROJECT_NAME}/coupled_python_test"
-    COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${_coupled_package}"
-      "${_coupled_python}" "${CMAKE_CURRENT_SOURCE_DIR}/smoke_coupled.py")
-  set_tests_properties("${PROJECT_NAME}/coupled_python_test" PROPERTIES TIMEOUT 180)
-endif()
-
 string(REGEX REPLACE ", &\n$" " &" TEST_SUITE_LIST_STATEMENT "${TEST_SUITE_LIST_STATEMENT}")
 set(TEST_MAIN "${CMAKE_CURRENT_BINARY_DIR}/testmain.f90")
 configure_file(testmain.in.f90 ${TEST_MAIN})

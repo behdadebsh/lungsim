@@ -4,6 +4,7 @@
 #include "symbol_export.h"
 
 SHO_PUBLIC void import_capillary(const char *FLOWFILE);
+SHO_PUBLIC void import_coupled_capillary(const char *filename);
 SHO_PUBLIC void import_terminal(const char *FLOWFILE);
 SHO_PUBLIC void import_ventilation(const char *FLOWFILE);
 SHO_PUBLIC void import_perfusion(const char *FLOWFILE);

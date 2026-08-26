@@ -7,6 +7,7 @@ module coupled_lymphatics
   implicit none
   private
   public :: fluid_state, initialise_fluid, advance_fluid, validate_fluid_parameters
+  public :: fluid_running, sample_fluid_convergence, fluid_stop_status
 
   type :: fluid_state
      real(dp) :: capacity_a = 0.0_dp, capacity_b = 0.0_dp ! mm^3
@@ -15,6 +16,10 @@ module coupled_lymphatics
      real(dp) :: filtered = 0.0_dp, drained = 0.0_dp ! cumulative mm^3
      real(dp) :: protein_filtered = 0.0_dp, protein_drained = 0.0_dp ! cumulative mg
      real(dp) :: elapsed = 0.0_dp
+     ! Source initial history deliberately prevents declaring convergence before
+     ! enough samples exist. History is sampled every convergence_check_steps.
+     real(dp) :: saturation_history(5) = [1.0_dp,2.0_dp,3.0_dp,4.0_dp,5.0_dp]
+     real(dp) :: saturation_error = 0.5_dp
   end type fluid_state
 
 contains
@@ -40,6 +45,12 @@ contains
            l%capillary_hydraulic_conductivity,l%lymphatic_density,l%lymphatic_baseline_conductivity_ratio) < 0.0_dp) &
            error stop 'Negative coupled transport parameter'
       if (p%fluid_substeps < 1) error stop 'fluid_substeps must be at least one'
+      if (.not. all(ieee_is_finite([p%minimum_transit_times,p%maximum_transit_times,p%saturation_tolerance]))) &
+           error stop 'Non-finite coupled stopping parameter'
+      if (p%minimum_transit_times < 0.0_dp .or. p%maximum_transit_times <= p%minimum_transit_times .or. &
+           p%saturation_tolerance <= 0.0_dp .or. p%convergence_check_steps < 1 .or. &
+           p%maximum_settling_breaths < 1 .or. p%surfactant_equilibration_breaths < 0) &
+           error stop 'Invalid coupled stopping parameter'
       if (min(p%protein_reflection,p%protein_convection_fraction) < 0.0_dp .or. &
            max(p%protein_reflection,p%protein_convection_fraction) > 1.0_dp) error stop 'Protein fractions outside [0,1]'
       if (l%interstitial_compartment_a_fraction <= 0.0_dp .or. l%interstitial_compartment_a_fraction >= 1.0_dp) &
@@ -134,9 +145,46 @@ contains
     protein_to = protein_to+protein_amount
   end subroutine transfer
 
-  subroutine advance_fluid(state, pressure_pa, area_mm2, pe_range_pa, period, dt)
+  logical function fluid_running(state, transit)
+    type(fluid_state), intent(in) :: state
+    real(dp), intent(in) :: transit
+    associate(p => coupled_lymphatic_params)
+      fluid_running = (state%saturation_error > p%saturation_tolerance .or. &
+           state%elapsed < p%minimum_transit_times*transit) .and. state%elapsed < p%maximum_transit_times*transit
+    end associate
+  end function fluid_running
+
+  integer function fluid_stop_status(state, transit)
+    ! 0 running; 1 saturation converged; 2 transit-time cap; 3 global cap (caller);
+    ! 4 no transit time (zero-area input only); -1 surfactant-only (caller).
+    type(fluid_state), intent(in) :: state
+    real(dp), intent(in) :: transit
+    fluid_stop_status = 0
+    if (transit <= 0.0_dp) then
+       fluid_stop_status = 4
+    elseif (fluid_running(state,transit)) then
+       return
+    elseif (state%saturation_error <= coupled_lymphatic_params%saturation_tolerance .and. &
+         state%elapsed >= coupled_lymphatic_params%minimum_transit_times*transit) then
+       fluid_stop_status = 1
+    else
+       fluid_stop_status = 2
+    endif
+  end function fluid_stop_status
+
+  subroutine sample_fluid_convergence(state)
+    type(fluid_state), intent(inout) :: state
+    real(dp) :: saturation
+    saturation = (state%volume_a+state%volume_b)/(state%capacity_a+state%capacity_b)
+    state%saturation_history(2:5) = state%saturation_history(1:4)
+    state%saturation_history(1) = saturation
+    state%saturation_error = abs(sum(state%saturation_history)/5.0_dp-saturation)
+  end subroutine sample_fluid_convergence
+
+  subroutine advance_fluid(state, pressure_pa, area_mm2, pe_range_pa, period, dt, time_start)
     type(fluid_state), intent(inout) :: state
     real(dp), intent(in) :: pressure_pa, area_mm2, pe_range_pa, period, dt
+    real(dp), intent(in), optional :: time_start
     real(dp), parameter :: pi = 3.14159265358979323846_dp
     real(dp) :: h, phase, fluctuation, pressure, conductivity, pa, pb, pl, saturation
     real(dp) :: dva, dvb, dqa, dqb, excess, diffusion, drain, protein_drain
@@ -151,6 +199,8 @@ contains
     conductivity = lymphatic_params%capillary_hydraulic_conductivity*coupled_lymphatic_params%conductivity_multiplier
     do i = 1,coupled_lymphatic_params%fluid_substeps
        phase = 2.0_dp*pi*(state%elapsed+h)/period
+       ! Absolute respiratory clock continues during frozen-fluid breaths.
+       if (present(time_start)) phase = 2.0_dp*pi*(time_start+real(i,dp)*h)/period
        pa = interstitial_pressure(state%volume_a/state%capacity_a,fluctuation,phase)
        pb = interstitial_pressure(state%volume_b/state%capacity_b,fluctuation,phase)
        call capillary_exchange(state%volume_a,state%protein_a,pa,pressure,area_mm2,conductivity,h,dva,dqa)

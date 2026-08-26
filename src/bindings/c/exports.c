@@ -1,8 +1,22 @@
 
 #include "exports.h"
-#include "utils.h"
-
 #include <string.h>
+
+void export_terminal_coupled_c(const char *filename, int *filename_len, const char *name, int *name_len);
+void export_coupled_csv_c(const char *filename, int *filename_len);
+
+void export_terminal_coupled(const char *filename, const char *name)
+{
+  int filename_len = strlen(filename), name_len = strlen(name);
+  export_terminal_coupled_c(filename, &filename_len, name, &name_len);
+}
+
+void export_coupled_csv(const char *filename)
+{
+  int filename_len = strlen(filename);
+  export_coupled_csv_c(filename, &filename_len);
+}
+#include "utils.h"
 
 void export_cubic_lagrange_2d_c(const char *EXFILE, int *exfile_len,
 				const char *group_name, int *group_name_len);

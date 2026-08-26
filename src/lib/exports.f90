@@ -19,6 +19,7 @@ module exports
   implicit none
 
   private
+  public :: export_terminal_coupled, export_coupled_csv
   public &
        export_1d_elem_geometry, &
        export_cubic_lagrange_2d, &
@@ -38,6 +39,52 @@ module exports
        export_data_geometry
 
 contains
+
+  subroutine export_coupled_csv(filename)
+    use coupled_transport, only: export_coupled
+    character(len=MAX_FILENAME_LEN), intent(in) :: filename
+    call export_coupled(filename)
+  end subroutine export_coupled_csv
+
+  subroutine export_terminal_coupled(filename, groupname)
+    use coupled_transport, only: get_coupled_terminal
+    character(len=MAX_FILENAME_LEN), intent(in) :: filename
+    character(len=*), intent(in) :: groupname
+    character(len=MAX_FILENAME_LEN) :: writefile
+    character(len=32), parameter :: labels(18) = [character(len=32) :: &
+         'gamma_g_cm2','tension_dyn_cm','surface_pressure_Pa','surface_compliance_mm3_Pa', &
+         'alveolar_fluid_mm3','interstitial_saturation','elapsed_fluid_s','mean_filtration_mm3_s', &
+         'mean_lymph_mm3_s','input_cap_pressure_Pa','effective_cap_pressure_Pa','cap_area_mm2', &
+         'transit_time_s','interstitial_protein_mg','alveolar_protein_mg','drained_protein_mg', &
+         'saturation_error','stop_status']
+    integer :: io, ios, u, i, np
+    real(dp) :: values(18)
+    ! Validate that a completed solution exists before creating an output file.
+    call get_coupled_terminal(1,values)
+    writefile = filename
+    if (index(filename,'.exnode') == 0) writefile = trim(filename)//'.exnode'
+    open(newunit=io,file=trim(writefile),status='replace',action='write',iostat=ios)
+    if (ios /= 0) error stop 'Cannot open coupled exnode output'
+    write(io,'(a)') 'Group name: '//trim(groupname)
+    write(io,'(a)') ' #Fields=20'
+    write(io,'(a)') ' 1) coordinates, coordinate, rectangular cartesian, #Components=3'
+    write(io,'(a)') '   x. Value index=1, #Derivatives=0'
+    write(io,'(a)') '   y. Value index=2, #Derivatives=0'
+    write(io,'(a)') '   z. Value index=3, #Derivatives=0'
+    write(io,'(a)') ' 2) terminal_element, field, rectangular cartesian, #Components=1'
+    write(io,'(a)') '   1. Value index=4, #Derivatives=0'
+    do i = 1,18
+       write(io,'(1x,i0,a)') i+2,') '//trim(labels(i))//', field, rectangular cartesian, #Components=1'
+       write(io,'(a,i0,a)') '   1. Value index=',i+4,', #Derivatives=0'
+    enddo
+    do u = 1,num_units
+       call get_coupled_terminal(u,values)
+       np = elem_nodes(2,units(u))
+       write(io,'(a,i0)') ' Node: ',nodes(np)
+       write(io,'(es24.16)') node_xyz(:,np),real(units(u),dp),values
+    enddo
+    close(io)
+  end subroutine export_terminal_coupled
 
 !
 !##############################################################################

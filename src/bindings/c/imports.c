@@ -1,8 +1,15 @@
 
 #include "imports.h"
-#include "utils.h"
-
 #include <string.h>
+
+void import_coupled_capillary_c(const char *filename, int *filename_len);
+
+void import_coupled_capillary(const char *filename)
+{
+  int filename_len = strlen(filename);
+  import_coupled_capillary_c(filename, &filename_len);
+}
+#include "utils.h"
 
 void import_capillary_c(const char *FLOWFILE,int *FLOWFILE_LEN);
 void import_terminal_c(const char *FLOWFILE,int *FLOWFILE_LEN);

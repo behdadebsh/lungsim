@@ -3,6 +3,7 @@ module test_surfactant
   use precision, only: dp
   use surfactant, only: surfactant_state, initialise_surface, advance_surface, surface_tension
   use coupled_lymphatics, only: fluid_state, initialise_fluid, advance_fluid
+  use coupled_lymphatics, only: fluid_running, sample_fluid_convergence, fluid_stop_status
   use parameter_types, only: surfactant_params, coupled_lymphatic_params, update_surfactant, update_coupled_lymphatics
   implicit none
   private
@@ -14,6 +15,7 @@ contains
          new_unittest('flooding_and_repeatability',test_flooding), &
          new_unittest('fluid_and_protein_conservation',test_conservation), &
          new_unittest('mapped_input_and_reset',test_mapping), &
+         new_unittest('transit_time_stopping',test_stopping), &
          new_unittest('parameter_updates',test_parameters)]
   end subroutine collect_surfactant
 
@@ -85,10 +87,11 @@ contains
   subroutine test_mapping(error)
     use arrays, only: num_units, num_elems, units, unit_field
     use indices, only: ventilation_indices, num_nu, nu_vol
-    use coupled_transport, only: prepare_coupling, initialise_coupling, release_coupling, export_coupled, coupled_active
+    use coupled_transport, only: prepare_coupling, initialise_coupling, release_coupling, export_coupled, &
+         coupled_active, load_coupled_capillary
     type(error_type), allocatable, intent(out) :: error
     integer :: io, terminal
-    real(dp) :: values(16)
+    real(dp) :: values(18)
     character(len=1024) :: header
     call ventilation_indices()
     num_units = 2
@@ -102,9 +105,10 @@ contains
     write(io,*) 3,1500.0_dp,100.0_dp,0.5_dp
     write(io,*) 2,2100.0_dp,200.0_dp,0.75_dp
     close(io)
-    call prepare_coupling('test_coupled_mapping.txt')
+    call load_coupled_capillary('test_coupled_mapping.txt')
+    call prepare_coupling('lymphatic_surfactant')
     call initialise_coupling()
-    call export_coupled('test_coupled_mapping')
+    call export_coupled('test_coupled_mapping.coupled.csv')
     call release_coupling()
     open(newunit=io,file='test_coupled_mapping.coupled.csv',status='old')
     read(io,'(a)') header
@@ -121,6 +125,26 @@ contains
     if (allocated(error)) return
     call check(error,values(12) == 200.0_dp .and. values(13) == 0.75_dp)
   end subroutine test_mapping
+
+  subroutine test_stopping(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(fluid_state) :: s
+    integer :: i
+    call initialise_fluid(s,30000)
+    do i = 1,5
+       call sample_fluid_convergence(s)
+    enddo
+    call check(error,fluid_running(s,1.0_dp),'Minimum active time must be honoured even with stable saturation')
+    if (allocated(error)) return
+    s%elapsed = coupled_lymphatic_params%minimum_transit_times
+    call check(error,fluid_stop_status(s,1.0_dp) == 1,'Stable saturation after minimum time should converge')
+    if (allocated(error)) return
+    s%saturation_error = 0.5_dp
+    s%elapsed = coupled_lymphatic_params%maximum_transit_times
+    call check(error,fluid_stop_status(s,1.0_dp) == 2,'Transit cap is not saturation convergence')
+    if (allocated(error)) return
+    call check(error,fluid_stop_status(s,0.0_dp) == 4,'Zero-transit excluded unit must not divide by zero')
+  end subroutine test_stopping
 
   subroutine test_parameters(error)
     type(error_type), allocatable, intent(out) :: error

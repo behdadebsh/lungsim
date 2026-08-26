@@ -4,18 +4,18 @@ module ventilation_c
 
 contains
 
-  subroutine evaluate_vent_coupled_c(filename, filename_len, capillary_file, capillary_file_len) &
+  subroutine evaluate_vent_coupled_c(filename, filename_len, model, model_len) &
        bind(C, name="evaluate_vent_coupled_c")
     use iso_c_binding, only: c_ptr, c_int
     use utils_c, only: strncpy
     use ventilation, only: evaluate_vent_coupled
     use other_consts, only: MAX_FILENAME_LEN
-    integer(c_int), intent(in) :: filename_len, capillary_file_len
-    type(c_ptr), value, intent(in) :: filename, capillary_file
-    character(len=MAX_FILENAME_LEN) :: filename_f, capillary_file_f
+    integer(c_int), intent(in) :: filename_len, model_len
+    type(c_ptr), value, intent(in) :: filename, model
+    character(len=MAX_FILENAME_LEN) :: filename_f, model_f
     call strncpy(filename_f,filename,filename_len)
-    call strncpy(capillary_file_f,capillary_file,capillary_file_len)
-    call evaluate_vent_coupled(filename_f,capillary_file_f)
+    call strncpy(model_f,model,model_len)
+    call evaluate_vent_coupled(filename_f,model_f)
   end subroutine evaluate_vent_coupled_c
 
 !!!###################################################################################

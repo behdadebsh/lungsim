@@ -4,7 +4,7 @@
 #include "symbol_export.h"
 
 SHO_PUBLIC void evaluate_vent(const char *filename);
-SHO_PUBLIC void evaluate_vent_coupled(const char *filename, const char *capillary_file);
+SHO_PUBLIC void evaluate_vent_coupled(const char *filename, const char *model);
 SHO_PUBLIC void evaluate_uniform_flow();
 
 #endif /* AETHER_VENTILATION_H */

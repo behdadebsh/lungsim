@@ -5,6 +5,32 @@ module exports_c
 
 contains
 
+  subroutine export_terminal_coupled_c(filename, filename_len, name, name_len) bind(C, name="export_terminal_coupled_c")
+    use iso_c_binding, only: c_ptr, c_int
+    use utils_c, only: strncpy
+    use exports, only: export_terminal_coupled
+    use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
+    type(c_ptr), value, intent(in) :: filename, name
+    integer(c_int), intent(in) :: filename_len, name_len
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    character(len=MAX_STRING_LEN) :: name_f
+    call strncpy(filename_f,filename,filename_len)
+    call strncpy(name_f,name,name_len)
+    call export_terminal_coupled(filename_f,name_f)
+  end subroutine export_terminal_coupled_c
+
+  subroutine export_coupled_csv_c(filename, filename_len) bind(C, name="export_coupled_csv_c")
+    use iso_c_binding, only: c_ptr, c_int
+    use utils_c, only: strncpy
+    use exports, only: export_coupled_csv
+    use other_consts, only: MAX_FILENAME_LEN
+    type(c_ptr), value, intent(in) :: filename
+    integer(c_int), intent(in) :: filename_len
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    call strncpy(filename_f,filename,filename_len)
+    call export_coupled_csv(filename_f)
+  end subroutine export_coupled_csv_c
+
 
 !!!################################################################
 

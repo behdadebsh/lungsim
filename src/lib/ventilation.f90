@@ -18,7 +18,8 @@ module ventilation
   use other_consts
   use precision
   use coupled_transport, only: coupled_active, prepare_coupling, initialise_coupling, &
-       advance_coupled_surface, advance_coupled_fluid, add_surface_mechanics, export_coupled, release_coupling
+       advance_coupled_surface, advance_coupled_fluid, add_surface_mechanics, fluid_active, &
+       settle_coupled_fluid, reset_coupled_surface, finish_coupling, start_coupled_log, record_coupled_stage
   
   implicit none
   !Module parameters
@@ -45,13 +46,14 @@ module ventilation
 
 contains
 
-  subroutine evaluate_vent_coupled(filename, capillary_file)
-    ! Opt-in Ruobing-derived model. Empty capillary_file selects surfactant only.
-    character(len=MAX_FILENAME_LEN), intent(in) :: filename, capillary_file
-    call prepare_coupling(capillary_file)
+  subroutine evaluate_vent_coupled(filename, model)
+    ! Explicit surfactant or lymphatic_surfactant protocol. Inputs and exports
+    ! use the imports/exports modules, as for the other LungSim solvers.
+    character(len=MAX_FILENAME_LEN), intent(in) :: filename, model
+    call prepare_coupling(model)
+    call start_coupled_log(filename)
     call evaluate_vent(filename)
-    call export_coupled(filename)
-    call release_coupling()
+    call finish_coupling()
   end subroutine evaluate_vent_coupled
 
 !!!#############################################################################
@@ -59,12 +61,12 @@ contains
   subroutine evaluate_vent(filename)
     !*evaluate_vent:* Sets up and solves dynamic ventilation model
 
-    use parameter_types, only: lung_params, mech_params, solve_V_params, V_params
+    use parameter_types, only: lung_params, mech_params, solve_V_params, V_params, coupled_lymphatic_params
 
 !!! Inputs
     character(len=MAX_FILENAME_LEN),intent(in) :: filename
 !!! Locals
-    integer :: iter_step,n,ne,nunit
+    integer :: iter_step,n,ne,nunit,extra_breath
     real(dp) :: chestwall_restvol     ! resting volume of chest wall
     real(dp) :: p_mus                 ! muscle (driving) pressure
     real(dp) :: pmus_factor_ex        ! pmus_factor (_in and _ex) used to scale 
@@ -178,6 +180,7 @@ contains
     write(*,'('' Chest wall RV       = '',f8.3, 1x, a)') chestwall_restvol / vol_scale_op, trim(units_vol)
         
     call write_flow_step_results(init_vol, current_vol,ppl_current,pptrans,Pcw,p_mus,0.0_dp,0.0_dp)
+    if (coupled_active) call record_coupled_stage('ventilation_start',time)
     
     continue = .true.
     do while (continue)
@@ -217,7 +220,7 @@ contains
                sum_expid,sum_tidal,texpn,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp, &
                dpmus,converged,iter_step)
-          if (coupled_active) call advance_coupled_fluid(solve_V_params%dt)
+          if (coupled_active) call advance_coupled_fluid(solve_V_params%dt,time-solve_V_params%dt)
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
@@ -228,11 +231,30 @@ contains
        
 !!!....check whether simulation continues
        continue = ventilation_continue(n,sum_tidal)
-       ! Ventilation convergence is not fluid/surfactant equilibrium. In the
-       ! experimental mode integrate the explicitly requested number of breaths.
-       if (coupled_active) continue = n < solve_V_params%num_breaths
 
     enddo !...WHILE(CONTINUE)
+
+    if (coupled_active) then
+       call record_coupled_stage('ventilation_end',time)
+       if (fluid_active) then
+          ! Lym_surf freezes ventilation while fluid/protein transport settles.
+          ! The respiratory oscillator continues using the established Pe range.
+          call settle_coupled_fluid(time)
+          call reset_coupled_surface()
+          call tissue_compliance(undef)
+          call record_coupled_stage('surfactant_equilibration_start',time)
+          do extra_breath = 1,coupled_lymphatic_params%surfactant_equilibration_breaths
+             ! Source protocol: frozen fluid/flooding, fixed muscle gain.
+             call coupled_extra_breath(V_params%T_interval,.false.)
+          enddo
+          call record_coupled_stage('surfactant_equilibration_end',time)
+       endif
+       ! Both ven_surf and Lym_surf finish at end inspiration. In Lym_surf,
+       ! only units still eligible under the stopping rules can advance fluid.
+       call record_coupled_stage('final_inspiration_start',time)
+       call coupled_extra_breath(Tinsp,fluid_active)
+       call record_coupled_stage('final_inspiration_end',time)
+    endif
 
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
          sum_expid,sum_tidal,WOBe_insp,WOBr_insp,WOB_insp)
@@ -253,6 +275,33 @@ contains
     
     call enter_exit(sub_name,2)
     
+  contains
+
+    subroutine coupled_extra_breath(duration, advance_lymph)
+      real(dp), intent(in) :: duration
+      logical, intent(in) :: advance_lymph
+      real(dp) :: extra_end
+      n = n+1
+      ttime = 0.0_dp
+      extra_end = time+duration-0.5_dp*solve_V_params%dt
+      p_mus = 0.0_dp
+      ptrans_frc = sum(unit_field(nu_pe,:))/num_units
+      sum_tidal = 0.0_dp
+      sum_expid = 0.0_dp
+      unit_field(nu_vt,:) = 0.0_dp
+      do while (time < extra_end)
+         ttime = ttime+solve_V_params%dt
+         time = time+solve_V_params%dt
+         call evaluate_vent_step(chestwall_restvol,init_vol,last_vol,current_vol, &
+              Pcw,pmus_factor_ex,pmus_factor_in,p_mus,pptrans,press_in_total,prev_flow,ptrans_frc, &
+              sum_expid,sum_tidal,texpn,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp,WOB_insp, &
+              dpmus,converged,iter_step)
+         if (advance_lymph) call advance_coupled_fluid(solve_V_params%dt,time-solve_V_params%dt)
+         call update_pleural_pressure(ppl_current)
+         call write_flow_step_results(init_vol,current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
+      enddo
+    end subroutine coupled_extra_breath
+
   end subroutine evaluate_vent
 
 !!!#############################################################################
