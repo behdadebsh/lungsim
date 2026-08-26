@@ -58,5 +58,6 @@ Contents
    testing
    running
    lymphatics
+   surfactant
    modules
    fortranstyles

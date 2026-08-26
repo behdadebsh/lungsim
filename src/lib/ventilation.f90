@@ -17,6 +17,8 @@ module ventilation
   use indices
   use other_consts
   use precision
+  use coupled_transport, only: coupled_active, prepare_coupling, initialise_coupling, &
+       advance_coupled_surface, advance_coupled_fluid, add_surface_mechanics, export_coupled, release_coupling
   
   implicit none
   !Module parameters
@@ -32,6 +34,7 @@ module ventilation
   !Interfaces
   private
   public evaluate_vent
+  public evaluate_vent_coupled
   public evaluate_uniform_flow
   public sum_elem_field_from_periphery
 
@@ -41,6 +44,15 @@ module ventilation
   real(dp),parameter,private :: gas_viscosity = 1.8e-5_dp   ! Pa.s
 
 contains
+
+  subroutine evaluate_vent_coupled(filename, capillary_file)
+    ! Opt-in Ruobing-derived model. Empty capillary_file selects surfactant only.
+    character(len=MAX_FILENAME_LEN), intent(in) :: filename, capillary_file
+    call prepare_coupling(capillary_file)
+    call evaluate_vent(filename)
+    call export_coupled(filename)
+    call release_coupling()
+  end subroutine evaluate_vent_coupled
 
 !!!#############################################################################
 
@@ -145,6 +157,17 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
+    if (coupled_active) then
+       call initialise_coupling()
+       current_vol = init_vol
+       last_vol = init_vol
+       p_mus = 0.0_dp
+       WOBe = 0.0_dp
+       WOBr = 0.0_dp
+       WOBe_insp = 0.0_dp
+       WOBr_insp = 0.0_dp
+       WOB_insp = 0.0_dp
+    endif
     call tissue_compliance(undef)
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
@@ -194,6 +217,7 @@ contains
                sum_expid,sum_tidal,texpn,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp, &
                dpmus,converged,iter_step)
+          if (coupled_active) call advance_coupled_fluid(solve_V_params%dt)
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
@@ -204,6 +228,9 @@ contains
        
 !!!....check whether simulation continues
        continue = ventilation_continue(n,sum_tidal)
+       ! Ventilation convergence is not fluid/surfactant equilibrium. In the
+       ! experimental mode integrate the explicitly requested number of breaths.
+       if (coupled_active) continue = n < solve_V_params%num_breaths
 
     enddo !...WHILE(CONTINUE)
 
@@ -288,6 +315,7 @@ contains
     enddo !converged
     
     call update_unit_volume() ! Update tissue unit volumes, unit tidal vols
+    if (coupled_active) call advance_coupled_surface(solve_V_params%dt)
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
@@ -522,6 +550,7 @@ contains
        !estimate an elastic recoil pressure for the unit
        unit_field(nu_pe,nunit) = mech_params%cc / 2.0_dp * ab_term * (lambda**2.0_dp &
             -1.0_dp) * exp_term/lambda
+       if (coupled_active) call add_surface_mechanics(nunit)
        unit_field(nu_Pe_max,nunit) = max(unit_field(nu_Pe_max,nunit), &
             unit_field(nu_pe,nunit))
        unit_field(nu_Pe_min,nunit) = min(unit_field(nu_Pe_min,nunit), &

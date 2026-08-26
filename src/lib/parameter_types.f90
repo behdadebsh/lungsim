@@ -23,6 +23,7 @@ module parameter_types
   public :: update_solve_V
   public :: update_species
   public :: update_lymphatics
+  public :: update_surfactant, update_coupled_lymphatics
 
   type :: fundamental_constants
      ! fixed constants; no update option
@@ -129,6 +130,40 @@ module parameter_types
      real(dp) :: test_time = 86400.0_dp
   end type lymphatic_parameters
 
+  ! Experimental Ruobing-rl/Lym_surf model, commit 143d819.
+  ! These parameters are only used by evaluate_vent_coupled.
+  type :: surfactant_parameters
+     real(dp) :: gamma_star = 3.0e-7_dp                 ! g/cm^2
+     real(dp) :: tension_clean = 70.0_dp               ! dyn/cm
+     real(dp) :: tension_hat = 22.0_dp                 ! dyn/cm
+     real(dp) :: tension_min = 1.0_dp                  ! dyn/cm
+     real(dp) :: m2 = 140.0_dp                         ! dyn/cm
+     real(dp) :: adsorption_rate = 1667.0_dp           ! mL/(g s)
+     real(dp) :: desorption_rate = 0.01667_dp          ! 1/s
+     real(dp) :: bulk_normal = 10.0e-3_dp              ! g/mL
+     real(dp) :: bulk_flooded = 0.1e-3_dp              ! g/mL
+     real(dp) :: initial_gamma_ratio = 0.5_dp
+     real(dp) :: alveoli_per_unit = 37700.0_dp
+  end type surfactant_parameters
+
+  type :: coupled_lymphatic_parameters
+     ! Preserve the source experiment explicitly, not as human normal values.
+     real(dp) :: lung_mass_g = 840.0_dp
+     real(dp) :: pressure_multiplier = 2.0_dp
+     real(dp) :: conductivity_multiplier = 2.0_dp
+     real(dp) :: protein_reflection = 0.24_dp
+     real(dp) :: protein_permeability = 4.5e-7_dp       ! inferred mm/s; calibration unverified
+     real(dp) :: protein_convection_fraction = 0.01555_dp
+     real(dp) :: plasma_protein = 70.0_dp              ! mg/mL
+     real(dp) :: initial_interstitial_protein = 45.0_dp ! mg/mL
+     real(dp) :: oncotic_linear = 0.157_dp             ! mmHg/(mg/mL)
+     real(dp) :: oncotic_quadratic = 0.0032_dp         ! mmHg/(mg/mL)^2
+     real(dp) :: initial_a_fraction = 0.000005_dp      ! fraction of total capacity
+     real(dp) :: exchange_resistance = 200.0_dp        ! inferred s/mm^3; empirical
+     real(dp) :: minimum_volume = 1.0e-10_dp           ! mm^3
+     integer :: fluid_substeps = 2
+  end type coupled_lymphatic_parameters
+
   type :: solve_gx_parameters
      ! parameters to control gas exchange and gas mixing solutions and solver
      integer  :: num_breaths = 20                       ! max # breaths to solve for
@@ -167,12 +202,82 @@ module parameter_types
   type(ventilation_parameters) :: V_params
   type(cardiac_parameters)     :: Q_params
   type(lymphatic_parameters)   :: lymphatic_params
+  type(surfactant_parameters)  :: surfactant_params
+  type(coupled_lymphatic_parameters) :: coupled_lymphatic_params
   type(solve_gx_parameters)    :: solve_gx_params
   type(solve_vent_parameters)  :: solve_V_params
   type(species_parameters)     :: species_params
 
   
   contains
+
+    subroutine update_surfactant(param_name, param_value)
+      character(len=*), intent(in) :: param_name
+      real(dp), intent(in) :: param_value
+      select case (trim(param_name))
+      case ('gamma_star')
+         surfactant_params%gamma_star = param_value
+      case ('tension_clean')
+         surfactant_params%tension_clean = param_value
+      case ('tension_hat')
+         surfactant_params%tension_hat = param_value
+      case ('tension_min')
+         surfactant_params%tension_min = param_value
+      case ('m2')
+         surfactant_params%m2 = param_value
+      case ('adsorption_rate')
+         surfactant_params%adsorption_rate = param_value
+      case ('desorption_rate')
+         surfactant_params%desorption_rate = param_value
+      case ('bulk_normal')
+         surfactant_params%bulk_normal = param_value
+      case ('bulk_flooded')
+         surfactant_params%bulk_flooded = param_value
+      case ('initial_gamma_ratio')
+         surfactant_params%initial_gamma_ratio = param_value
+      case ('alveoli_per_unit')
+         surfactant_params%alveoli_per_unit = param_value
+      case default
+         error stop 'Unknown surfactant parameter; see documentation/surfactant.rst'
+      end select
+    end subroutine update_surfactant
+
+    subroutine update_coupled_lymphatics(param_name, param_value)
+      character(len=*), intent(in) :: param_name
+      real(dp), intent(in) :: param_value
+      select case (trim(param_name))
+      case ('lung_mass_g')
+         coupled_lymphatic_params%lung_mass_g = param_value
+      case ('pressure_multiplier')
+         coupled_lymphatic_params%pressure_multiplier = param_value
+      case ('conductivity_multiplier')
+         coupled_lymphatic_params%conductivity_multiplier = param_value
+      case ('protein_reflection')
+         coupled_lymphatic_params%protein_reflection = param_value
+      case ('protein_permeability')
+         coupled_lymphatic_params%protein_permeability = param_value
+      case ('protein_convection_fraction')
+         coupled_lymphatic_params%protein_convection_fraction = param_value
+      case ('plasma_protein')
+         coupled_lymphatic_params%plasma_protein = param_value
+      case ('initial_interstitial_protein')
+         coupled_lymphatic_params%initial_interstitial_protein = param_value
+      case ('oncotic_linear')
+         coupled_lymphatic_params%oncotic_linear = param_value
+      case ('oncotic_quadratic')
+         coupled_lymphatic_params%oncotic_quadratic = param_value
+      case ('initial_a_fraction')
+         coupled_lymphatic_params%initial_a_fraction = param_value
+      case ('exchange_resistance')
+         coupled_lymphatic_params%exchange_resistance = param_value
+      case ('minimum_volume')
+         coupled_lymphatic_params%minimum_volume = param_value
+      case ('fluid_substeps')
+         coupled_lymphatic_params%fluid_substeps = nint(param_value)
+      case default
+         error stop 'Unknown coupled lymphatic parameter; see documentation/surfactant.rst'
+      end select
+    end subroutine update_coupled_lymphatics
 
     subroutine update_lymphatics(param_name, param_value)
       character(len=*), intent(in) :: param_name

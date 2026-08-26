@@ -3,6 +3,8 @@
 set(LIB_SRCS
   arrays.f90
   capillaryflow.f90
+  coupled_lymphatics.f90
+  coupled_transport.f90
   diagnostics.f90
   exports.f90
   filenames.f90
@@ -23,6 +25,7 @@ set(LIB_SRCS
   solve.f90
   species_transport.f90
   surface_fitting.f90
+  surfactant.f90
   ventilation.f90
   wave_transmission.f90
 )
