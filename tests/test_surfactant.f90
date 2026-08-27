@@ -2,8 +2,8 @@ module test_surfactant
   use testdrive, only: new_unittest, unittest_type, error_type, check
   use precision, only: dp
   use surfactant, only: surfactant_state, initialise_surface, advance_surface, surface_tension
-  use coupled_lymphatics, only: fluid_state, initialise_fluid, advance_fluid
-  use coupled_lymphatics, only: fluid_running, sample_fluid_convergence, fluid_stop_status
+  use surfactant, only: fluid_state, initialise_fluid, advance_fluid
+  use surfactant, only: fluid_running, sample_fluid_convergence, fluid_stop_status
   use parameter_types, only: surfactant_params, coupled_lymphatic_params, update_surfactant, update_coupled_lymphatics
   implicit none
   private
@@ -87,7 +87,7 @@ contains
   subroutine test_mapping(error)
     use arrays, only: num_units, num_elems, units, unit_field
     use indices, only: ventilation_indices, num_nu, nu_vol
-    use coupled_transport, only: prepare_coupling, initialise_coupling, release_coupling, export_coupled, &
+    use surfactant, only: prepare_coupling, initialise_coupling, release_coupling, export_coupled, &
          coupled_active, load_coupled_capillary
     type(error_type), allocatable, intent(out) :: error
     integer :: io, terminal

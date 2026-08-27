@@ -3,8 +3,6 @@
 set(LIB_SRCS
   arrays.f90
   capillaryflow.f90
-  coupled_lymphatics.f90
-  coupled_transport.f90
   diagnostics.f90
   exports.f90
   filenames.f90

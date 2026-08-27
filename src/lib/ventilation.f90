@@ -17,7 +17,7 @@ module ventilation
   use indices
   use other_consts
   use precision
-  use coupled_transport, only: coupled_active, prepare_coupling, initialise_coupling, &
+  use surfactant, only: coupled_active, prepare_coupling, initialise_coupling, &
        advance_coupled_surface, advance_coupled_fluid, add_surface_mechanics, fluid_active, &
        settle_coupled_fluid, reset_coupled_surface, finish_coupling, start_coupled_log, record_coupled_stage
   

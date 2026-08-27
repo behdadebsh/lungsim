@@ -28,6 +28,12 @@ The runnable Python workflow, documentation and Python integration tests live in
 ``lung-group-examples/surfactant_Ruobing2024``. Native equation and stopping-rule
 tests remain in LungSim.
 
+All Ruobing-specific surface, fluid/protein and coupling routines are contained
+in ``src/lib/surfactant.f90``. The file is divided internally into surface
+constitutive equations, fluid/protein transport, and coupling orchestration.
+The published standalone model remains separately implemented in
+``src/lib/lymphatics.f90``.
+
 Explicit protocols
 ------------------
 

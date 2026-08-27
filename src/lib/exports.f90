@@ -41,13 +41,13 @@ module exports
 contains
 
   subroutine export_coupled_csv(filename)
-    use coupled_transport, only: export_coupled
+    use surfactant, only: export_coupled
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     call export_coupled(filename)
   end subroutine export_coupled_csv
 
   subroutine export_terminal_coupled(filename, groupname)
-    use coupled_transport, only: get_coupled_terminal
+    use surfactant, only: get_coupled_terminal
     character(len=MAX_FILENAME_LEN), intent(in) :: filename
     character(len=*), intent(in) :: groupname
     character(len=MAX_FILENAME_LEN) :: writefile
