@@ -60,19 +60,30 @@ runtime. Surfactant-only performs none of this work.
 Capillary mapping
 -----------------
 
-Combined input has four whitespace-separated columns; blank/comment lines are
-allowed::
+Combined mode accepts the standard 14-column ``micro_flow_unit.out`` written by
+the perfusion solver. This follows Ruobing's ``Lym_surf`` importer: mean
+capillary pressure is calculated from columns 5 and 6, total sheet surface area
+is read from column 11, and total transit time from column 12.
+
+Ruobing mapped each capillary connector through its parent vascular terminal's
+``ne_unit`` index. For a matching airway/perfusion geometry,
+``add_matching_mesh`` numbers the connectors as ``2*num_elems + u`` in that same
+unit order. The coupled importer therefore maps that connector to airway
+terminal ``units(u)`` without requiring the vascular mesh to replace the airway
+mesh in global storage. The input must come from a perfusion tree with the same
+base element and terminal-unit numbering; inconsistent connector ranges,
+duplicates and missing units are rejected.
+
+An explicit four-column format remains available when that shared numbering
+cannot be guaranteed. Blank/comment lines are allowed::
 
    # airway_terminal_element  mean_capillary_pressure_Pa  sheet_area_mm2  transit_time_s
    2  2100.0  200.0  0.75
 
-Provide every airway terminal exactly once. Rows can be shuffled. Duplicate,
-missing, nonterminal, non-finite or negative values are rejected. Positive area
-requires positive transit time; zero area/transit marks an excluded terminal.
-
-The importer does not guess correspondence between personalised airway and
-vascular trees. Use mean capillary pressure, not terminal arterial pressure.
-``micro_flow_unit.out`` and exnode files are not this mapping format.
+For this explicit format, provide every airway terminal exactly once; row order
+is irrelevant. Both formats reject duplicate, missing, non-finite or negative
+values. Positive area requires positive transit time; zero area/transit marks an
+excluded terminal. Exnode files are not accepted.
 
 Parameters
 ----------

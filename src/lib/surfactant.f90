@@ -376,10 +376,11 @@ contains
 
   subroutine load_coupled_capillary(capillary_file)
     character(len=*), intent(in) :: capillary_file
-    integer :: io, ios, terminal, u
+    integer :: connector, io, ios, terminal, u
     integer, allocatable :: unit_by_element(:)
     logical, allocatable :: seen(:)
-    real(dp) :: pressure, area, transit
+    logical :: format_set, raw_microflow
+    real(dp) :: pressure, area, transit, xyz(3), pin, pout, before_area(4), after_transit(2)
     character(len=1024) :: line
     call release_coupling()
     call check_airway_layout()
@@ -388,22 +389,42 @@ contains
     capillary = 0.0_dp
     unit_by_element = 0
     seen = .false.
+    format_set = .false.
+    raw_microflow = .false.
     do u = 1,num_units
        unit_by_element(units(u)) = u
     enddo
     open(newunit=io,file=trim(capillary_file),status='old',action='read',iostat=ios)
-    if (ios /= 0) error stop 'Cannot open mapped coupled capillary input'
+    if (ios /= 0) error stop 'Cannot open coupled capillary input'
     do
        read(io,'(a)',iostat=ios) line
        if (ios < 0) exit
        if (ios /= 0) error stop 'Cannot read mapped capillary input'
        line = adjustl(line)
        if (len_trim(line) == 0 .or. line(1:1) == '#') cycle
-       read(line,*,iostat=ios) terminal,pressure,area,transit
-       if (ios /= 0) error stop 'Expected terminal_element pressure_Pa area_mm2 transit_s'
-       if (terminal < 1 .or. terminal > num_elems) error stop 'Invalid capillary input terminal element'
-       u = unit_by_element(terminal)
-       if (u == 0) error stop 'Capillary input element is not an airway terminal'
+       ! Standard micro_flow_unit.out contains 14 columns. Its capillary
+       ! connector elements are created as 2*num_elems+u by add_matching_mesh,
+       ! where u is the common airway/perfusion terminal-unit index.
+       read(line,*,iostat=ios) connector,xyz,pin,pout,before_area,area,transit,after_transit
+       if (ios == 0) then
+          if (format_set .and. .not. raw_microflow) error stop 'Mixed coupled capillary input formats'
+          raw_microflow = .true.
+          format_set = .true.
+          u = connector-2*num_elems
+          if (u < 1 .or. u > num_units) &
+               error stop 'micro_flow_unit connector does not match the airway element/unit numbering'
+          terminal = units(u)
+          pressure = 0.5_dp*(pin+pout)
+       else
+          if (format_set .and. raw_microflow) error stop 'Mixed coupled capillary input formats'
+          raw_microflow = .false.
+          format_set = .true.
+          read(line,*,iostat=ios) terminal,pressure,area,transit
+          if (ios /= 0) error stop 'Expected micro_flow_unit.out or terminal pressure_Pa area_mm2 transit_s'
+          if (terminal < 1 .or. terminal > num_elems) error stop 'Invalid capillary input terminal element'
+          u = unit_by_element(terminal)
+          if (u == 0) error stop 'Capillary input element is not an airway terminal'
+       endif
        if (seen(u)) error stop 'Duplicate airway terminal in capillary input'
        if (.not. all(ieee_is_finite([pressure,area,transit]))) error stop 'Non-finite capillary input'
        if (area < 0.0_dp .or. transit < 0.0_dp) error stop 'Negative capillary area or transit time'
@@ -412,7 +433,7 @@ contains
        seen(u) = .true.
     enddo
     close(io)
-    if (.not. all(seen)) error stop 'Capillary input must contain every airway terminal exactly once'
+    if (.not. all(seen)) error stop 'Capillary input must contain every matching airway terminal exactly once'
     capillary_imported = .true.
   end subroutine load_coupled_capillary
 
