@@ -8,8 +8,8 @@ module ventilation
   !
   !*Full Description:*
   !
-  ! This module handles all code specific to simulating ventilation 
-  
+  ! This module handles all code specific to simulating ventilation
+
   use arrays
   use diagnostics
   use exports
@@ -20,7 +20,7 @@ module ventilation
   use surfactant, only: coupled_active, prepare_coupling, initialise_coupling, &
        advance_coupled_surface, advance_coupled_fluid, add_surface_mechanics, fluid_active, &
        settle_coupled_fluid, reset_coupled_surface, finish_coupling, start_coupled_log, record_coupled_stage
-  
+
   implicit none
   !Module parameters
   real(dp), parameter :: Pa_cmH2O = 98.0665_dp ! Pa/cmH2O
@@ -30,7 +30,7 @@ module ventilation
   !Module variables
   real(dp) :: ds_scale_op, flow_scale_op, vol_scale_op               ! scaling to appropriate units
   character(len=8) :: units_ds, units_flow, units_vol   ! controls the units in output
-  
+
 
   !Interfaces
   private
@@ -69,16 +69,16 @@ contains
     integer :: iter_step,n,ne,nunit,extra_breath
     real(dp) :: chestwall_restvol     ! resting volume of chest wall
     real(dp) :: p_mus                 ! muscle (driving) pressure
-    real(dp) :: pmus_factor_ex        ! pmus_factor (_in and _ex) used to scale 
-    real(dp) :: pmus_factor_in        ! modifies driving pressures to converge 
-    !                                   tidal volume and expired volume to the 
+    real(dp) :: pmus_factor_ex        ! pmus_factor (_in and _ex) used to scale
+    real(dp) :: pmus_factor_in        ! modifies driving pressures to converge
+    !                                   tidal volume and expired volume to the
     !                                   target volume.
     real(dp) :: press_in_total        ! dynamic pressure at entry to model (Pa)
     real(dp) :: sum_expid             ! sum of expired volume  (mm^3)
     real(dp) :: sum_tidal             ! sum of inspired volume  (mm^3)
     real(dp) :: Texpn                 ! time for expiration (s)
     real(dp) :: Tinsp                 ! time for inspiration (s)
-    real(dp) :: undef                 ! the zero stress volume. undef < RV 
+    real(dp) :: undef                 ! the zero stress volume. undef < RV
 
     real(dp) :: dpmus,endtime,err_est,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -89,7 +89,7 @@ contains
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
-    
+
     sub_name = 'evaluate_vent'
     call enter_exit(sub_name,1)
 
@@ -99,7 +99,7 @@ contains
        writefile = trim(filename)//'.exflow'
     endif
     open(10, file=writefile, status='replace')
-    
+
     write(10,'(A)') '   Time   Inflow    V_t     Raw     Comp    Ppl     Ptp     VolL    Pmus    Pcw  Pmus-Pcw'
     write(10,'(A)') '   (s)    (mL/s)   (mL) (cmH/L.s) (L/cmH) (...cmH2O...)    (L)     (......cmH2O.......)'
 
@@ -121,7 +121,7 @@ contains
        units_flow = 'mL/s'
        units_vol = 'L'
     endif
-    
+
 !!! Initialise variables:
     pmus_factor_in = 1.0_dp
     pmus_factor_ex = 1.0_dp
@@ -135,7 +135,7 @@ contains
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
     press_in_total = V_params%press_in
-    
+
 !!! calculate key variables from the boundary conditions/problem parameters
     Texpn = V_params%T_interval / (1.0_dp + V_params%i_to_e_ratio)
     Tinsp = V_params%T_interval - Texpn
@@ -144,7 +144,7 @@ contains
     call update_elem_field(1.0_dp)
     call update_resistance
     call volume_of_mesh(init_vol,volume_tree)
-    
+
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     call set_initial_volume(lung_params%FRC)
     undef = mech_params%ref_vol_ratio * (lung_params%FRC - volume_tree)/dble(elem_units_below(1))
@@ -178,23 +178,23 @@ contains
     chestwall_restvol = init_vol + lung_params%chest_wall_compliance * (-ppl_current)
     Pcw = (chestwall_restvol - init_vol)/lung_params%chest_wall_compliance
     write(*,'('' Chest wall RV       = '',f8.3, 1x, a)') chestwall_restvol / vol_scale_op, trim(units_vol)
-        
+
     call write_flow_step_results(init_vol, current_vol,ppl_current,pptrans,Pcw,p_mus,0.0_dp,0.0_dp)
     if (coupled_active) call record_coupled_stage('ventilation_start',time)
-    
+
     continue = .true.
     do while (continue)
        n = n + 1 ! increment the breath number
        ttime = 0.0_dp ! each breath starts with ttime=0
        endtime = V_params%T_interval * n - 0.5_dp * solve_V_params%dt ! the end time of this breath
-       p_mus = 0.0_dp 
+       p_mus = 0.0_dp
        ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
 
        if(n.gt.1)then !write out 'end of breath' information
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
                sum_expid,sum_tidal,WOBe_insp, &
                WOBr_insp,WOB_insp)
-          
+
           if(abs(V_params%tidal_volume).gt.1.0e-5_dp)THEN
              ! modify driving muscle pressure by volume_target/sum_tidal
              ! this increases p_mus for volume_target>sum_tidal, and
@@ -210,7 +210,7 @@ contains
        endif
 
 !!! solve for a single breath (for time up to endtime)
-       do while (time.lt.endtime) 
+       do while (time.lt.endtime)
           ttime = ttime + solve_V_params%dt ! increment the breath time
           time = time + solve_V_params%dt ! increment the whole simulation time
 !!!.......calculate the flow and pressure distribution for one time-step
@@ -223,12 +223,12 @@ contains
           if (coupled_active) call advance_coupled_fluid(solve_V_params%dt,time-solve_V_params%dt)
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
-           
+
           call write_flow_step_results(init_vol, &
                current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
 
        enddo !while time<endtime
-       
+
 !!!....check whether simulation continues
        continue = ventilation_continue(n,sum_tidal)
 
@@ -262,7 +262,7 @@ contains
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
 !!! normalised flow field for the tree.
-    do nunit = 1,num_units 
+    do nunit = 1,num_units
        ne = units(nunit) !local element number
        elem_field(ne_Vdot,ne) = unit_field(nu_vt,nunit)
     enddo
@@ -272,9 +272,9 @@ contains
          elem_field(ne_Vdot,1:num_elems)/elem_field(ne_Vdot,1)
 
     close(10)
-    
+
     call enter_exit(sub_name,2)
-    
+
   contains
 
     subroutine coupled_extra_breath(duration, advance_lymph)
@@ -326,8 +326,8 @@ contains
     logical :: converged
 
     ! --------------------------------------------------------------------------
-    
-    
+
+
 
 !!! Solve for a new flow and pressure field
 !!! We will estimate the flow into each terminal lumped
@@ -340,7 +340,7 @@ contains
     call set_driving_pressures(dpmus,pmus_factor_ex,pmus_factor_in, &
          p_mus,Texpn,Tinsp,ttime)
     prev_flow = elem_field(ne_Vdot,1)
-    
+
     !initialise Qinit to the previous flow
     elem_field(ne_Vdot0,1:num_elems) = elem_field(ne_Vdot,1:num_elems)
     converged = .FALSE.
@@ -362,7 +362,7 @@ contains
        call update_node_pressures(press_in_total) ! updates the pressures at nodes
        call update_unit_dpdt() ! update dP/dt at the terminal units
     enddo !converged
-    
+
     call update_unit_volume() ! Update tissue unit volumes, unit tidal vols
     if (coupled_active) call advance_coupled_surface(solve_V_params%dt)
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
@@ -374,7 +374,7 @@ contains
          pptrans)!calculate work of breathing
     last_vol=current_vol
     Pcw = (chestwall_restvol - current_vol)/lung_params%chest_wall_compliance
-    
+
     ! increment the tidal volume, or the volume expired
     if(elem_field(ne_Vdot,1).gt.0.0_dp)then
        sum_tidal = sum_tidal+elem_field(ne_Vdot,1) * solve_V_params%dt
@@ -395,7 +395,7 @@ contains
 
   subroutine evaluate_uniform_flow
     !*evaluate_uniform_flow:* Sets up and solves uniform ventilation model
-  
+
     ! Local variables
     integer :: ne,nunit
     real(dp) :: init_vol,volume_tree
@@ -433,11 +433,11 @@ contains
     real(dp) :: dpmus,p_mus
     ! Local variables
     real(dp) :: sum_dpmus,sum_dpmus_ei,Tpass
-    
+
     ! --------------------------------------------------------------------------
 
     select case(V_params%expiration_type)
-       
+
     case("active")
        if(ttime.lt.Tinsp)then
           dpmus = V_params%insp_press_muscle * pmus_factor_in * PI * &
@@ -447,7 +447,7 @@ contains
                sin(2.0_dp*pi*(0.5_dp+(ttime-Tinsp)/(2.0_dp*Texpn)))/ &
                (2.0_dp*Texpn)*solve_V_params%dt
        endif
-       
+
     case("passive")
        if(ttime.le.Tinsp+0.5_dp*solve_V_params%dt)then
           dpmus = V_params%insp_press_muscle * pmus_factor_in * PI * solve_V_params%dt * &
@@ -459,9 +459,9 @@ contains
           dpmus = MIN(-sum_dpmus_ei/(Tpass*Texpn)*solve_V_params%dt,-sum_dpmus)
           sum_dpmus = sum_dpmus+dpmus
        endif
-       
+
     end select
-    
+
     p_mus = p_mus + dpmus !current value for muscle pressure
 
   end subroutine set_driving_pressures
@@ -474,7 +474,7 @@ contains
     ! pressure within the unit.
 
     use parameter_types, only: solve_V_params
-    
+
     ! Local variables
     integer :: ne,np1,nunit
     real(dp) :: est
@@ -509,7 +509,7 @@ contains
        ne = units(nunit)
        np1 = elem_nodes(1,ne)
 !!!    store the entry node pressure as an elastic unit air pressure
-       unit_field(nu_air_press,nunit) = node_field(nj_aw_press,np1) 
+       unit_field(nu_air_press,nunit) = node_field(nj_aw_press,np1)
     enddo !noelem
 
   end subroutine update_proximal_pressure
@@ -584,7 +584,7 @@ contains
     !.....dV/dP=1/[(1/2h^2).c/2.(3a+b)exp().(4h(h^2-1)^2)+(h^2+1)/h^2)]
 
     ab_term = 3.0_dp * mech_params%a + mech_params%b
-    
+
     do nunit = 1,num_units
        ne = units(nunit)
        !calculate a compliance for the tissue unit
@@ -639,7 +639,7 @@ contains
   subroutine update_unit_volume()
 
     use parameter_types, only: solve_V_params
-    
+
     ! Local variables
     integer :: ne,np,nunit
 
@@ -688,7 +688,7 @@ contains
        elem_field(ne_vol,ne) = PI * elem_field(ne_radius,ne)**2 * &
             elem_field(ne_length,ne)
     enddo ! ne
-    
+
   end subroutine update_elem_field
 
 !!!#############################################################################
@@ -704,28 +704,28 @@ contains
 
     elem_field(ne_t_resist,1:num_elems) = 0.0_dp
 
-    tissue_resistance = 0.0_dp  ! 0.35_dp * 98.0665_dp/1.0e6_dp 
+    tissue_resistance = 0.0_dp  ! 0.35_dp * 98.0665_dp/1.0e6_dp
 
     do nunit = 1,num_units
        ne = units(nunit)
        elem_field(ne_t_resist,ne) = tissue_resistance * dble(elem_units_below(1))
     enddo
-    
+
     do ne = 1,num_elems
        np1 = elem_nodes(1,ne)
        np2 = elem_nodes(2,ne)
-       
+
        le = elem_field(ne_length,ne)
        rad = elem_field(ne_radius,ne)
 
-       ! element Poiseuille (laminar) resistance in units of Pa.s.mm-3   
+       ! element Poiseuille (laminar) resistance in units of Pa.s.mm-3
        resistance = 8.0_dp*GAS_VISCOSITY*elem_field(ne_length,ne)/ &
             (PI*elem_field(ne_radius,ne)**4) !laminar resistance
-       
+
        ! element turbulent resistance (flow in bifurcating tubes)
        gamma = 0.357_dp !inspiration
        if(elem_field(ne_Vdot,ne).lt.0.0_dp) gamma = 0.46_dp !expiration
-       
+
        reynolds = abs(elem_field(ne_Vdot,ne)*2.0_dp*GAS_DENSITY/ &
             (pi*elem_field(ne_radius,ne)*GAS_VISCOSITY))
        zeta = MAX(1.0_dp,dsqrt(2.0_dp*elem_field(ne_radius,ne)* &
@@ -734,7 +734,7 @@ contains
        elem_field(ne_t_resist,ne) = elem_field(ne_resist,ne) + &
             elem_field(ne_t_resist,ne)
     enddo !noelem
-    
+
     do ne = num_elems,1,-1
        sum = 0.0_dp
        if(elem_cnct(1,0,ne).gt.0)then !not terminal
@@ -757,7 +757,7 @@ contains
   subroutine estimate_flow(dp_external,err_est)
 
     use parameter_types, only: solve_V_params
-    
+
     real(dp),intent(in) :: dp_external
     real(dp),intent(out) :: err_est
     ! Local variables
@@ -797,7 +797,7 @@ contains
             err_est = err_est+flow_diff**2 !sum up the error for all elements
        if(abs(unit_field(nu_Vdot0,nunit)).gt.zero_tol) &
             flow_sum = flow_sum+unit_field(nu_Vdot0,nunit)**2
-       
+
 
 !!! ARC: DO NOT CHANGE BELOW. THIS IS NEEDED FOR THE ITERATIVE STEP
 !!! - SIMPLER OPTIONS JUST FORCE IT TO CONVERGE WHEN ITS NOT
@@ -849,7 +849,7 @@ contains
        sum_expid,sum_tidal,WOBe_insp,WOBr_insp,WOB_insp)
 
     use parameter_types, only: V_params
-    
+
     real(dp),intent(in) :: init_vol,current_vol,pmus_factor_in, &
          sum_expid,sum_tidal,WOBe_insp,WOBr_insp,WOB_insp
 
@@ -866,7 +866,7 @@ contains
     write(*,'('' Total Work of Breathing ='',f7.3,''J/min'')')WOB_insp
     write(*,'('' elastic WOB ='',f7.3,''J/min'')')WOBe_insp
     write(*,'('' resistive WOB='',f7.3,''J/min'')')WOBr_insp
-          
+
   end subroutine write_end_of_breath
 
 !!!#############################################################################
@@ -890,7 +890,7 @@ contains
     Precoil = sum(unit_field(nu_pe,1:num_units))/num_units
 
     out_unit = [6, 10] ! 6 is stdout, 10 is my unit
-    
+
     if(abs(time).lt.zero_tol)then
 !!! write out the header information for run-time output
        write(*,'(2X,''Time'',3X,''Inflow'',4X,''V_t'',5X,''Raw'',5X,&
@@ -916,7 +916,7 @@ contains
        enddo
     else
        do i = 1,2
-          write(out_unit(i),'(F7.3,2(F8.1),8(F8.2))') &
+          write(out_unit(i),'(F12.3,2(F8.1),8(F8.2))') &
                time, & !time through breath (s)
                elem_field(ne_Vdot,1) / flow_scale_op, & !flow at the inlet (mL/s)
                (current_vol - init_vol) / ds_scale_op, & !current tidal volume (mL)
