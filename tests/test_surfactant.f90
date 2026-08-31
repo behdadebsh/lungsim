@@ -4,7 +4,8 @@ module test_surfactant
   use surfactant, only: surfactant_state, initialise_surface, advance_surface, surface_tension
   use surfactant, only: fluid_state, initialise_fluid, advance_fluid
   use surfactant, only: fluid_running, sample_fluid_convergence, fluid_stop_status
-  use parameter_types, only: surfactant_params, coupled_lymphatic_params, update_surfactant, update_coupled_lymphatics
+  use parameter_types, only: surfactant_params, coupled_lymphatic_params, mech_params, &
+       update_surfactant, update_coupled_lymphatics, update_mechs
   implicit none
   private
   public :: collect_surfactant
@@ -22,7 +23,7 @@ contains
   subroutine test_law(error)
     type(error_type), allocatable, intent(out) :: error
     type(surfactant_state) :: s
-    real(dp) :: gmax, expected_radius
+    real(dp) :: gmax, expected_gamma, expected_radius
     gmax = surfactant_params%gamma_star*(1.0_dp+(surfactant_params%tension_hat- &
          surfactant_params%tension_min)/surfactant_params%m2)
     call check(error,abs(surface_tension(0.0_dp)-70.0_dp) < 1.0e-12_dp)
@@ -32,8 +33,17 @@ contains
     call check(error,abs(surface_tension(gmax)-1.0_dp) < 1.0e-12_dp)
     if (allocated(error)) return
     call initialise_surface(s,100.0_dp)
+    call check(error,s%tension == 0.0_dp .and. s%pressure == 0.0_dp .and. s%compliance == 100.0_dp)
+    if (allocated(error)) return
+    call advance_surface(s,100.0_dp,.false.,0.03_dp)
+    expected_gamma = 0.5_dp*surfactant_params%gamma_star+0.03_dp* &
+         (surfactant_params%adsorption_rate*surfactant_params%bulk_normal* &
+         0.5_dp*surfactant_params%gamma_star-surfactant_params%desorption_rate* &
+         0.5_dp*surfactant_params%gamma_star)
+    call check(error,abs(s%gamma-expected_gamma) < 1.0e-20_dp)
+    if (allocated(error)) return
     expected_radius = (300.0_dp/(37700000.0_dp*2.0_dp*acos(-1.0_dp)))**(1.0_dp/3.0_dp)
-    call check(error,abs(s%pressure-2.0_dp*46.0_dp/expected_radius/10.0_dp) < 1.0e-10_dp)
+    call check(error,abs(s%pressure-2.0_dp*surface_tension(expected_gamma)/expected_radius/10.0_dp) < 1.0e-10_dp)
     if (allocated(error)) return
     call check(error,abs(s%compliance*s%pressure-300.0_dp) < 1.0e-10_dp)
   end subroutine test_law
@@ -54,7 +64,6 @@ contains
     if (allocated(error)) return
     call check(error,flooded%gamma < normal%gamma .and. flooded%tension > normal%tension)
     if (allocated(error)) return
-    call advance_surface(normal,10.0_dp,.false.,1.0_dp)
     call check(error,normal%gamma >= 0.0_dp .and. normal%tension >= surfactant_params%tension_min-1.0e-12_dp)
   end subroutine test_flooding
 
@@ -148,14 +157,19 @@ contains
 
   subroutine test_parameters(error)
     type(error_type), allocatable, intent(out) :: error
-    real(dp) :: saved_area, saved_scale
+    real(dp) :: saved_area, saved_c, saved_scale
     saved_area = surfactant_params%alveoli_per_unit
+    saved_c = mech_params%cc
     saved_scale = coupled_lymphatic_params%pressure_multiplier
     call update_surfactant('alveoli_per_unit',20000.0_dp)
+    call check(error,saved_c == 1800.0_dp,'Ruobing reference uses Fung coefficient c=1800')
+    if (allocated(error)) return
+    call update_mechs('c',2000.0_dp)
     call update_coupled_lymphatics('pressure_multiplier',1.0_dp)
-    call check(error,surfactant_params%alveoli_per_unit == 20000.0_dp .and. &
+    call check(error,surfactant_params%alveoli_per_unit == 20000.0_dp .and. mech_params%cc == 2000.0_dp .and. &
          coupled_lymphatic_params%pressure_multiplier == 1.0_dp)
     call update_surfactant('alveoli_per_unit',saved_area)
+    call update_mechs('c',saved_c)
     call update_coupled_lymphatics('pressure_multiplier',saved_scale)
   end subroutine test_parameters
 end module test_surfactant

@@ -148,6 +148,11 @@ contains
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     call set_initial_volume(lung_params%FRC)
     undef = mech_params%ref_vol_ratio * (lung_params%FRC - volume_tree)/dble(elem_units_below(1))
+    if (coupled_active) then
+       write(*,'(" Reference volume ratio = ",f10.6)') mech_params%ref_vol_ratio
+       write(*,'(" Reference unit volume = ",es16.8," mm3")') undef
+       write(*,'(" Fung coefficient c   = ",f10.3)') mech_params%cc
+    endif
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)

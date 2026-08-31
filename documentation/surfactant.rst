@@ -94,6 +94,11 @@ adsorption/desorption (1667 mL/(g s), 0.01667 1/s), normal/flooded bulk
 concentration (0.01/0.0001 g/mL), initial ratio (0.5), and
 ``alveoli_per_unit`` (37700).
 
+The reference ventilation mechanics use Fung coefficient ``c=1800`` and a
+neutral initial surface state (collapse pressure 0 Pa and surface compliance
+100 mm3/Pa).  Surfactant concentration is then advanced once per ventilation
+timestep before the surface mechanics are fed back into ventilation.
+
 Important ``update_coupled_lymphatics`` defaults are:
 
 .. list-table::

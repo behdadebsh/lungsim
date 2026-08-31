@@ -62,7 +62,7 @@ module parameter_types
      real(dp) :: ref_vol_ratio = 0.5_dp                 ! dim, ratio of the reference volume to the initialised volume (e.g. 0.5 of FRC)
      real(dp) :: a = 0.433_dp                           ! dim, coefficient 'a' in Fung SEDF
      real(dp) :: b = -0.611_dp                          ! dim, coefficient 'b' in Fung SEDF
-     real(dp) :: cc = 2500.0_dp                         ! dim, coefficient 'c' in Fung SEDF
+     real(dp) :: cc = 1800.0_dp                         ! dim, Fung SEDF coefficient 'c'; Ruobing reference
   end type mechanics_parameters
 
   type :: gasexchange_parameters

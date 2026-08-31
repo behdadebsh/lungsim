@@ -101,15 +101,19 @@ contains
     real(dp) :: radius
     call surface_geometry(volume,radius,state%area)
     state%gamma = surfactant_params%initial_gamma_ratio*surfactant_params%gamma_star
-    call update_mechanics(state,volume,radius)
+    ! Ruobing's coupled ventilation starts from a neutral surface-pressure
+    ! state.  The first ventilation step advances gamma and then replaces
+    ! these seed values with the constitutive surface mechanics.
+    state%tension = 0.0_dp
+    state%pressure = 0.0_dp
+    state%compliance = 100.0_dp
   end subroutine initialise_surface
 
   subroutine advance_surface(state, volume, flooded, dt)
     type(surfactant_state), intent(inout) :: state
     real(dp), intent(in) :: volume, dt
     logical, intent(in) :: flooded
-    real(dp) :: radius, area, darea, bulk, rate, h, a, old_area
-    integer :: i, steps
+    real(dp) :: radius, area, darea, bulk, old_area
     if (.not. ieee_is_finite(dt) .or. dt <= 0.0_dp) error stop 'Surfactant dt must be positive and finite'
     call surface_geometry(volume,radius,area)
     old_area = state%area
@@ -117,24 +121,20 @@ contains
     darea = (area-old_area)/dt
     bulk = surfactant_params%bulk_normal
     if (flooded) bulk = surfactant_params%bulk_flooded
-    ! Same explicit rate equation as the source. Substep fast adsorption/area
-    ! changes to prevent negative concentrations at larger ventilation timesteps.
-    rate = surfactant_params%adsorption_rate*bulk+surfactant_params%desorption_rate+ &
-         abs(darea)/min(area,old_area)
-    if (.not. ieee_is_finite(rate) .or. dt*rate > 1.0e5_dp) error stop 'Surfactant step too large'
-    steps = max(1,ceiling(dt*rate/0.1_dp))
-    h = dt/real(steps,dp)
-    do i = 1,steps
-       a = old_area+darea*h*real(i,dp)
-       if (state%gamma < surfactant_params%gamma_star) then
-          state%gamma = state%gamma+h*(surfactant_params%adsorption_rate*bulk* &
-               (surfactant_params%gamma_star-state%gamma)-surfactant_params%desorption_rate*state%gamma- &
-               state%gamma*darea/a)
-       else
-          state%gamma = state%gamma-h*state%gamma*darea/a
-       endif
-       state%gamma = max(0.0_dp,min(gamma_max(),state%gamma))
-    enddo
+    ! Preserve the reference calculation: one explicit update for each
+    ! ventilation timestep, using the current alveolar area in the dilution
+    ! term.  Substepping changes gamma and feeds a different compliance back
+    ! into the ventilation controller.
+    if (state%gamma < surfactant_params%gamma_star) then
+       state%gamma = state%gamma+dt*(surfactant_params%adsorption_rate*bulk* &
+            (surfactant_params%gamma_star-state%gamma)-surfactant_params%desorption_rate*state%gamma- &
+            state%gamma*darea/area)
+    elseif (state%gamma > gamma_max() .and. darea < 0.0_dp) then
+       state%gamma = gamma_max()
+    else
+       state%gamma = state%gamma-dt*state%gamma*darea/area
+       state%gamma = min(gamma_max(),state%gamma)
+    endif
     state%area = area
     call update_mechanics(state,volume,radius)
   end subroutine advance_surface
