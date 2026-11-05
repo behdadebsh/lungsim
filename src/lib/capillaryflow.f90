@@ -728,7 +728,8 @@ subroutine micro_remodel_radius(nominal_radius,radius,grade,selected_side,vessel
   real(dp) :: diameter_um,alpha_factor,narrow_factor,prune_fraction,g
 
   prune_scale=1.0_dp
-  if (grade <= 0.0_dp .or. selected_side /= vessel_side) return
+  if (grade <= 0.0_dp) return
+  if (selected_side /= vessel_side .and. selected_side /= 'both') return
   g=min(100.0_dp,max(0.0_dp,grade))
   diameter_um=2.0e6_dp*nominal_radius
   alpha_factor=1.0_dp

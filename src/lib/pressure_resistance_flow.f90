@@ -66,8 +66,12 @@ contains
     real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout
 
     sub_name = 'evaluate_prq'
-    selected_side='venous'
+    selected_side='arterial'
     if (present(remodeling_side)) selected_side=remodeling_side
+    if (remodeling_grade < 0.0_dp .or. remodeling_grade > 100.0_dp) &
+         error stop 'remodeling_grade must be between 0 and 100'
+    if (selected_side /= 'arterial' .and. selected_side /= 'venous' .and. selected_side /= 'both') &
+         error stop 'remodeling_side must be arterial, venous, or both'
     call enter_exit(sub_name,1)
 !!---------DESCRIPTION OF MODEL Types -----------
 !mesh_type: can be simple_tree, full_plus_ladder, full_sheet, full_tube The first can be airways, arteries, veins but no special features at the terminal level, the last one has arteries and veins connected by capillary units of some type (lung ladder acinus, lung sheet capillary bed, capillaries are just tubes represented by an element)
