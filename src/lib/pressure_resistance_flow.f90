@@ -310,7 +310,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
       else
 !Update vessel radii based on predicted pressures and then update resistance through tree
         call calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
-           mesh_dof,vessel_type,elasticity_parameters,mechanics_parameters,remodeling_grade)
+           mesh_dof,vessel_type,elasticity_parameters,mechanics_parameters)
         call calculate_resistance(viscosity,KOUNT)
 
 !Put the ladder stuff here --> See solve11.f
@@ -1104,21 +1104,18 @@ subroutine calc_sparse_size(mesh_dof,depvar_at_elem,depvar_at_node,FIX,MaxNonZer
 !*calc_press_area:* Calculates new radii based on pressure area relnships
 
 subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
-    mesh_dof,vessel_type,elasticity_parameters,mechanics_parameters,remodeling_grade)
+    mesh_dof,vessel_type,elasticity_parameters,mechanics_parameters)
 
     character(len=60), intent(in) :: vessel_type
     real(dp), intent(in) :: grav_vect(3)
     integer,intent(in) :: KOUNT,mesh_dof
     integer,intent(in) :: depvar_at_node(num_nodes,0:2,2)
-    real(dp),intent(in) ::  prq_solution(mesh_dof,2),remodeling_grade
+    real(dp),intent(in) ::  prq_solution(mesh_dof,2)
     real(dp),intent(in) :: elasticity_parameters(3),mechanics_parameters(2)
 
 !local variables
-    integer :: nj,np,ne,ny,nn,k,no_compl_ne
-    real(dp) :: h,Ptm,R0,Pblood,Ppl,counter,cc1,cc2,cc3
-    real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction,counter1,counter2
-    integer,allocatable :: templss(:)
-    logical:: check, FOUND
+    integer :: nj,np,ne,ny,nn
+    real(dp) :: h,Ptm,R0,Pblood,Ppl
 
     character(len=60) :: sub_name
     sub_name = 'calc_press_area'

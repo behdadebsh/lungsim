@@ -257,7 +257,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   alpha=0.0_dp
   !calculate characteristic admittance of each branch
   call characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmonic_scale, &
-    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
+    density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
 
   !Apply boundary conditions to terminal units
   selected_side='arterial'
@@ -2526,7 +2526,7 @@ end subroutine boundary_admittance
 !
 !*characteristic_admittance* calculates the characteristic admittance of each
 subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmonic_scale,&
-  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
+  density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect)
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: char_admit(1:no_freq,num_elems)
@@ -2536,7 +2536,6 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
   real(dp), intent(in) :: density
   real(dp), intent(in) :: viscosity
   real(dp),intent(in) :: mechanics_parameters(2),grav_vect(3)
-  real(dp), intent(in) :: remodeling_grade
   type(elasticity_param) :: elast_param
   type(all_admit_param) :: admit_param
 
@@ -2547,7 +2546,6 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
   integer :: ne,nf,nn,np
   integer :: exit_status=0
   real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out
-  real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction ! Remodeling parameters
   character(len=60) :: sub_name
   sub_name = 'characteristic_admittance'
   call enter_exit(sub_name,1)
