@@ -41,7 +41,7 @@ contains
 !##############################################################################
 !
 subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,no_freq,a,b,n_adparams,&
-  admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type,lobe_imped)
+  admittance_param,n_model,model_definition,cap_model,remodeling_grade,bc_type,lobe_imped,remodeling_side)
 
   integer, intent(in) :: n_time
   real(dp), intent(in) :: heartrate
@@ -56,6 +56,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   integer, intent(in) :: grav_dirn
   integer, intent(in) :: cap_model
   real(dp), intent(in) :: remodeling_grade
+  character(len=*), intent(in), optional :: remodeling_side
+  character(len=8) :: selected_side
   character(len=60) :: bc_type
   character(len=60) :: lobe_imped
 
@@ -181,9 +183,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     call exit(0)
   endif
 
-  if(remodeling_grade.ne.0.0_dp) then
-    write(*,*) 'Solving remodeling case, grade',remodeling_grade,' - make sure you are using elastic_alpha vessel type'
-  endif
+  if(remodeling_grade.ne.0.0_dp) &
+    write(*,*) 'Solving ladder remodeling case, grade',remodeling_grade
   mechanics_type='linear'
   if (mechanics_type.eq.'linear') then
     mechanics_parameters(1)=5.0_dp*98.07_dp !average pleural pressure (Pa)
@@ -259,6 +260,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
     density,viscosity,admit_param,elast_param,mechanics_parameters,grav_vect,remodeling_grade)
 
   !Apply boundary conditions to terminal units
+  selected_side='arterial'
+  if (present(remodeling_side)) selected_side=remodeling_side
   call boundary_admittance(no_freq,eff_admit,char_admit,admit_param,harmonic_scale,&
     density,viscosity,elast_param,mesh_type)
 
@@ -285,7 +288,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
             min_ven,max_ven,tree_direction)
 !        !cap admittance
         call capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
-            min_cap,max_cap,elast_param,mechanics_parameters,grav_vect,cap_model)!
+            min_cap,max_cap,elast_param,mechanics_parameters,grav_vect,cap_model,remodeling_grade,selected_side)!
         !art admittance
         tree_direction='diverging'
         call tree_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
@@ -2721,7 +2724,7 @@ end subroutine tree_admittance
 !
 !*capillaryadmittance:* Calculates the total admittance of a tree
 subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,harmonic_scale,&
-  min_elem,max_elem,elast_param,mechanics_parameters,grav_vect,cap_model)
+  min_elem,max_elem,elast_param,mechanics_parameters,grav_vect,cap_model,remodeling_grade,remodeling_side)
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: eff_admit(1:no_freq,num_elems)
@@ -2732,6 +2735,8 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
   integer, intent(in) :: min_elem,max_elem
   real(dp),intent(in) :: mechanics_parameters(2),grav_vect(3)
   integer, intent(in) :: cap_model
+  real(dp), intent(in) :: remodeling_grade
+  character(len=*), intent(in) :: remodeling_side
 
   type(capillary_bf_parameters) :: cap_param
   type(elasticity_param) :: elast_param
@@ -2769,7 +2774,7 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
     enddo
     call cap_flow_admit(ne,eff_admit(:,ne),eff_admit_downstream,Lin,Lout,P1,P2,&
                         Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,no_freq,harmonic_scale,&
-                        elast_param,cap_model)
+                        elast_param,cap_model,remodeling_grade,remodeling_side)
    enddo!ne
 
 end subroutine capillary_admittance

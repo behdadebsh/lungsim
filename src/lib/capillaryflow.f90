@@ -725,7 +725,7 @@ subroutine micro_remodel_radius(nominal_radius,radius,grade,selected_side,vessel
   real(dp), intent(inout) :: radius
   character(len=*), intent(in) :: selected_side,vessel_side
   real(dp), intent(out) :: prune_scale
-  real(dp) :: diameter_um,alpha_factor,narrow_factor,prune_fraction,g
+  real(dp) :: diameter_um,alpha_factor,narrow_factor,prune_fraction,prune_limit,g
 
   prune_scale=1.0_dp
   if (grade <= 0.0_dp) return
@@ -735,13 +735,15 @@ subroutine micro_remodel_radius(nominal_radius,radius,grade,selected_side,vessel
   alpha_factor=1.0_dp
   narrow_factor=1.0_dp
   if (diameter_um >= 100.0_dp .and. diameter_um <= 1000.0_dp) &
-       alpha_factor=1.0_dp-min(g,60.0_dp)/60.0_dp*5.0_dp/6.0_dp
+       alpha_factor=1.0_dp-(min(60.0_dp,max(10.0_dp,g))-10.0_dp)/60.0_dp
   if (diameter_um >= 30.0_dp .and. diameter_um <= 500.0_dp .and. g > 50.0_dp) &
        alpha_factor=alpha_factor*(1.0_dp-min(g-50.0_dp,50.0_dp)/50.0_dp*5.0_dp/6.0_dp)
   if (diameter_um >= 30.0_dp .and. diameter_um <= 300.0_dp .and. g > 20.0_dp) &
        narrow_factor=1.0_dp-min(g-20.0_dp,40.0_dp)/40.0_dp*0.45_dp
   radius=max(1.0e-8_dp,narrow_factor*(nominal_radius+alpha_factor*(radius-nominal_radius)))
-  if (diameter_um < 300.0_dp .and. g > 20.0_dp) then
+  prune_limit=300.0_dp
+  if (g >= 50.0_dp) prune_limit=500.0_dp
+  if (diameter_um < prune_limit .and. g > 20.0_dp) then
     prune_fraction=min(0.5_dp,(g-20.0_dp)/160.0_dp)
     prune_scale=1.0_dp/(1.0_dp-prune_fraction)
   endif
@@ -957,7 +959,7 @@ end subroutine cap_specific_parameters
 !
 subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
   Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,no_freq,harmonic_scale,elast_param,&
-  cap_model)
+  cap_model,remodeling_grade,remodeling_side)
 
   integer,intent(in) :: ne
   integer,intent(in) :: no_freq
@@ -966,6 +968,8 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
   real(dp), intent(inout) ::Lin,Lout,P1,P2,Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap
   real(dp), intent(in) :: harmonic_scale
   integer, intent(in) :: cap_model
+  real(dp), intent(in) :: remodeling_grade
+  character(len=*), intent(in) :: remodeling_side
 
   type(elasticity_param) :: elast_param
 
@@ -974,6 +978,7 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
   integer :: ngen
   real(dp) :: alpha_c,area_scale,length_scale
   real(dp) :: radupdate,P_exta,P_extv,R_art1,R_ven1,R_art2,R_ven2,Q01_mthrees,Pin,Pout
+  real(dp) :: prune_scale
   integer :: gen
   real(dp) :: SHEET_RES,Q_c,Hart,Hven,RBC_TT,area,area_new,recruited,omega,nd_omega
   integer :: zone,nf
@@ -1119,7 +1124,7 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
 
       CALL POPULATE_MATRIX_LADDER(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
           area_scale,length_scale,mu_app,Ppl,Pin,Pout,Pressure,&
-          Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v)
+          Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v,remodeling_grade,remodeling_side)
 
 
       call pmgmres_ilu_cr(MatrixSize, NonZeros, SparseRow, SparseCol, SparseVal, &
@@ -1200,7 +1205,9 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
     endif
 !!...  Calculate Poiseuille resistance in first half of arteriole - (only
 !!...  half total generation length)
-     R_art1=(8.d0*mu_app(gen)*L_a(gen)/2.d0)/(PI*radupdate**4.d0)
+     call micro_remodel_radius(rad_a(gen),radupdate,remodeling_grade,remodeling_side, &
+          'arterial',prune_scale)
+     R_art1=(8.d0*mu_app(gen)*L_a(gen)/2.d0)/(PI*radupdate**4.d0)*prune_scale
      Pin=Pin-R_art1*Q01_mthrees
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
       !!!ARC TO FIX alpha_a is in m/Pa, need in 1/Pa (just read in from main model?)
@@ -1209,7 +1216,8 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*(elast_param%elasticity_parameters(1))))*sqrt(1-f10)!alpha in the sense of this model is 1/Pa so has to be dovided by radius
-       tube_admit(gen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
+        tube_admit(gen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10) &
+             /prune_scale
        prop_const(gen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)
      enddo
 !!...    FIRST HALF OF VENULE
@@ -1229,7 +1237,9 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
          /(2.d0-2.d0*cap_param%num_symm_gen)
      endif
 !!...   Calculate Poiseuille resistance in first half of venule
-     R_ven1=(8.0_dp*mu_app(gen)*L_v(gen)/2.0_dp)/(pi*radupdate**4.0_dp)
+      call micro_remodel_radius(rad_v(gen),radupdate,remodeling_grade,remodeling_side, &
+           'venous',prune_scale)
+      R_ven1=(8.0_dp*mu_app(gen)*L_v(gen)/2.0_dp)/(pi*radupdate**4.0_dp)*prune_scale
      Pout=Pout+R_ven1*Q01_mthrees
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale
@@ -1237,7 +1247,8 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10) !mm/s
-       tube_admit(gen+2*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)!mm3/Pa.s
+        tube_admit(gen+2*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))* &
+             sqrt(1-f10)/prune_scale !mm3/Pa.s
        prop_const(gen+2*ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)!1/mm
      enddo
 
@@ -1271,7 +1282,9 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
 
        !...  Calculate Poiseuille resistance in second half of arteriole - (only
        !...   half total generation length)
-      R_art2=(8*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0)
+       call micro_remodel_radius(rad_a(gen),radupdate,remodeling_grade,remodeling_side, &
+            'arterial',prune_scale)
+       R_art2=(8*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0)*prune_scale
       Pin=Pin-R_art2*Q01_mthrees
 
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
@@ -1280,7 +1293,8 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)
-       tube_admit(gen+ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
+        tube_admit(gen+ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))* &
+             sqrt(1-f10)/prune_scale
        prop_const(gen+ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)
      enddo
 
@@ -1295,7 +1309,9 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
         /(1.d0-cap_param%num_symm_gen)+alpha_c*(1-gen)*cap_param%Pub_a_v&
         /(2.d0-2.d0*cap_param%num_symm_gen)
      endif
-     R_ven2=(8.d0*mu_app(gen)*L_v(gen)/2.d0)/(pi*radupdate**4.d0)
+      call micro_remodel_radius(rad_v(gen),radupdate,remodeling_grade,remodeling_side, &
+           'venous',prune_scale)
+      R_ven2=(8.d0*mu_app(gen)*L_v(gen)/2.d0)/(pi*radupdate**4.d0)*prune_scale
      Pout=Pout-R_ven2*Q01_mthrees
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale
@@ -1303,7 +1319,8 @@ subroutine cap_flow_admit(ne,admit,eff_admit_downstream,Lin,Lout,P1,P2,&
        call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
        f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10) !mm/s
-       tube_admit(gen+3*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
+        tube_admit(gen+3*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))* &
+             sqrt(1-f10)/prune_scale
        prop_const(gen+3*ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed) !1/mm
      enddo
   enddo

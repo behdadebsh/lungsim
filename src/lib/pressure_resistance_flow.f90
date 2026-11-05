@@ -72,6 +72,8 @@ contains
          error stop 'remodeling_grade must be between 0 and 100'
     if (selected_side /= 'arterial' .and. selected_side /= 'venous' .and. selected_side /= 'both') &
          error stop 'remodeling_side must be arterial, venous, or both'
+    if (remodeling_grade > 0.0_dp .and. mesh_type /= 'full_plus_ladder') &
+         error stop 'microvascular remodeling requires full_plus_ladder'
     call enter_exit(sub_name,1)
 !!---------DESCRIPTION OF MODEL Types -----------
 !mesh_type: can be simple_tree, full_plus_ladder, full_sheet, full_tube The first can be airways, arteries, veins but no special features at the terminal level, the last one has arteries and veins connected by capillary units of some type (lung ladder acinus, lung sheet capillary bed, capillaries are just tubes represented by an element)
