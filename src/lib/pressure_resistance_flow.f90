@@ -35,7 +35,7 @@ contains
 !###################################################################################
 !
 !*evaluate_PRQ:* Solves for pressure and flow in a rigid or compliant tree structure
-  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,remodeling_grade)
+  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,remodeling_grade,remodeling_side)
 
     !local variables
     integer :: mesh_dof,depvar_types
@@ -54,6 +54,8 @@ contains
     integer :: AllocateStatus
 
     real(dp), intent(in) :: remodeling_grade ! Remodeling if applicable, 0 stands for healthy and anything from 10 to 100 is hypertension
+    character(len=*), intent(in), optional :: remodeling_side
+    character(len=8) :: selected_side
     real(dp), allocatable :: prq_solution(:,:),solver_solution(:)
     real(dp) :: viscosity,density,inlet_bc,outlet_bc,inletbc,outletbc,grav_vect(3),gamma,total_resistance,ERR
     logical, allocatable :: FIX(:)
@@ -64,6 +66,8 @@ contains
     real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout
 
     sub_name = 'evaluate_prq'
+    selected_side='venous'
+    if (present(remodeling_side)) selected_side=remodeling_side
     call enter_exit(sub_name,1)
 !!---------DESCRIPTION OF MODEL Types -----------
 !mesh_type: can be simple_tree, full_plus_ladder, full_sheet, full_tube The first can be airways, arteries, veins but no special features at the terminal level, the last one has arteries and veins connected by capillary units of some type (lung ladder acinus, lung sheet capillary bed, capillaries are just tubes represented by an element)
@@ -322,7 +326,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
                 Lout=elem_field(ne_length,ne1)
                  call cap_flow_ladder(ne,LPM_R,Lin,Lout,P1,P2,&
                         Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,&
-                        .FALSE.)
+                         .FALSE.,remodeling_grade,selected_side)
                  elem_field(ne_resist,ne)=LPM_R
               endif
            enddo
@@ -368,7 +372,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
           Lout=elem_field(ne_length,ne1)
           call cap_flow_ladder(ne,LPM_R,Lin,Lout,P1,P2,&
             Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,&
-            .TRUE.)
+             .TRUE.,remodeling_grade,selected_side)
         endif
       enddo
       close(10)

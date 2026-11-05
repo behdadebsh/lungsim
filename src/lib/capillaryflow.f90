@@ -36,7 +36,7 @@ contains
 !###################################################################################
 !
   subroutine cap_flow_ladder(ne,LPM_FUNC,Lin,Lout,Pin,Pout,Ppl,&
-    Q01,R_in,R_out,x,y,z,OUTPUT_PERFUSION)
+    Q01,R_in,R_out,x,y,z,OUTPUT_PERFUSION,remodeling_grade,remodeling_side)
 !*cap_flow_ladder:* Uses the ladder model to solve for perfusion in the acinus.
 ! It uses a symmetric, bifuracting arteriole and venule tree with N generations
 ! and calls a function to calculate resistance across a capillary sheet at each
@@ -68,6 +68,8 @@ contains
     real(dp), intent(inout) :: LPM_FUNC
     real(dp):: Pin,Pout,Q01,R_in,R_out,x,y,z,Lin,Lout,Ppl
     logical, intent(in) :: OUTPUT_PERFUSION
+    real(dp), intent(in) :: remodeling_grade
+    character(len=*), intent(in) :: remodeling_side
 
     type(capillary_bf_parameters) :: cap_param
 
@@ -109,7 +111,7 @@ contains
 !!  ---CALL THE FUNCTIONS THAT CALCULATE THE FLOW ACROSS THE LADDER FOR A GIVEN PRESSURE DROP--
       call evaluate_ladder(ne,NonZeros,MatrixSize,submatrixsize,ngen,&
       area,Lin,Lout,Pin,Pout,Ppl,R_in,R_out,Q01_mthrees,x,y,z,&
-      OUTPUT_PERFUSION)
+      OUTPUT_PERFUSION,remodeling_grade,remodeling_side)
 
 !     ---FINAL FUNCTION OUTPUT (Resistance across ladder)---
 !...  This takes difference between the inlet and outlet pressures
@@ -126,13 +128,15 @@ contains
 !*evaluate_ladder:* Sets up and solves matrix equations for ladder model.
   subroutine evaluate_ladder(ne,NonZeros,MatrixSize,submatrixsize,ngen,&
       area,L_in,L_out,Pin,Pout,Ppl,R_in,R_out,Q01_mthrees,x,y,z, &
-      OUTPUT_PERFUSION)
+      OUTPUT_PERFUSION,remodeling_grade,remodeling_side)
 
     type(capillary_bf_parameters) :: cap_param
 
     integer :: ne,NonZeros,MatrixSize,submatrixsize,ngen
     real(dp) :: area,Pin,Pout,Ppl,Q01_mthrees,x,y,z,R_in,R_out,L_in,L_out
     logical :: OUTPUT_PERFUSION
+    real(dp), intent(in) :: remodeling_grade
+    character(len=*), intent(in) :: remodeling_side
     real(dp) :: area_scale,length_scale,alpha_c
 
     ! Local variables
@@ -232,7 +236,7 @@ contains
 
         CALL POPULATE_MATRIX_LADDER(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
           area_scale,length_scale,mu_app,Ppl,Pin,Pout,Pressure,&
-         Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v)
+         Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v,remodeling_grade,remodeling_side)
 
 
       call pmgmres_ilu_cr(MatrixSize, NonZeros, SparseRow, SparseCol, SparseVal, &
@@ -499,7 +503,7 @@ end subroutine laddersol_matrix
 !
 subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
        area_scale,length_scale,mu_app,Ppl,Pin,Pout,Pressure,&
-      Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v)
+      Q01_mthrees,Q_sheet,SparseVal,l_a,rad_a,l_v,rad_v,remodeling_grade,remodeling_side)
 !*populate_matrix_ladder:*Sets up ladder matrix entries that are NOT independent of iteration.
 
     type(capillary_bf_parameters) :: cap_param
@@ -508,6 +512,8 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
     real(dp) :: area,mu_app(ngen),Pin,Pout,Ppl,Pressure(submatrixsize),Q01_mthrees,&
             Q_sheet(ngen),SparseVal(NonZeros),alpha_c,&
             area_scale,length_scale,l_a(ngen),rad_a(ngen),l_v(ngen),rad_v(ngen)
+    real(dp), intent(in) :: remodeling_grade
+    character(len=*), intent(in) :: remodeling_side
 
 
 
@@ -516,7 +522,7 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
     real(dp) :: Q,P_exta,P_extv,radupdate,R_art1,R_art2,&
         R_ven1,R_ven2,SHEET_RES,Q_c,R_sheet(ngen),Q_gen,Hart,&
         Hven,RBC_TT,Pin_sheet,Pout_sheet,area_new,test,&
-        recruited,volume_vessels
+         recruited,volume_vessels,prune_scale
 
     character(len=60) :: sub_name
 
@@ -555,7 +561,7 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
 !              radupdate=radupdate*k_factor
 !           ENDIF
 !         ENDIF
-         volume_vessels=volume_vessels+&
+          volume_vessels=volume_vessels+&
           (2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0) !mm3
        test=(2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0)
 
@@ -587,12 +593,14 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
             /(1.d0-cap_param%num_symm_gen)+alpha_c*(1-gen)*cap_param%Pub_a_v&
             /(2.d0-2.d0*cap_param%num_symm_gen)
          ENDIF
-         volume_vessels=volume_vessels+&
-          (2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0) !mm3
+          call micro_remodel_radius(rad_v(gen),radupdate,remodeling_grade,remodeling_side, &
+               'venous',prune_scale)
+          volume_vessels=volume_vessels+&
+           (2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0) !mm3
        test=(2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0)
 
 !...   Calculate Poiseuille resistance in first half of venule
-           R_ven1=(8.0_dp*mu_app(gen)*L_v(gen)/2.0_dp)/(pi*radupdate**4.0_dp)
+           R_ven1=(8.0_dp*mu_app(gen)*L_v(gen)/2.0_dp)/(pi*radupdate**4.0_dp)*prune_scale
 
 !...   CAPILLARY ELEMENT (arteriole + venule + capillary)
 !...    pressure into the capillaries
@@ -650,11 +658,13 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
             /(1.d0-cap_param%num_symm_gen)+alpha_c*(1-gen)*cap_param%Pub_a_v&
             /(2.d0-2.d0*cap_param%num_symm_gen)
          ENDIF
-         volume_vessels=volume_vessels+&
-          (2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0) !mm3
+          call micro_remodel_radius(rad_v(gen),radupdate,remodeling_grade,remodeling_side, &
+               'venous',prune_scale)
+          volume_vessels=volume_vessels+&
+           (2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0) !mm3
        test=(2.d0**gen*(pi*radupdate**2.d0*L_v(gen)/2.d0)*1000.d0**3.d0)
        !...  Poiseuille resistance in second half of venule
-      R_ven2=(8.d0*mu_app(gen)*L_v(gen)/2.d0)/(pi*radupdate**4.d0)
+       R_ven2=(8.d0*mu_app(gen)*L_v(gen)/2.d0)/(pi*radupdate**4.d0)*prune_scale
 
       !...  First generation
        IF (gen.EQ.1) THEN
@@ -705,6 +715,32 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
     call enter_exit(sub_name,2)
 
 end subroutine populate_matrix_ladder
+
+subroutine micro_remodel_radius(nominal_radius,radius,grade,selected_side,vessel_side,prune_scale)
+  real(dp), intent(in) :: nominal_radius,grade
+  real(dp), intent(inout) :: radius
+  character(len=*), intent(in) :: selected_side,vessel_side
+  real(dp), intent(out) :: prune_scale
+  real(dp) :: diameter_um,alpha_factor,narrow_factor,prune_fraction,g
+
+  prune_scale=1.0_dp
+  if (grade <= 0.0_dp .or. selected_side /= vessel_side) return
+  g=min(100.0_dp,max(0.0_dp,grade))
+  diameter_um=2.0e6_dp*nominal_radius
+  alpha_factor=1.0_dp
+  narrow_factor=1.0_dp
+  if (diameter_um >= 100.0_dp .and. diameter_um <= 1000.0_dp) &
+       alpha_factor=1.0_dp-min(g,60.0_dp)/60.0_dp*5.0_dp/6.0_dp
+  if (diameter_um >= 30.0_dp .and. diameter_um <= 500.0_dp .and. g > 50.0_dp) &
+       alpha_factor=alpha_factor*(1.0_dp-min(g-50.0_dp,50.0_dp)/50.0_dp*5.0_dp/6.0_dp)
+  if (diameter_um >= 30.0_dp .and. diameter_um <= 300.0_dp .and. g > 20.0_dp) &
+       narrow_factor=1.0_dp-min(g-20.0_dp,40.0_dp)/40.0_dp*0.45_dp
+  radius=max(1.0e-8_dp,narrow_factor*(nominal_radius+alpha_factor*(radius-nominal_radius)))
+  if (diameter_um < 300.0_dp .and. g > 20.0_dp) then
+    prune_fraction=min(0.5_dp,(g-20.0_dp)/160.0_dp)
+    prune_scale=1.0_dp/(1.0_dp-prune_fraction)
+  endif
+end subroutine micro_remodel_radius
 !
 !###################################################################################
 !
