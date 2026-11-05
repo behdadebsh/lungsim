@@ -29,7 +29,7 @@ module capillaryflow
 
   !Interfaces
   private
-  public cap_flow_ladder,cap_flow_admit
+  public cap_flow_ladder,cap_flow_admit,micro_remodel_radius
 
 contains
 !
