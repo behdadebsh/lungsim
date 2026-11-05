@@ -561,13 +561,15 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
 !              radupdate=radupdate*k_factor
 !           ENDIF
 !         ENDIF
-          volume_vessels=volume_vessels+&
-          (2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0) !mm3
+         call micro_remodel_radius(rad_a(gen),radupdate,remodeling_grade,remodeling_side, &
+              'arterial',prune_scale)
+         volume_vessels=volume_vessels+&
+           (2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0) !mm3
        test=(2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0)
 
 !...  Calculate Poiseuille resistance in first half of arteriole - (only
 !...  half total generation length)
-           R_art1=(8.d0*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0)
+           R_art1=(8.d0*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0)*prune_scale
 
 !...    FIRST HALF OF VENULE
 !...    Update radius of venule based on inlet pressure NB: May need to
@@ -637,13 +639,15 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
 !              radupdate=radupdate*k_factor
 !           ENDIF
 !         ENDIF
+         call micro_remodel_radius(rad_a(gen),radupdate,remodeling_grade,remodeling_side, &
+              'arterial',prune_scale)
          volume_vessels=volume_vessels+&
-          (2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0) !mm3
+           (2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0) !mm3
        test=(2.d0**gen*(pi*radupdate**2.d0*L_a(gen)/2.d0)*1000.d0**3.d0)
 
        !...  Calculate Poiseuille resistance in second half of arteriole - (only
        !...   half total generation length)
-      R_art2=(8*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0);
+      R_art2=(8*mu_app(gen)*L_a(gen)/2.d0)/(pi*radupdate**4.d0)*prune_scale
 
 !   SECOND HALF OF VENULE
 !...    Update radius - linear with pressure or constant at high pressure
