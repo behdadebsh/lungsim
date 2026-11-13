@@ -937,8 +937,9 @@ subroutine cap_flow_admit(ne,admit,cap_port,eff_admit_downstream,Lin,Lout,P1,P2,
   integer :: gen
   real(dp) :: SHEET_RES,Q_c,Hart,Hven,RBC_TT,area,area_new,recruited,omega,nd_omega
   integer :: zone,nf
-  complex(dp) :: bessel0,bessel1,f10
-  real(dp) :: wolmer,wavespeed
+  complex(dp) :: f10
+  real(dp) :: wolmer
+  complex(dp) :: wavespeed ! complex: c0*sqrt(1-F10) carries viscous attenuation
   integer :: i,iter,j,num_sheet
   integer, allocatable :: SparseCol(:)
   integer, allocatable ::SparseRow(:)
@@ -1167,8 +1168,7 @@ subroutine cap_flow_admit(ne,admit,cap_port,eff_admit_downstream,Lin,Lout,P1,P2,
       !!!ARC TO FIX alpha_a is in m/Pa, need in 1/Pa (just read in from main model?)
        omega=nf*2*PI*harmonic_scale
        wolmer=(radupdate*1000.0_dp)*sqrt(omega*fp%blood_density/mu_app(gen))
-       call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-       f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
+       f10=womersley_f10(wolmer)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*(elast_param%elasticity_parameters(1))))*sqrt(1-f10)!alpha in the sense of this model is 1/Pa so has to be dovided by radius
        tube_admit(gen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
        prop_const(gen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)
@@ -1195,8 +1195,7 @@ subroutine cap_flow_admit(ne,admit,cap_port,eff_admit_downstream,Lin,Lout,P1,P2,
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale
        wolmer=(radupdate*1000.0_dp)*sqrt(omega*fp%blood_density/mu_app(gen))
-       call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-       f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
+       f10=womersley_f10(wolmer)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10) !mm/s
        tube_admit(gen+2*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)!mm3/Pa.s
        prop_const(gen+2*ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)!1/mm
@@ -1238,8 +1237,7 @@ subroutine cap_flow_admit(ne,admit,cap_port,eff_admit_downstream,Lin,Lout,P1,P2,
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale
        wolmer=(radupdate*1000.0_dp)*sqrt(omega*fp%blood_density/mu_app(gen))
-       call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-       f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
+       f10=womersley_f10(wolmer)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)
        tube_admit(gen+ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
        prop_const(gen+ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)
@@ -1261,8 +1259,7 @@ subroutine cap_flow_admit(ne,admit,cap_port,eff_admit_downstream,Lin,Lout,P1,P2,
      do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
        omega=nf*2*PI*harmonic_scale
        wolmer=(radupdate*1000.0_dp)*sqrt(omega*fp%blood_density/mu_app(gen))
-       call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-       f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)
+       f10=womersley_f10(wolmer)
        wavespeed=sqrt(1.0_dp/(2*fp%blood_density*elast_param%elasticity_parameters(1)))*sqrt(1-f10) !mm/s
        tube_admit(gen+3*ngen,nf)=PI*(radupdate*1000.0_dp)**2/(fp%blood_density*wavespeed/sqrt(1-f10))*sqrt(1-f10)
        prop_const(gen+3*ngen,nf)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed) !1/mm
@@ -1524,16 +1521,24 @@ subroutine transmission_line_port(characteristic_admit,gamma,length,port)
   real(dp), intent(in) :: length
   complex(dp), intent(out) :: port(2,2)
 
-  complex(dp) :: z,sinh_z
+  complex(dp) :: z,sinh_z,exp_m2z
 
   z=gamma*length
-  sinh_z=sinh(z)
-  if(abs(sinh_z).le.tiny(1.0_dp))then
+  if(real(z,dp).gt.20.0_dp)then
+    ! Long or strongly attenuating line: use exp(-2z) forms, since sinh(z)
+    ! overflows for Re(z) > ~710 (e.g. a near-collapsed microvessel).
+    exp_m2z=exp(-2.0_dp*z)
+    port(1,1)=characteristic_admit*(1.0_dp+exp_m2z)/(1.0_dp-exp_m2z)
+    port(1,2)=-characteristic_admit*2.0_dp*exp(-z)/(1.0_dp-exp_m2z)
+  else
+    sinh_z=sinh(z)
+    if(abs(sinh_z).le.tiny(1.0_dp))then
     write(*,*) 'ERROR: Singular transmission-line two-port',characteristic_admit,gamma,length
-    error stop
+      error stop
+    endif
+    port(1,1)=characteristic_admit/tanh(z)
+    port(1,2)=-characteristic_admit/sinh_z
   endif
-  port(1,1)=characteristic_admit/tanh(z)
-  port(1,2)=-characteristic_admit/sinh_z
   port(2,1)=port(1,2)
   port(2,2)=port(1,1)
 

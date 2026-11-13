@@ -2563,8 +2563,9 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
 
   !local variables
   real(dp) :: L,C,R, G,omega,gen_factor
-  real(dp) :: E,h_bar,h,wavespeed,wolmer !should be global - maybe express as alpha (i.e. pre multiply)
-  complex(dp) :: f10,bessel0,bessel1
+  real(dp) :: E,h_bar,h,wolmer !should be global - maybe express as alpha (i.e. pre multiply)
+  complex(dp) :: wavespeed ! complex: c0*sqrt(1-F10) carries viscous attenuation
+  complex(dp) :: f10
   integer :: ne,nf,nn,np
   integer :: exit_status=0
   real(dp) :: R0,Ppl,Ptm,Rg_in,Rg_out
@@ -2622,10 +2623,9 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
         do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
          omega=nf*2*PI*harmonic_scale!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity)
-         call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-         f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
+         f10=womersley_f10(wolmer)
          wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
-         char_admit(nf,ne)=PI*(elem_field(ne_radius_out,ne))**2/(density*wavespeed/(1-f10))*sqrt(1-f10)!mm3/Pa
+         char_admit(nf,ne)=PI*(elem_field(ne_radius_out,ne))**2/(density*wavespeed/sqrt(1-f10))*sqrt(1-f10)!mm3/Pa (Yc=pi r^2 sqrt(1-F10)/(rho c0))
          prop_const(nf,ne)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)!1/mm
         enddo
       else !Unrecognised admittance model
@@ -2762,8 +2762,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
        do nf=1,no_freq !radius needs to  be multipled by 1000 to go to mm (units of rest of model)
          omega=nf*2*PI*harmonic_scale!q/s
          wolmer=(elem_field(ne_radius_out,ne))*sqrt(omega*density/viscosity) !radii is already affected by a factor
-         call bessel_complex(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp),bessel0,bessel1)
-         f10=2*bessel1/(wolmer*cmplx(0.0_dp,1.0_dp,8)**(3.0_dp/2.0_dp)*bessel0)!no units
+         f10=womersley_f10(wolmer)
          if(elem_field(ne_group,ne).eq.0.0_dp)then !applying elasticity factor on wavespeed for arteries
            if((R0.gt.narrow_rad_one).and.(R0.lt.0.5))then
              if(R0.lt.0.05) then ! only narrowing
@@ -2779,7 +2778,7 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,alpha,harmoni
          else !apply normal elasticity on everything except arteries
            wavespeed=sqrt(1.0_dp/(2*density*elast_param%elasticity_parameters(1)))*sqrt(1-f10)! !mm/s
          endif
-         char_admit(nf,ne)=PI*(elem_field(ne_radius_out,ne))**2/(density*wavespeed/(1-f10))*sqrt(1-f10)!mm3/Pa
+         char_admit(nf,ne)=PI*(elem_field(ne_radius_out,ne))**2/(density*wavespeed/sqrt(1-f10))*sqrt(1-f10)!mm3/Pa (Yc=pi r^2 sqrt(1-F10)/(rho c0))
          prop_const(nf,ne)=cmplx(0.0_dp,1.0_dp,8)*omega/(wavespeed)!1/mm
        enddo
       else !Unrecognised admittance model
@@ -3246,16 +3245,24 @@ subroutine large_vessel_two_port(ne,nf,char_admit,prop_const,port)
   complex(dp), intent(in) :: char_admit(:,:),prop_const(:,:)
   complex(dp), intent(out) :: port(2,2)
 
-  complex(dp) :: z,sinh_z
+  complex(dp) :: z,sinh_z,exp_m2z
 
   z=prop_const(nf,ne)*elem_field(ne_length,ne)
-  sinh_z=sinh(z)
-  if(abs(sinh_z).le.tiny(1.0_dp))then
+  if(real(z,dp).gt.20.0_dp)then
+    ! Long or strongly attenuating line: use exp(-2z) forms, since sinh(z)
+    ! overflows for Re(z) > ~710 (e.g. a near-collapsed microvessel).
+    exp_m2z=exp(-2.0_dp*z)
+    port(1,1)=char_admit(nf,ne)*(1.0_dp+exp_m2z)/(1.0_dp-exp_m2z)
+    port(1,2)=-char_admit(nf,ne)*2.0_dp*exp(-z)/(1.0_dp-exp_m2z)
+  else
+    sinh_z=sinh(z)
+    if(abs(sinh_z).le.tiny(1.0_dp))then
     write(*,*) 'ERROR: Singular large-vessel two-port',ne,nf
-    error stop
+      error stop
+    endif
+    port(1,1)=char_admit(nf,ne)/tanh(z)
+    port(1,2)=-char_admit(nf,ne)/sinh_z
   endif
-  port(1,1)=char_admit(nf,ne)/tanh(z)
-  port(1,2)=-char_admit(nf,ne)/sinh_z
   port(2,1)=port(1,2)
   port(2,2)=port(1,1)
 
