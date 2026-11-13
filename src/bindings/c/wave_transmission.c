@@ -3,6 +3,8 @@
 
 void evaluate_wave_transmission_c(int *grav_dirn, double *grav_factor, int *n_time, double *heartrate, double *a0, int *no_freq, double *a, double *b, int *n_bcparams, double *admittance_param,int *n_model, double *model_definition, int *cap_model, double *remodeling_grade, const char *bc_type, int *bc_type_len, const char *lobe_imped, int *lobe_imped_len);
 void export_time_dependent_perfusion_c(const char *flow_filename, int *flow_filename_len, const char *pressure_filename, int *pressure_filename_len);
+void set_venous_outlet_pressure_c(int *no_freq, double *a, double *b);
+void clear_venous_outlet_pressure_c(void);
 
 void evaluate_wave_transmission(int grav_dirn, double grav_factor,int n_time, double heartrate, double a0, int no_freq, double *a, double *b, int n_bcparams, double *admittance_param, int n_model, double *model_definition, int cap_model, double remodeling_grade, const char *bc_type, const char *lobe_imped)
 {
@@ -16,4 +18,14 @@ void export_time_dependent_perfusion(const char *flow_filename, const char *pres
     int flow_filename_len = strlen(flow_filename);
     int pressure_filename_len = strlen(pressure_filename);
     export_time_dependent_perfusion_c(flow_filename, &flow_filename_len, pressure_filename, &pressure_filename_len);
+}
+
+void set_venous_outlet_pressure(int no_freq, double *a, double *b)
+{
+    set_venous_outlet_pressure_c(&no_freq, a, b);
+}
+
+void clear_venous_outlet_pressure(void)
+{
+    clear_venous_outlet_pressure_c();
 }

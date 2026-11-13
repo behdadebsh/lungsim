@@ -67,4 +67,30 @@ subroutine export_time_dependent_perfusion_c(flow_filename,flow_filename_len, &
 end subroutine export_time_dependent_perfusion_c
 
 !###################################################################################
+
+subroutine set_venous_outlet_pressure_c(no_freq,a,b) bind(C, name="set_venous_outlet_pressure_c")
+
+  use wave_transmission, only: set_venous_outlet_pressure
+  use arrays, only: dp
+  implicit none
+
+  integer, intent(in) :: no_freq
+  real(dp), intent(in) :: a(no_freq),b(no_freq)
+
+  call set_venous_outlet_pressure(no_freq,a,b)
+
+end subroutine set_venous_outlet_pressure_c
+
+!###################################################################################
+
+subroutine clear_venous_outlet_pressure_c() bind(C, name="clear_venous_outlet_pressure_c")
+
+  use wave_transmission, only: clear_venous_outlet_pressure
+  implicit none
+
+  call clear_venous_outlet_pressure()
+
+end subroutine clear_venous_outlet_pressure_c
+
+!###################################################################################
 end module wave_transmission_c

@@ -29,11 +29,19 @@ module wave_transmission
   real(dp) :: perfusion_start_time = 0.0_dp
   real(dp) :: perfusion_time_step = 0.0_dp
   integer :: perfusion_num_steps = 0
+  ! Optional pulsatile venous-outlet (left-atrial) pressure harmonics, set with
+  ! set_venous_outlet_pressure before evaluate_wave_transmission. When unset
+  ! the venous outlet uses the admittance boundary condition (zero_reflection).
+  logical :: venous_outlet_pressure_set = .false.
+  real(dp), allocatable :: venous_outlet_a(:)
+  real(dp), allocatable :: venous_outlet_b(:)
 
   !Interfaces
   private
   public evaluate_wave_transmission
   public export_time_dependent_perfusion
+  public set_venous_outlet_pressure
+  public clear_venous_outlet_pressure
 
 
 contains
@@ -75,6 +83,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   complex(dp), allocatable :: p_factor(:,:)
   complex(dp), allocatable :: q_factor(:,:)
   complex(dp), allocatable :: cap_port(:,:,:,:)
+  complex(dp), allocatable :: outlet_factor(:)
   complex(dp) :: outlet_forward,outlet_backward
   real(dp), allocatable :: forward_pressure(:)
   real(dp), allocatable :: reflected_pressure(:)
@@ -315,9 +324,30 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
         write(*,*) 'ERROR: Coupled vascular wave propagation currently supports cap_model 1 only.'
         error stop
       endif
+      ! Pulsatile left-atrial pressure, if set, expressed relative to the inlet
+      ! harmonic because waveforms are reconstructed as a(nf)*factor.
+      allocate(outlet_factor(no_freq), STAT=AllocateStatus)
+      if(AllocateStatus /= 0) STOP "*** Not enough memory for outlet factor array ***"
+      outlet_factor=cmplx(0.0_dp,0.0_dp,dp)
+      if(venous_outlet_pressure_set)then
+        if(size(venous_outlet_a).ne.no_freq)then
+          write(*,*) 'ERROR: Venous outlet pressure has',size(venous_outlet_a),&
+            'harmonics but the inlet has',no_freq
+          error stop
+        endif
+        do nf=1,no_freq
+          if(abs(a(nf)).gt.tiny(1.0_dp))then
+            outlet_factor(nf)=venous_outlet_a(nf)/a(nf)*&
+              exp(cmplx(0.0_dp,venous_outlet_b(nf)-b(nf),dp))
+          elseif(abs(venous_outlet_a(nf)).gt.tiny(1.0_dp))then
+            write(*,*) 'ERROR: A nonzero venous outlet harmonic needs a nonzero inlet harmonic',nf
+            error stop
+          endif
+        enddo
+      endif
       call matched_vascular_pressure_flow(no_freq,p_factor,q_factor,reflect,prop_const,&
         char_admit,cap_port,min_art,max_art,min_ven,max_ven,min_cap,max_cap,bc_type,&
-        admit_param%bc_type)
+        admit_param%bc_type,venous_outlet_pressure_set,outlet_factor)
     else
       call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,eff_admit,&
         harmonic_scale,min_art,max_art,bc_type)
@@ -2295,6 +2325,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   deallocate (p_factor, STAT=AllocateStatus)
   deallocate (q_factor, STAT=AllocateStatus)
   if(allocated(cap_port)) deallocate(cap_port, STAT=AllocateStatus)
+  if(allocated(outlet_factor)) deallocate(outlet_factor, STAT=AllocateStatus)
   deallocate (forward_pressure, STAT=AllocateStatus)
   deallocate (reflected_pressure, STAT=AllocateStatus)
   deallocate (forward_pressure_previous, STAT=AllocateStatus)
@@ -3006,7 +3037,7 @@ end subroutine pressure_flow_factor
 ! boundary conditions at the root, and back-substitutes through both trees.
 subroutine matched_vascular_pressure_flow(no_freq,p_factor,q_factor,reflect,prop_const,&
   char_admit,cap_port,min_art,max_art,min_ven,max_ven,min_cap,max_cap,bc_type,&
-  outlet_bc_type)
+  outlet_bc_type,prescribed_outlet,outlet_factor)
 
   integer, intent(in) :: no_freq,min_art,max_art,min_ven,max_ven,min_cap,max_cap
   complex(dp), intent(inout) :: p_factor(1:no_freq,num_elems)
@@ -3016,6 +3047,8 @@ subroutine matched_vascular_pressure_flow(no_freq,p_factor,q_factor,reflect,prop
   complex(dp), intent(inout) :: char_admit(1:no_freq,num_elems)
   complex(dp), intent(in) :: cap_port(2,2,no_freq,max_cap-min_cap+1)
   character(len=*), intent(in) :: bc_type,outlet_bc_type
+  logical, intent(in) :: prescribed_outlet
+  complex(dp), intent(in) :: outlet_factor(no_freq)
 
   complex(dp), allocatable :: subtree(:,:,:),left_pressure(:),right_pressure(:)
   integer, allocatable :: cap_for_artery(:)
@@ -3101,22 +3134,41 @@ subroutine matched_vascular_pressure_flow(no_freq,p_factor,q_factor,reflect,prop
       error stop
     endif
 
-    if(trim(bc_type).eq.'pressure')then
-      left_pressure(min_art)=cmplx(1.0_dp,0.0_dp,dp)
-    elseif(trim(bc_type).eq.'flow')then
-      input_admittance=subtree(1,1,min_art)-subtree(1,2,min_art)*&
-        subtree(2,1,min_art)/root_denominator
-      if(abs(input_admittance).le.tiny(1.0_dp))then
-        write(*,*) 'ERROR: Singular root input admittance at frequency',nf
+    if(prescribed_outlet)then
+      ! Prescribed pulsatile left-atrial pressure at the venous root.
+      right_pressure(min_art)=outlet_factor(nf)
+      if(trim(bc_type).eq.'pressure')then
+        left_pressure(min_art)=cmplx(1.0_dp,0.0_dp,dp)
+      elseif(trim(bc_type).eq.'flow')then
+        if(abs(subtree(1,1,min_art)).le.tiny(1.0_dp))then
+          write(*,*) 'ERROR: Singular root input admittance at frequency',nf
+          error stop
+        endif
+        ! Unit inlet flow: Q1 = Y11*P1 + Y12*P2.
+        left_pressure(min_art)=(cmplx(1.0_dp,0.0_dp,dp)-&
+          subtree(1,2,min_art)*right_pressure(min_art))/subtree(1,1,min_art)
+      else
+        write(*,*) 'ERROR: Boundary condition type not recognised: ',trim(bc_type)
         error stop
       endif
-      left_pressure(min_art)=1.0_dp/input_admittance
     else
-      write(*,*) 'ERROR: Boundary condition type not recognised: ',trim(bc_type)
-      error stop
+      if(trim(bc_type).eq.'pressure')then
+        left_pressure(min_art)=cmplx(1.0_dp,0.0_dp,dp)
+      elseif(trim(bc_type).eq.'flow')then
+        input_admittance=subtree(1,1,min_art)-subtree(1,2,min_art)*&
+          subtree(2,1,min_art)/root_denominator
+        if(abs(input_admittance).le.tiny(1.0_dp))then
+          write(*,*) 'ERROR: Singular root input admittance at frequency',nf
+          error stop
+        endif
+        left_pressure(min_art)=1.0_dp/input_admittance
+      else
+        write(*,*) 'ERROR: Boundary condition type not recognised: ',trim(bc_type)
+        error stop
+      endif
+      right_pressure(min_art)=-subtree(2,1,min_art)*left_pressure(min_art)/&
+        root_denominator
     endif
-    right_pressure(min_art)=-subtree(2,1,min_art)*left_pressure(min_art)/&
-      root_denominator
 
     ! Top-down recovery. Each child subtree shares the arterial and venous
     ! junction pressures of its siblings; its port currents then split without
@@ -3290,5 +3342,41 @@ subroutine total_to_wave_factors(ne,nf,p_in,q_in,p_out,q_out,p_factor,q_factor,&
   reflect(nf,ne)=backward_out/forward_out
 
 end subroutine total_to_wave_factors
+
+!
+!##############################################################################
+!
+!*set_venous_outlet_pressure:* Prescribes the pulsatile part of the venous-
+! outlet (left-atrial) pressure for full_plus_ladder wave transmission, as
+! harmonics p(t) = sum a(n)*cos(n*omega*t + b(n)) in Pa, on the same time base
+! as the inlet waveform. The mean outlet pressure still comes from the steady
+! solve. Applies to subsequent evaluate_wave_transmission calls until cleared.
+subroutine set_venous_outlet_pressure(no_freq,a,b)
+
+  integer, intent(in) :: no_freq
+  real(dp), intent(in) :: a(no_freq),b(no_freq)
+
+  if(no_freq.le.0) error stop 'set_venous_outlet_pressure needs at least one harmonic'
+  if(allocated(venous_outlet_a)) deallocate(venous_outlet_a)
+  if(allocated(venous_outlet_b)) deallocate(venous_outlet_b)
+  allocate(venous_outlet_a(no_freq),venous_outlet_b(no_freq))
+  venous_outlet_a=a
+  venous_outlet_b=b
+  venous_outlet_pressure_set=.true.
+
+end subroutine set_venous_outlet_pressure
+
+!
+!##############################################################################
+!
+!*clear_venous_outlet_pressure:* Returns the venous outlet to its admittance
+! boundary condition (e.g. zero_reflection).
+subroutine clear_venous_outlet_pressure()
+
+  if(allocated(venous_outlet_a)) deallocate(venous_outlet_a)
+  if(allocated(venous_outlet_b)) deallocate(venous_outlet_b)
+  venous_outlet_pressure_set=.false.
+
+end subroutine clear_venous_outlet_pressure
 
 end module wave_transmission
